@@ -75,6 +75,15 @@ classdef cellTable < handle
             p.cells = table((1:length(x))',x,y,status,fileID,'VariableNames', {'cellID', 'x', 'y', 'status', 'fileID'});
         end
         
+        function outCells = getCellsInRect(p,rect)
+            %outCells = p.cells(p..channel == channel,:);
+            outCells = p.cells(p.cells.status==1,:);
+
+            idx = outCells.x >= rect(1) & outCells.x < rect(1) + rect(3) ...
+                & outCells.y >= rect(2) & outCells.y < rect(2) + rect(4);
+            
+            outCells = outCells(idx,:);
+        end
 
         
     end
