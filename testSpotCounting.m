@@ -25,6 +25,8 @@ hold on;
 %scatter(y,x,[],outSpots.nearestCellID)
 plot(y,x,'g*');
 
+
+figure
 colormap prism
 scatter(y,x,[],outSpots.nearestCellID)
 
