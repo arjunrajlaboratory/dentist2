@@ -6,12 +6,12 @@ classdef scanObject < handle
 
         tilesTable
         channels
-        dapiMasks
         %Not sure if we want to keep the rest as properties or make
-        %variables instead. 
+        %variables in other scripts instead. 
         scanMatrix
         rowTransformCoords 
         columnTransformCoords
+        dapiMask
         
     end
     
@@ -42,7 +42,7 @@ classdef scanObject < handle
         
         function p = loadTiles(p, scanMatrix, rowTransformCoords, columnTransformCoords)
             
-            [height, width] = tileSize(p, varargin);
+            [height, width] = tileSize(p);
             
             for i = 1:numel(scanMatrix)
                 [row,col] = find(scanMatrix == i);
@@ -67,7 +67,11 @@ classdef scanObject < handle
 
          end
          
-        %Set rowShift and columnShift
+        %Set scanMatrix, rowShift and columnShift
+        function set.scanMatrix(p,matrix)
+            p.scanMatrix = matrix;
+        end
+        
         function set.rowTransformCoords(p,coords)
             p.rowTransformCoords = coords;
         end
@@ -76,8 +80,49 @@ classdef scanObject < handle
             p.columnTransformCoords = coords;
         end
          
-         
          %Mask DAPI
+        function p = stitchDAPImask(p, scanMatrix)  
+            tileTable = p.tilesTable;
+            tilesTmp = transpose(scanMatrix);
+            tiles = tilesTmp(:);
+            [height, width] = tileSize(p);
+            tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'logical');
+            channel = find(p.channels == 'dapi');
+            reader = bfGetReader(p.scanFile);
+            iPlane = reader.getIndex(0, channel - 1, 0) + 1;
+            for i = 1:numel(tiles)
+                
+                reader.setSeries(tiles(i)-1);
+                tmpPlane  = bfGetPlane(reader, iPlane);
+                
+                tileMask = d2utils.makeDAPImask(scale(tmpPlane));
+                
+                tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
+                tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tileMask;
+            end
+            reader.close()
+            p.dapiMask = tmpStitch;
+        end
+        
+        function tmpStitch = stitchChannel(p, scanMatrix, c)  
+            tileTable = p.tilesTable;
+            tilesTmp = transpose(scanMatrix);
+            tiles = tilesTmp(:);
+            [height, width] = tileSize(p);
+            tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
+            channel = find(p.channels == c);
+            reader = bfGetReader(p.scanFile);
+            iPlane = reader.getIndex(0, channel - 1, 0) + 1;
+            for i = 1:numel(tiles)
+                
+                reader.setSeries(tiles(i)-1);
+                tmpPlane  = bfGetPlane(reader, iPlane);
+                                
+                tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
+                tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = im2uint16(tmpPlane);
+            end
+            reader.close()
+        end
          
          
     end
