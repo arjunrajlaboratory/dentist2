@@ -53,25 +53,16 @@ classdef spotTable < handle
             end
         end
         
-        
-        function p = maskAllPoints(p) 
+        function p = maskAllPoints(p)
             for i = 1:height(p.masks)
                 poly = p.masks.polygon(i);
                 poly = poly{1};
                 channel = p.masks.channel(i);
-                bb = d2utils.polygonBoundingBox(poly); %We could replace this with matlab builting func
+                bb = d2utils.polygonBoundingBox(poly);
                 spotsIdx = p.getSpotsInRectIndex(channel,bb);
                 p.spots.maskID(spotsIdx) = p.masks.maskID(i);
             end
         end
-        
-        function p = maskAllPoints2(p)
-            %create logical array with all spots
-            %Create mask array
-            %multiple
-            %Update spots table
-
-         end
         
         function p = addMask(p,maskPoly,localRect,channel)
             % Mask table should be:
@@ -91,7 +82,7 @@ classdef spotTable < handle
             [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
             maskPoly = [x y];
             
-            p.masks = [p.masks; {tempMaskID,channel,{maskPoly},}];
+            p.masks = [p.masks; table(tempMaskID,channel,{maskPoly},'VariableNames', {'maskID', 'channel', 'polygon'})];
             
             % INSERT CODE HERE TO UPDATE SPOTS - BE: Keep seperate? 
             
@@ -102,7 +93,7 @@ classdef spotTable < handle
             % NEED TO save which ones got deleted for updating.
             p.masks(idx,:) = [];
             
-            % INSERT CODE HERE TO UPDATE - BE: Keep seperate? 
+            % INSERT CODE HERE TO UPDATE
         end
         
         function p = updateMaskPoly(p,maskID,maskPoly,localRect)
@@ -165,18 +156,6 @@ classdef spotTable < handle
             spotsInRect{dist > p.maxDistance,'nearestCellID'} = NaN;
             
             p.spots(ismember(p.spots.spotID, spotsInRect.spotID), :) = spotsInRect;
-
-        end
-        
-        function p = updateSpotsForChannel(p, channel) 
-            
-           %add code
-
-        end
-        
-        function p = updateSpotsInRect(p, channel, rect) 
-            
-           %add code
 
         end
         

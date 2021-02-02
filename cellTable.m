@@ -14,7 +14,7 @@ classdef cellTable < handle
         function p = cellTable(varargin)
             if nargin == 0
                 fprintf('New Table\n');
-                p.cells = cell2table(cell(0,5), 'VariableNames', {'cellID', 'x', 'y', 'status', 'fileID'});
+                p.cells = cell2table(cell(0,5), 'VariableNames', {'cellID', 'x', 'y', 'status', 'area'}); 
             else
                 fprintf('Loading Table\n');
                 p.cells = readtable(varargin{1},'TextType','string');
@@ -22,67 +22,60 @@ classdef cellTable < handle
         end
         
         
-        function p = findCells(p,fileTable)
-            files = fileTable.files(fileTable.files.channel=="dapi",:);
+        function p = findCells(p,dapiMask)
             
-            cellID = [];
-            x = [];
-            y = [];
-            status = [];
-            fileID = [];
+            CC = bwconncomp(dapiMask);
+            rp = regionprops(CC);
+            area = [rp.Area];
+            idx = area >= p.minNucleusSize;
+            rp = rp(idx);
+            centroids = [rp.Centroid];
+            centroids = round(reshape(centroids,2,[])');
             
-            for i = 1:size(files,1)
-                fprintf('Finding nuclei in %s\n',files.fileName(i));
-                %dapiIm = imread(files.fileName(i));
-                [dapiIm, outRect] = fileTable.getPaddedImage(files.fileID(i),100);
-                T = adaptthresh(dapiIm,0.3,'ForegroundPolarity','bright');
-                dp = imbinarize(dapiIm,T);
-                
-                CC = bwconncomp(dp);
-                rp = regionprops(CC);
-                area = [rp.Area];
-                
-                idx = area > p.minNucleusSize; % Get rid of small stuff
-                
-                rp = rp(idx);
-                centroids = [rp.Centroid];
-                centroids = round(reshape(centroids,2,[])');
-                % Second column is the rows, first column is the column
-                centroids = fliplr(centroids);
-                % first column is the rows, second column is the column
-                
-                % First, let's adjust to global coordinates
-                centroidRow = centroids(:,1) + outRect(1) - 1;
-                centroidCol = centroids(:,2) + outRect(2) - 1;
-                
-                % Now crop
-                top = files.top(i);
-                left = files.left(i);
-                height = files.height(i);
-                width = files.width(i);
-                
-                idx = centroidRow >= top & centroidRow < top + height & centroidCol >= left & centroidCol < left + width;
-                
-                centroidRow = centroidRow(idx);
-                centroidCol = centroidCol(idx);
-                
-                x = [x ; centroidRow];
-                y = [y ; centroidCol];
-                status = [status ; ones(numel(centroidRow),1)];
-                fileID = [fileID ; repmat(files.fileID(i),numel(centroidRow),1)];
-            end
+            area = [rp.Area];
+            status = ones(size(centroids, 1),1);
             
-            p.cells = table((1:length(x))',x,y,status,fileID,'VariableNames', {'cellID', 'x', 'y', 'status', 'fileID'});
+            
+            p.cells = table((1:size(centroids, 1))',centroids(:,2),centroids(:,1),status, area', 'VariableNames', {'cellID', 'x', 'y', 'status', 'area'});
         end
         
-        function outCells = getCellsInRect(p,rect)
-            %outCells = p.cells(p..channel == channel,:);
+        function outCells = getCellsInRect(p,rect) %rect specified as [x y width height]
+            
             outCells = p.cells(p.cells.status==1,:);
 
             idx = outCells.x >= rect(1) & outCells.x < rect(1) + rect(3) ...
                 & outCells.y >= rect(2) & outCells.y < rect(2) + rect(4);
             
             outCells = outCells(idx,:);
+        end
+                
+        function set.minNucleusSize(p,area)
+            p.minNucleusSize = area;
+        end
+        
+        function p = addCell(p, x, y, status, area)
+            if ~isempty(p.cells)
+                tempCells = p.cells;
+                maxID = max(p.cellID);
+                newCell = {maxID+1, x, y, status, area};
+                tempCells = [tempCells;newCell];
+                p.cells = tempCells;
+            else
+                p.cells(1,:) = {1, x, y, status, area};
+            end
+        end
+        
+        function p = removeCell(p, x, y)
+            if ~isempty(p.cells)
+                tempCells = p.cells;
+                [idx, dist] = dsearchn(tempCells{:,{'x','y'}}, [x, y]);
+                if dist < 40 %make sure that the query point is near a cell
+                    tempCells(idx,:) = [];
+                    p.cells = tempCells;
+                end
+            else
+                disp("cells is empty.")
+            end
         end
 
         
