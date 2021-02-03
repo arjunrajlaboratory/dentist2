@@ -36,7 +36,7 @@ classdef spotTable < handle
                 fprintf('Loading spot table');
                 p.spots = readtable(n.Results.spotsFile,'TextType','string');
                 p.spots{:,{'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'maskID'}} =...
-                    uint16(p.spots{:,{'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'maskID'}});
+                    single(p.spots{:,{'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'maskID'}});
                 p.spots.status = logical(p.spots.status);
             end
             
@@ -48,7 +48,7 @@ classdef spotTable < handle
                 fprintf('Loading masks table');
                 p.masks = readtable(n.Results.masksFile,'TextType','string');
                 p.masks{:,{'maskID', 'x', 'y'}} =...
-                    uint16(p.masks{:,{'maskID', 'x', 'y'}});
+                    single(p.masks{:,{'maskID', 'x', 'y'}});
                 p.allMasks2Corners();
             end
             
@@ -101,8 +101,8 @@ classdef spotTable < handle
             %maskPoly = [x y];
             corners = d2utils.polygon2BoundingCorners([x,y]);
             
-            p.masks = [p.masks; table(repmat(uint16(tempMaskID), length(x), 1),repmat(channel, length(x), 1),uint16(x),uint16(y), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
-            p.masksBB = [p.masksBB; table(repmat(uint16(tempMaskID), 4, 1),repmat(channel, 4, 1),corners(:,1),corners(:,2), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
+            p.masks = [p.masks; table(repmat(single(tempMaskID), length(x), 1),repmat(channel, length(x), 1),single(x),single(y), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
+            p.masksBB = [p.masksBB; table(repmat(single(tempMaskID), 4, 1),repmat(channel, 4, 1),corners(:,1),corners(:,2), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
             %Update spots
             tempSpots = p.getValidNonmaskedSpotsInRect(channel,localRect);
             idx = inpolygon(tempSpots.x,tempSpots.y,x,y);
@@ -118,7 +118,7 @@ classdef spotTable < handle
             p.masksBB(idx,:) = [];
             
             % INSERT CODE HERE TO UPDATE SPOTS
-            p.spots(ismember(p.spots.maskID,maskIDs), 'maskID') = uint16(0);
+            p.spots(ismember(p.spots.maskID,maskIDs), 'maskID') = single(0);
             p.spots(ismember(p.spots.maskID,maskIDs), 'status') = true;
         end
         
@@ -160,9 +160,9 @@ classdef spotTable < handle
             
             [idx, dist] = knnsearch([cellTable.x cellTable.y], [p.spots.x p.spots.y], 'K', 1, 'Distance', 'euclidean');
             
-            p.spots.nearestCellID = cellTable.cellID(idx);
+            p.spots.nearestCellID = single(cellTable.cellID(idx));
             
-            p.spots{dist > p.maxDistance,'nearestCellID'} = uint16(0);
+            p.spots{dist > p.maxDistance,'nearestCellID'} = single(0);
 
         end
         
@@ -172,9 +172,9 @@ classdef spotTable < handle
             cellsInRect = cellObject.getCellsInRect(rect);
             [idx_cell, dist] = knnsearch([cellsInRect.x cellsInRect.y], [spotsInRect.x spotsInRect.y], 'K', 1, 'Distance', 'euclidean');
             
-            spotsInRect.nearestCellID = cellsInRect.cellID(idx_cell);
+            spotsInRect.nearestCellID = single(cellsInRect.cellID(idx_cell));
             
-            spotsInRect{dist > p.maxDistance,'nearestCellID'} = uint16(0);
+            spotsInRect{dist > p.maxDistance,'nearestCellID'} = single(0);
             
             p.spots(ismemeber(p.spots.spotID, spotsInRect.spotID), :) = spotsInRect;
 
@@ -209,11 +209,11 @@ classdef spotTable < handle
         function outSpots = getValidNonmaskedSpotsInRect(p,channel,rect)
             outSpots = p.spots(p.spots.channel == channel,:);
             outSpots = outSpots(outSpots.status,:);
-            %outSpots = outSpots(outSpots.maskID == 0,:)
+            outSpots = outSpots(outSpots.maskID == 0,:);
 
             idx = outSpots.x >= rect(1) & outSpots.x < rect(1) + rect(3) ...
                 & outSpots.y >= rect(2) & outSpots.y < rect(2) + rect(4);
-            sx = sum(idx)
+            
             outSpots = outSpots(idx,:);
         end
         
@@ -223,7 +223,7 @@ classdef spotTable < handle
 
             idx = outSpots.x >= rect(1) & outSpots.x < rect(1) + rect(3) ...
                 & outSpots.y >= rect(2) & outSpots.y < rect(2) + rect(4);
-            sx = sum(idx)
+            
             outSpots = outSpots(idx,:);
         end
         
@@ -259,7 +259,7 @@ classdef spotTable < handle
         end
         
         
-        function p = findSpots(p, scanObject)
+        function p = findSpots(p, scanObject) %BE should we make a faster version that uses blockproc on stitched data? 
 
             if isempty(p.theFilter) == 2
                 filt = -fspecial('log',20,2);
@@ -300,12 +300,12 @@ classdef spotTable < handle
             end
             reader.close()
             
-            spotID = uint16((1:length(x)))';
-            nearestCellID = uint16(zeros(length(x),1));
-            maskID = uint16(zeros(length(x),1));
+            spotID = single((1:length(x)))';
+            nearestCellID = single(zeros(length(x),1));
+            maskID = single(zeros(length(x),1));
             status = true(length(x),1);
             
-            p.spots = table(spotID, x, y, intensity, nearestCellID, status, maskID, channel,...
+            p.spots = table(spotID, single(x), single(y), intensity, nearestCellID, status, maskID, channel,...
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'status', 'maskID', 'channel'});
         end
         
@@ -330,8 +330,8 @@ classdef spotTable < handle
             n.parse(varargin{:});
             
             writetable(p.spots, n.Results.spotsFile);
-            writetable(p.masks, n.Results.masksFile);
-            writetable(p.thresholds, n.Results.thresholdsFile);
+           % writetable(p.masks, n.Results.masksFile);
+           % writetable(p.thresholds, n.Results.thresholdsFile);
         end
         
         
