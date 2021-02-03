@@ -4,8 +4,9 @@ classdef spotTable < handle
         
         spots
         masks
+        masksBB
         thresholds
-%         radius = 300; 
+        radius = 300; 
         spotChannels
         maxDistance = 100;
         theFilter
@@ -38,10 +39,12 @@ classdef spotTable < handle
             
             if isempty(n.Results.masksFile)
                 fprintf('New masks table\n');
-                p.masks = cell2table(cell(0,3), 'VariableNames', {'maskID', 'channel', 'polygon'});
+                p.masks = cell2table(cell(0,4), 'VariableNames', {'maskID', 'channel', 'x', 'y'});
+                p.masksBB = cell2table(cell(0,4), 'VariableNames', {'maskID', 'channel', 'x', 'y'});
             else
                 fprintf('Loading masks table');
                 p.spots = readtable(n.Results.masksFile,'TextType','string');
+                p.allMasks2Corners();
             end
             
             if isempty(n.Results.thresholdsFile)
@@ -84,16 +87,20 @@ classdef spotTable < handle
             % of the polygon to test for intersection with current viewRect
             if isempty(p.masks)
                 tempMaskID = 1;
+                p.masks = cell2table(cell(0,4), 'VariableNames', {'maskID', 'channel', 'x', 'y'});
+                p.masksBB = cell2table(cell(0,4), 'VariableNames', {'maskID', 'channel', 'x', 'y'});
             else
                 tempMaskID = max(p.masks.maskID)+1;
             end
             
             [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
-            maskPoly = [x y];
             
-            p.masks = [p.masks; {tempMaskID,channel,{maskPoly},}];
+            %maskPoly = [x y];
+            corners = d2utils.polygon2BoundingCorners([x,y]);
             
-            % INSERT CODE HERE TO UPDATE SPOTS - BE: Keep seperate? 
+            p.masks = [p.masks; table(repmat(uint16(tempMaskID), length(x), 1),repmat(channel, length(x), 1),uint16(x),uint16(y), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
+            p.masksBB = [p.masksBB; table(repmat(uint16(tempMaskID), 4, 1),repmat(channel, 4, 1),corners(:,1),corners(:,2), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
+            % INSERT CODE HERE TO UPDATE SPOTS
             
         end
         
@@ -101,19 +108,36 @@ classdef spotTable < handle
             idx = ismember(p.masks.maskID,maskIDs);
             % NEED TO save which ones got deleted for updating.
             p.masks(idx,:) = [];
+            p.masksBB(idx,:) = [];
             
-            % INSERT CODE HERE TO UPDATE - BE: Keep seperate? 
+            % INSERT CODE HERE TO UPDATE SPOTS
         end
         
         function p = updateMaskPoly(p,maskID,maskPoly,localRect)
             idx = find(p.masks.maskID == maskID);
             [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
-            maskPoly = [x y];
-            p.masks.polygon(idx) = {maskPoly};
-            % INSERT CODE HERE TO UPDATE
+            %maskPoly = [x y];
+            p.masks(idx) = [x,y]; 
+            % INSERT CODE HERE TO UPDATE SPOTS
         end
         
-%         function p = assignSpotsToCells(p,cellTable)
+        function p = getMasksInRect(p,channel, rect)
+             % INSERT CODE HERE
+        end
+        
+        function p = allMasks2Corners(p)
+            p.masksBB = cell2table(cell(0,4), 'VariableNames', {'maskID', 'channel', 'x', 'y'});
+            uniqueMaskIDs = unique(p.masks.maskID);
+            for i = 1:numel(uniqueMaskIDs)
+                tempPoly = p.masks{p.masks.maskID == uniqueMaskIDs(i), ['x', 'y']};
+                tempChannel = p.masks{p.masks.maskID == uniqueMaskIDs(i), 'channel'};
+                tempCorners = d2utils.polygon2BoundingCorners(tempPoly);
+                p.masksBB = [p.masksBB; {repmat(uniqueMaskIDs(i), 4, 1),repmat(tempChannel, 4, 1),tempCorners(:,1),tempCorners(:,2)}];
+            end
+        end
+        
+%         function p = assignSpotsToCells(p,cellTable) %BE - I think this
+%         is slower than assignSpotsToCells2
 %             
 %             rect = zeros(1,4);
 %             rect(3) = 2*p.radius+1; % Size of rectangle will always be the same
@@ -126,17 +150,22 @@ classdef spotTable < handle
 %                 rect(2) = p.spots.y(i)-p.radius;
 %                 cells = cellTable.getCellsInRect(rect);
 %                 if isempty(cells)
-%                     p.spots.nearestCellID(i) = 0; % Should we set this to nan?
+%                     p.spots.nearestCellID(i) = NaN; % Should we set this to 0?
 %                 else
 % %                     if height(cells) == 1 % If there's just one nearby cell, just handle it
 % %                         p.spots.nearestCellID(i) = cells.cellID;
 % %                     else
-%                         distMatrix = [(cells.x-p.spots.x(i))';(cells.y-p.spots.y(i))'];
-%                         nm = vecnorm(distMatrix);
-%                         [~,idx] = sort(nm);
-%                         if nm(idx(1))<p.radius
-%                             p.spots.nearestCellID(i) = cells.cellID(idx(1));
-%                         end
+%                     [idx, dist] = knnsearch([cells.x cells.y], [p.spots.x(i) p.spots.y(i)], 'K', 1, 'Distance', 'euclidean');
+%                     if dist <= p.radius
+%                         p.spots.nearestCellID(i) = cells.cellID(idx);
+%                     end
+%                         
+%                         %distMatrix = [(cells.x-p.spots.x(i))';(cells.y-p.spots.y(i))'];
+%                         %nm = vecnorm(distMatrix);
+%                         %[~,idx] = sort(nm);
+%                         %if nm(idx(1))<p.radius
+%                         %    p.spots.nearestCellID(i) = cells.cellID(idx(1));
+%                         %end
 % %                     end
 %                 end
 %             end
@@ -146,7 +175,7 @@ classdef spotTable < handle
         function p = assignSpotsToCells2(p,cellTable)
             
             
-            [idx, dist] = dsearchn([cellTable.x cellTable.y], [p.spots.x p.spots.y]);
+            [idx, dist] = knnsearch([cellTable.x cellTable.y], [p.spots.x p.spots.y], 'K', 1, 'Distance', 'euclidean');
             
             p.spots.nearestCellID = cellTable.cellID(idx);
             
@@ -156,15 +185,15 @@ classdef spotTable < handle
         
         function p = assignSpotsInRect(p, channel, cellTable, rect) %Maybe useful for reassigning spots after add/removing cells 
             
-            spotsInRect = getSpotsInRect(p.spots, channel,rect);
+            [spotsInRect, idx] = getSpotsInRect(p.spots, channel,rect);
             cellsInRect = getCellsInRect(cellTable,rect);
-            [idx, dist] = dsearchn([cellsInRect.x cellsInRect.y], [spotsInRect.x spotsInRect.y]);
+            [idx_cell, dist] = knnsearch([cellsInRect.x cellsInRect.y], [spotsInRect.x spotsInRect.y], 'K', 1, 'Distance', 'euclidean');
             
-            spotsInRect.nearestCellID = cellsInRect.cellID(idx);
+            spotsInRect.nearestCellID = cellsInRect.cellID(idx_cell);
             
             spotsInRect{dist > p.maxDistance,'nearestCellID'} = NaN;
             
-            p.spots(ismember(p.spots.spotID, spotsInRect.spotID), :) = spotsInRect;
+            p.spots(idx, :) = spotsInRect;
 
         end
         
@@ -206,7 +235,7 @@ classdef spotTable < handle
             
         end
         
-        function outSpots = getSpotsInRect(p,channel,rect)
+        function outSpots = getSpotsInRect(p,channel,rect) %Probably useful to output idx as well since it is calculated. 
             outSpots = p.spots(p.spots.channel == channel,:);
             %outSpots = outSpots(outSpots.status,:);
 
@@ -216,7 +245,7 @@ classdef spotTable < handle
             outSpots = outSpots(idx,:);
         end
         
-        function idx = getSpotsInRectIndex(p,channel,rect)
+        function idx = getSpotsInRectIndex(p,channel,rect) %BE - I don't know what this is for. 
             chanIdx = p.spots.channel == channel;
             outSpots = p.spots(p.spots.channel == channel,:);
             %outSpots = outSpots(outSpots.status,:);

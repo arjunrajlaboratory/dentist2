@@ -52,10 +52,11 @@ classdef scanObject < handle
                 topCoords(i)  = col*columnTransformCoords(1) + row*rowTransformCoords(1);
                 leftCoords(i) = row*rowTransformCoords(2) + col*columnTransformCoords(2);
             end
-
+            
             topCoords = topCoords - min(topCoords) + 1;
             leftCoords = leftCoords - min(leftCoords) + 1;
             
+            p.scanMatrix = scanMatrix;
             p.tilesTable = table((1:numel(scanMatrix))', topCoords', leftCoords', repmat(height, numel(scanMatrix),1), repmat(width, numel(scanMatrix),1), ...
                 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'});
             
