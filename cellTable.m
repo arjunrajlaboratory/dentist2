@@ -39,7 +39,7 @@ classdef cellTable < handle
             p.cells = table((1:size(centroids, 1))',centroids(:,2),centroids(:,1),status, area', 'VariableNames', {'cellID', 'x', 'y', 'status', 'area'});
         end
         
-        function outCells = getCellsInRect(p,rect) %rect specified as [x y width height]
+        function outCells = getCellsInRect(p,rect) %rect specified as [x y nrows ncols]
             
             outCells = p.cells(p.cells.status==1,:);
 
@@ -75,6 +75,18 @@ classdef cellTable < handle
                 end
             else
                 disp("cells is empty.")
+            end
+        end
+        
+        function [] = saveCellTable(p, varargin)
+            if ~isempty(p.cells)
+                if nargin == 1
+                    writetable(p.cells, 'cells.csv')
+                elseif nargin ==2 
+                    writetable(p.cells, varargin{1})
+                end
+            else
+                fprintf("cells is empty. Run findCells and try again")
             end
         end
 

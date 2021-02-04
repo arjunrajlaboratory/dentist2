@@ -103,32 +103,32 @@ classdef spotTable < handle
             
             p.masks = [p.masks; table(repmat(single(tempMaskID), length(x), 1),repmat(channel, length(x), 1),single(x),single(y), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
             p.masksBB = [p.masksBB; table(repmat(single(tempMaskID), 4, 1),repmat(channel, 4, 1),corners(:,1),corners(:,2), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
-            %Update spots
+            
+            %UPDATE SPOTS
             tempSpots = p.getValidNonmaskedSpotsInRect(channel,localRect);
             idx = inpolygon(tempSpots.x,tempSpots.y,x,y);
-            tempSpots(idx,'maskID') = tempMaskID;
-            tempSpots(idx,'status') = false;
+            tempSpots{idx,'maskID'} = tempMaskID;
+            tempSpots{idx,'status'} = false;
             p.spots(ismember(p.spots.spotID, tempSpots.spotID), :) = tempSpots;
         end
         
         function p = removeMasks(p,maskIDs)
-            idx = ismember(p.masks.maskID,maskIDs);
-            % NEED TO save which ones got deleted for updating.
-            p.masks(idx,:) = [];
-            p.masksBB(idx,:) = [];
+            for i = 1:numel(maskIDs)
+                p.masks(ismember(p.masks.maskID,maskIDs(i)),:) = [];
+                p.masksBB(ismember(p.masksBB.maskID,maskIDs(i)),:) = [];
             
-            % INSERT CODE HERE TO UPDATE SPOTS
-            p.spots(ismember(p.spots.maskID,maskIDs), 'maskID') = single(0);
-            p.spots(ismember(p.spots.maskID,maskIDs), 'status') = true;
+                %UPDATE SPOTS 
+                spotIdx = ismember(p.spots.maskID,maskIDs(i));
+                p.spots{spotIdx, 'status'} = true;
+                p.spots{spotIdx, 'maskID'} = single(0);
+            
+            end
+            
         end
         
-        function p = updateMaskPoly(p,maskID,maskPoly,localRect)
-            idx = find(p.masks.maskID == maskID);
-            [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
-            %maskPoly = [x y];
-            p.masks(idx) = [x,y]; 
-            % INSERT CODE HERE TO UPDATE SPOTS
-           
+        function p = updateMaskPoly(p,channel,maskID,maskPoly,localRect)
+            p.removeMasks(maskID);
+            p.addMask(maskPoly,localRect,channel)
         end
         
         function outMasks = getMasksInRect(p,channel, rect)
@@ -197,7 +197,7 @@ classdef spotTable < handle
             intensities = tempTable.intensity;
         end
         
-        function [outSpots,idx] = getAllSpotsInRect(p,rect)
+        function [outSpots,idx] = getAllSpotsInRect(p,rect) %rect specified as [x y nrows ncols]
             outSpots = p.spots;
 
             idx = outSpots.x >= rect(1) & outSpots.x < rect(1) + rect(3) ...
@@ -206,7 +206,7 @@ classdef spotTable < handle
             outSpots = outSpots(idx,:);
         end
         
-        function outSpots = getValidNonmaskedSpotsInRect(p,channel,rect)
+        function outSpots = getValidNonmaskedSpotsInRect(p,channel,rect) %rect specified as [x y nrows ncols]
             outSpots = p.spots(p.spots.channel == channel,:);
             outSpots = outSpots(outSpots.status,:);
             outSpots = outSpots(outSpots.maskID == 0,:);
@@ -217,7 +217,7 @@ classdef spotTable < handle
             outSpots = outSpots(idx,:);
         end
         
-        function outSpots = getSpotsInRect(p,channel,rect) 
+        function outSpots = getSpotsInRect(p,channel,rect) %rect specified as [x y nrows ncols]
             outSpots = p.spots(p.spots.channel == channel,:);
             %outSpots = outSpots(outSpots.status,:);
 

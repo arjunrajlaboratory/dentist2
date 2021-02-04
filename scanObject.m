@@ -10,7 +10,7 @@ classdef scanObject < handle
         %variables in other scripts instead.
         scanMatrix
         dapiStitch
-        stitchedChannels
+        stitchedScans
         rowTransformCoords 
         columnTransformCoords
         dapiMask
@@ -216,18 +216,18 @@ classdef scanObject < handle
             reader.close()
         end
         
-        function p = stitchAllChannels(p, scanMatrix)  
+        function p = stitchChannels(p, channels)
             tileTable = p.tilesTable;
-            tilesTmp = transpose(scanMatrix);
+            tilesTmp = transpose(p.scanMatrix);
             tiles = tilesTmp(:);
             [height, width] = tileSize(p);
-            nChannels = numel(p.channels);
-            stitches = cell(1,nChannels);
+            stitches = cell(1,numel(channels));
+            channelIdx = find(ismember(p.channels, channels));
             reader = bfGetReader(p.scanFile);
-            for i = 1:nChannels
+            for i = 1:numel(channels)
                 tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
                 
-                iPlane = reader.getIndex(0, i - 1, 0) + 1;
+                iPlane = reader.getIndex(0, channelIdx(i) - 1, 0) + 1;
                 for ii = 1:numel(tiles)
                     reader.setSeries(tiles(ii)-1);
                     tmpPlane  = bfGetPlane(reader, iPlane);
@@ -239,12 +239,39 @@ classdef scanObject < handle
             
             end
             reader.close()
-            p.stitchedChannels = stitches;
-            
+            p.stitchedScans.labels = channels;
+            p.stitchedScans.stitches = stitches;
         end
-         
+        
+        function outIm = getImageRect(p, channel, rect) %rect specified as [x y nrows ncols]
+            channelIdx = ismember(p.stitchedScans.labels, channel);
+            outIm = p.stitchedScans.stitches{channelIdx};
+            outIm = outIm(rect(1):rect(1)+rect(3), rect(2):rect(2)+rect(4)); %Kinda ugly, would prefer using imcrop
+        end
+        
+        function [] = savetilesTable(p, varargin)
+            if ~isempty(p.tilesTable)
+                if nargin == 1
+                    writetable(p.tilesTable, 'tilesTable.csv')
+                elseif nargin ==2 
+                    writetable(p.tilesTable, varargin{1})
+                end
+            else
+                fprintf("tilesTable is empty. Run loadTiles and try again")
+            end
+        end
+        
+       function [] = saveStitches(p)
+            if ~isempty(p.stitchedScans)
+                temp = {p.stitchedScans};
+                save('stitchedScans.mat', 'temp', '-v7.3')
+            else
+                fprintf("stitchedScans is empty. Run stitchChannels and try again")
+            end
+       end
+        
+        
          
     end
          
-        
 end
