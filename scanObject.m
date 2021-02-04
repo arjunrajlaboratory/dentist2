@@ -6,13 +6,9 @@ classdef scanObject < handle
 
         tilesTable
         channels
-        %Not sure if we want to keep the rest as properties or make
-        %variables in other scripts instead.
         scanMatrix
         dapiStitch
         stitchedScans
-        rowTransformCoords 
-        columnTransformCoords
         dapiMask
         dapiMask2
         
@@ -20,25 +16,29 @@ classdef scanObject < handle
     
     methods
         
-        function p = scanObject(scanFile, varargin) % 
+        function p = scanObject(varargin) % 
+            n = inputParser;
+            n.addParameter('scanFile', '', @ischar); 
+            n.addParameter('tilesTable', '', @ischar); 
+
+            n.parse(varargin{:});
             
-            if nargin == 1
+            if isempty(n.Results.scanFile)
                 files = dir('*.nd2');
                 files = {files.name};
                 p.scanFile = files{1};
                 p.channels = d2utils.readND2Channels(p.scanFile);
+            else
+                p.scanFile = n.Results.scanFile;
+                p.channels = d2utils.readND2Channels(p.scanFile);
+            end
+            
+            if isempty(n.Results.tilesTable)
                 fprintf('New Table\n');
                 p.tilesTable = cell2table(cell(0,5), 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'});
-            elseif nargin == 2
-                p.scanFile = scanFile;
-                p.channels = d2utils.readND2Channels(p.scanFile);
-                fprintf('New Table\n');
-                p.tilesTable = cell2table(cell(0,5), 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'});
-            elseif nargin == 3
-                p.scanFile = scanFile;
-                p.channels = d2utils.readND2Channels(p.scanFile);
+            else
                 fprintf('Loading Table\n');
-                p.tilesTable = readtable(varargin{1},'TextType','string');
+                p.tilesTable = readtable(n.Results.tilesTable,'TextType','string');
             end
             
         end
@@ -61,69 +61,13 @@ classdef scanObject < handle
                 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'});
             
         end
-        
-%         function p = loadTiles2(p, scanMatrix)
-%             
-%             reader = bfGetReader(p.scanFile);
-%             omeMeta = reader.getMetadataStore();
-%             
-%             width = omeMeta.getPixelsSizeX(0).getValue();
-%             height = omeMeta.getPixelsSizeY(0).getValue();
-%             
-%              topCoords(1) = 1;
-%              leftCoords(1) = 1;
-%             pixelSize =  omeMeta.getPixelsPhysicalSizeX(0).value.doubleValue;
-%             
-%             tilesTmp = transpose(scanMatrix);
-%             tiles = tilesTmp(:);
-%             for i = 1:numel(tiles)
-%                 
-%                 %xpos_previous = omeMeta.getPlanePositionX(tiles(i-1)-1,0).value.doubleValue;
-%                 xpos = omeMeta.getPlanePositionX(tiles(i)-1,0).value.doubleValue;
-%                 %deltaX = (xpos-xpos_previous)/pixelSize
-%                 topCoords(i) = xpos;
-%                 
-%                 %ypos_previous = omeMeta.getPlanePositionY(tiles(i-1)-1,0).value.doubleValue;
-%                 ypos = omeMeta.getPlanePositionY(tiles(i)-1,0).value.doubleValue;
-%                 %deltaY = (ypos-ypos_previous)/pixelSize
-%                 leftCoords(i) = ypos;
-%             end
-%             reader.close()
-%             
-%             topCoords = topCoords/pixelSize;
-%             topCoords = round(abs(topCoords - topCoords(1)));
-%             topCoords = topCoords - min(topCoords) + 1;
-%             
-%             leftCoords = leftCoords/pixelSize;
-%             leftCoords = round(abs(leftCoords - leftCoords(1)));
-%             leftCoords = leftCoords - min(leftCoords) + 1;
-%             
-%             p.tilesTable2 = table((1:numel(scanMatrix))', topCoords', leftCoords', repmat(height, numel(tiles),1), repmat(width, numel(tiles),1), ...
-%                 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'});
-%             
-%         end
-        
+          
          function [height, width] = tileSize(p)
-             
              reader = bfGetReader(p.scanFile);
              omeMeta = reader.getMetadataStore();
              width = omeMeta.getPixelsSizeX(0).getValue();
              height = omeMeta.getPixelsSizeY(0).getValue();
-
          end
-         
-        %Set scanMatrix, rowShift and columnShift
-        function set.scanMatrix(p,matrix)
-            p.scanMatrix = matrix;
-        end
-        
-        function set.rowTransformCoords(p,coords)
-            p.rowTransformCoords = coords;
-        end
-        
-        function set.columnTransformCoords(p,coords)
-            p.columnTransformCoords = coords;
-        end
          
         %Stitch DAPI
         function p = stitchDAPI(p, scanMatrix)  
@@ -196,15 +140,15 @@ classdef scanObject < handle
             p.dapiMask2 = tmpStitch;
         end
                 
-        function tmpStitch = stitchChannel(p, scanMatrix, c)  
+        function tmpStitch = stitchChannel(p, scanMatrix, channel)  
             tileTable = p.tilesTable;
             tilesTmp = transpose(scanMatrix);
             tiles = tilesTmp(:);
             [height, width] = tileSize(p);
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
-            channel = find(p.channels == c);
+            c = find(p.channels == channel);
             reader = bfGetReader(p.scanFile);
-            iPlane = reader.getIndex(0, channel - 1, 0) + 1;
+            iPlane = reader.getIndex(0, c - 1, 0) + 1;
             for i = 1:numel(tiles)
                 
                 reader.setSeries(tiles(i)-1);
@@ -269,9 +213,13 @@ classdef scanObject < handle
                 fprintf("stitchedScans is empty. Run stitchChannels and try again")
             end
        end
+       
+       function p = loadStitches(p)
+           tempStitches = load('stitchedScans.mat');
+           p.stitchedScans.labels = tempStitches.temp{1}.labels;
+           p.stitchedScans.stitches = tempStitches.temp{1}.stitches;
+       end
         
-        
-         
     end
          
 end
