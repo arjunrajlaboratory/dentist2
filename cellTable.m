@@ -4,22 +4,18 @@ classdef cellTable < handle
         
         cells
         masks %Do we want to mask cells? 
-        spotChannels
+        
         minNucleusSize = 1000; % Set method should probably call findCells
 
     end
     
     methods
         
-        function p = cellTable(scanObject, varargin)
-            if nargin == 1
-                channels = scanObject.channels;
-                p.spotChannels = channels(~ismember(channels,["dapi","trans"]));
+        function p = cellTable(varargin)
+            if nargin == 0
                 fprintf('New Table\n');
-                p.cells = cell2table(cell(0,8), 'VariableNames', {'cellID', 'x', 'y', 'channel', 'spotCount', 'status', 'maskID', 'nucleusArea'}); 
-            elseif nargin == 2
-                channels = scanObject.channels;
-                p.spotChannels = channels(~ismember(channels,["dapi","trans"]));
+                p.cells = cell2table(cell(0,6), 'VariableNames', {'cellID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}); 
+            elseif nargin == 1
                 fprintf('Loading Table\n');
                 p.cells = readtable(varargin{1},'TextType','string');
             end
@@ -36,28 +32,16 @@ classdef cellTable < handle
             centroids = [rp.Centroid];
             centroids = round(reshape(centroids,2,[])');
             centroids = single(centroids);
-            cellCount = height(centroids);
-            centroids = repmat(centroids, numel(p.spotChannels),1);
             
             area = single([rp.Area]);
-            area = repmat(area', numel(p.spotChannels),1);
-           
+            
             status = true(height(centroids), 1);
-            spots = single(zeros(height(centroids), 1));
             maskID = single(zeros(height(centroids), 1));
-            channel = [];
-            for i = 1:numel(p.spotChannels)
-                channel = [channel; repmat(p.spotChannels(i), cellCount, 1)];
-            end
 
-            p.cells = table((1:height(centroids))',centroids(:,2),centroids(:,1), channel, spots, status, maskID, area,...
-                'VariableNames', {'cellID', 'x', 'y', 'channel', 'spotCount', 'status', 'maskID', 'nucleusArea'});
+            p.cells = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area',...
+                'VariableNames', {'cellID', 'x', 'y', 'status', 'maskID', 'nucleusArea'});
         end
         
-        function p = spotsPerCell(p, spotTable)
-            spotCounts = groupsummary(spotTable, {'channel', 'nearestCellID'});
-            %ADD CODE HERE
-        end
         function outCells = getCellsInRect(p,rect) %rect specified as [x y nrows ncols]
             
             outCells = p.cells(p.cells.status==1,:);
@@ -77,12 +61,12 @@ classdef cellTable < handle
             if ~isempty(p.cells)
                 tempCells = p.cells;
                 maxID = max(p.cellID);
-                newCell = {maxID+1, x, y, status, area};
+                newCell = {maxID+1, x, y, status, 0, area};
                 tempCells = [tempCells;newCell];
                 p.cells = tempCells;
                 % UPDATE SPOTS?
             else
-                p.cells(1,:) = {1, x, y, status, 0, 0, area};
+                p.cells(1,:) = {1, x, y, status, 0, area};
             end
         end
         
