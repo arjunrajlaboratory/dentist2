@@ -14,5 +14,5 @@ function channels = readND2Channels(fileND2)
         c = omeMeta.getChannelName(0, i-1);
         channels{i} = channelMap(c.toCharArray');
     end
-    channels = string(channels);
+    %channels = string(channels);
 end

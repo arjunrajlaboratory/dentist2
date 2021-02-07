@@ -3,96 +3,106 @@ classdef maskTable < handle
     properties (Access = public)
         
         masks
-        
+        masksBB
     end
     
     methods
         
-        function p = maskTable(varargin)
-            if nargin == 0
-                fprintf('New Table\n');
-                p.allPoints = cell2table(cell(0,6), 'VariableNames', {'spotID','x','y','intensity','channel','nearestCellID','isGood','fileID'});
-            else % Otherwise, load the specified table
+        function p = maskTable(scanObject, varargin)
+            channels = convertStringsToChars(scanObject.channels);
+            channels = channels(~ismember(channels, 'trans'));
+            if nargin == 1
+                fprintf('New Mask Table\n');
+                p.masks = array2table(false(0,numel(channels) + 3), 'VariableNames', [{'maskID','x','y'} , channels]);
+                p.masksBB = array2table(false(0,numel(channels) + 3), 'VariableNames', [{'maskID','x','y'} , channels]);
+            elseif nargin == 2 % Otherwise, load the specified table
                 fprintf('Loading Table\n');
-                p.allPoints = readtable(varargin{1},'TextType','string');
+                tmpMasks = readtable(varargin{1},'TextType','string');
+                tmpMasks = convertvars(tmpMasks,{'maskID', 'x', 'y'},'single'); %NEED TO FIX: even though converting to single, x and y not == to orignal data
+                p.masks = convertvars(tmpMasks,4:width(tmpMasks),'logical');
+                p.allMasks2Corners();
             end
         end
         
-        function p = changeAnnotation(p, pointIDs, newAnnotation)
-            idx = ismember(p.allPoints.pointID,pointIDs);
-            p.allPoints.annotation(idx) = newAnnotation;
-        end
-        
-        function [p, newPoints] = addRawPoints(p, frame, centroids)
-            sz = size(centroids);
+        function p = addMask(p,maskPoly,localRect,channel)
             
-            mxID = max(p.allPoints.pointID); % Will assign pointIDs to the end of existing list.
-            if isempty(mxID)
-                mxID = 0;
+            if isempty(p.masks)
+                tempMaskID = single(1);
+            else
+                tempMaskID = single(max(p.masks.maskID)+1);
             end
             
-            T = table( ((mxID+1):(mxID+sz(1)))', frame*ones(sz(1),1), centroids(:,1), centroids(:,2), nan(sz(1),1));
-            T.Properties.VariableNames = {'pointID','frameNumber','xCoord','yCoord','parentID'};
-            T.annotation = repmat("none",sz(1),1);
-            p.allPoints = [p.allPoints; T];
-            newPoints = T; % This allows you to capture just the new points that you just added, but in the table format
-        end
-        
-        function p = removePoints(p,removeIDs)
-            idx = ismember(p.allPoints.pointID,removeIDs);
-            p.allPoints(idx,:) = [];
-            idx = ismember(p.allPoints.parentID,removeIDs);
-            p.allPoints.parentID(idx) = nan;
-        end
-        
-        function p = guessParents(p)
+            [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
             
-            endFrame = max(unique(p.allPoints.frameNumber));
+            corners = d2utils.polygon2BoundingCorners([x,y]);
+            channelIdx = ismember(p.masks.Properties.VariableNames, channel);
+            tmpMaskTable = array2table(repmat(channelIdx, length(x), 1), 'VariableNames', p.masks.Properties.VariableNames);
+            tmpMaskTable.maskID = repmat(tempMaskID,  length(x), 1);
+            tmpMaskTable.x = single(x);
+            tmpMaskTable.y = single(y);
+            p.masks = [p.masks; tmpMaskTable];
             
-            for i = 2:endFrame
-                prevFrame = i-1;
-                prevList = p.allPoints(p.allPoints.frameNumber == prevFrame,:);
-                currList = p.allPoints(p.allPoints.frameNumber == i, :);
-                
-                xy1 = [prevList.xCoord prevList.yCoord];
-                xy2 = [currList.xCoord currList.yCoord];
-                
-                D = pdist2(xy1,xy2);
-                [~,idx] = min(D);
-                
-                parentIDs = prevList.pointID(idx);
-                
-                p.allPoints(p.allPoints.frameNumber == i,:).parentID = parentIDs;
-            end
-        end
-        
-        function p = assignParent(p, childID, parentID)
-            id = p.allPoints.pointID == childID;
-            p.allPoints.parentID(id) = parentID;
-        end
-        
-        function p = setPointCoordinates(p, pointID, xCoord, yCoord)
-            p.allPoints(p.allPoints.pointID == pointID,:).xCoord = xCoord;
-            p.allPoints(p.allPoints.pointID == pointID,:).yCoord = yCoord;
-        end
-        
-        function p = setPointParent(p, pointID, parentID)
-            p.allPoints(p.allPoints.pointID == pointID,:).parentID = parentID;
-        end
-        
-        function outTab = getAllPointsInFrame(p,frameNumber)
-            outTab = p.allPoints(p.allPoints.frameNumber == frameNumber,:);
-        end
-        
-        % Probably need something to set an entire frame's worth of points
-        % UNTESTED!! This also might be done better in a more abstract way
-        % Also, not clear this is actually needed.
-        function p = updateEntireFrame(p,frameNumber,newTable)
-            idx = p.allPoints.frameNumber == frameNumber;
-            p.allPoints(idx,:) = [];
-            p.allPoints = [p.allPoints newTable];
-        end
+            tmpMaskBBTable = array2table(repmat(channelIdx, 4, 1), 'VariableNames', p.masksBB.Properties.VariableNames);
+            tmpMaskBBTable.maskID = repmat(tempMaskID,  4, 1);
+            tmpMaskBBTable.x = corners(:,1);
+            tmpMaskBBTable.y = corners(:,2);
+            p.masksBB = [p.masksBB; tmpMaskBBTable];
 
+        end
+        
+        function p = removeMasks(p,maskIDs)
+             p.masks(ismember(p.masks.maskID,maskIDs),:) = [];
+             p.masksBB(ismember(p.masksBB.maskID,maskIDs),:) = [];
+             
+        end
+        
+        function p = updateMaskPoly(p,channel,maskID,maskPoly,localRect)
+            p.removeMasks(maskID);
+            p.addMask(maskPoly,localRect,channel)
+        end
+        
+        function outMasks = getAllMasksInRect(p, rect)
+            
+            idx = p.masksBB.x >= rect(1) & p.masksBB.x < rect(1) + rect(3) ...
+                & p.masksBB.y >= rect(2) & p.masksBB.y < rect(2) + rect(4);
+            
+            maskIDtoKeep = unique(p.masksBB.maskID(idx));
+            
+            outMasks = p.masks(ismember(p.masks.maskID, maskIDtoKeep) ,:);
+        end
+        
+        function outMasks = getChannelMasksInRect(p, rect, channel)
+            channelIdx = ismember(p.masks.Properties.VariableNames, channel);
+            
+            idx = p.masksBB{:,channelIdx} ...
+                & p.masksBB.x >= rect(1) & p.masksBB.x < rect(1) + rect(3) ...
+                & p.masksBB.y >= rect(2) & p.masksBB.y < rect(2) + rect(4);
+            
+            maskIDtoKeep = unique(p.masksBB.maskID(idx));
+            
+            outMasks = p.masks(ismember(p.masks.maskID, maskIDtoKeep) ,:);
+        end
+        
+        function p = allMasks2Corners(p)
+            p.masksBB = array2table(false(0,width(p.masks)), 'VariableNames', p.masks.Properties.VariableNames);
+            uniqueMaskIDs = unique(p.masks.maskID);
+            for i = 1:numel(uniqueMaskIDs)
+                tempMask = p.masks(p.masks.maskID == uniqueMaskIDs(i), :);
+                tempMaskBB = repmat(tempMask(1,:), 4, 1);
+                tempCorners = d2utils.polygon2BoundingCorners(tempMask{:,{'x', 'y'}});
+                tempMaskBB{:,{'x', 'y'}} =  single(tempCorners);
+                p.masksBB = [p.masksBB; tempMaskBB];
+            end
+        end
+       
+        function [] = saveTables(p, varargin)
+           if nargin == 1
+               writetable(p.masks, 'masks.csv');
+           elseif nargin == 2
+               writetable(p.masks, varargin{1});
+               
+           end
+        end
         
     end
     

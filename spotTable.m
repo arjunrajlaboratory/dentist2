@@ -3,10 +3,8 @@ classdef spotTable < handle
     properties (Access = public)
         
         spots
-        masks
-        masksBB
+        maskObj %Mask object
         thresholds
-        radius = 300; 
         spotChannels
         maxDistance = 100; %Should this be channel specific? 
         theFilter
@@ -16,17 +14,18 @@ classdef spotTable < handle
     
     methods
         
-        function p = spotTable(scanObject, varargin)
+        function p = spotTable(scanObject, maskObj, varargin)
             n = inputParser;
             n.addRequired('scanObject');
+            n.addRequired('maskObj');
             n.addParameter('spotsFile', '', @ischar); 
-            n.addParameter('masksFile', '', @ischar); 
             n.addParameter('thresholdsFile', '', @ischar);
 
-            n.parse(scanObject, varargin{:});
+            n.parse(scanObject, maskObj, varargin{:});
             
             channels = n.Results.scanObject.channels;
-            p.spotChannels = channels(~ismember(channels,["dapi","trans"]));
+            p.spotChannels = channels(~ismember(channels,{'dapi','trans'}));
+            p.maskObj = n.Results.maskObj;
             
             if isempty(n.Results.spotsFile)
                 fprintf('New spots table\n');
@@ -39,19 +38,7 @@ classdef spotTable < handle
                     single(p.spots{:,{'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'maskID', 'distanceToCell'}});
                 p.spots.status = logical(p.spots.status);
             end
-            
-            if isempty(n.Results.masksFile)
-                fprintf('New masks table\n');
-                p.masks = cell2table(cell(0,4), 'VariableNames', {'maskID', 'channel', 'x', 'y'});
-                p.masksBB = cell2table(cell(0,4), 'VariableNames', {'maskID', 'channel', 'x', 'y'});
-            else
-                fprintf('Loading masks table');
-                p.masks = readtable(n.Results.masksFile,'TextType','string');
-                p.masks{:,{'maskID', 'x', 'y'}} =...
-                    single(p.masks{:,{'maskID', 'x', 'y'}});
-                p.allMasks2Corners();
-            end
-            
+                        
             if isempty(n.Results.thresholdsFile)
                 fprintf('New thresholds table\n');
                 p.thresholds = cell2table(cell(0,numel(p.spotChannels)), 'VariableNames', p.spotChannels);
@@ -80,98 +67,7 @@ classdef spotTable < handle
             %Update spots table
 
          end
-        
-        function p = addMask(p,maskPoly,localRect,channel)
-            % Mask table should be:
-            % maskID
-            % handle
-            % channel (can also be "all" to apply to all)
-            % DO NOT NEED SINCE HAVE HANDLE isValid % 0 when masks are deleted
-            % polygon in global coordinates
-            % Should have a bounding box function to get the bounding box
-            % of the polygon to test for intersection with current viewRect
-            if isempty(p.masks)
-                tempMaskID = single(1);
-            else
-                tempMaskID = single(max(p.masks.maskID)+1);
-            end
             
-            [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
-            
-            %maskPoly = [x y];
-            corners = d2utils.polygon2BoundingCorners([x,y]);
-            
-            p.masks = [p.masks; table(repmat(tempMaskID, length(x), 1),repmat(channel, length(x), 1),single(x),single(y), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
-            p.masksBB = [p.masksBB; table(repmat(tempMaskID, 4, 1),repmat(channel, 4, 1),corners(:,1),corners(:,2), 'VariableNames', {'maskID', 'channel', 'x', 'y'})];
-                        %UPDATE CELLS - inpolygon seems to fast enough for many millions of cells. 
-
-            %UPDATE SPOTS - inpolygon seems to fast enough for many millions of spots (scales O(n)).
-            %If it gets too slow, could try selecting cells in localRect first.
-%             tempSpots = p.getValidNonmaskedSpotsInRect(channel,localRect);
-%             tempIdx = inpolygon(tempSpots.x,tempSpots.y,x,y);
-%             idx = ismember(p.spots.spotID, tempIdx.spotID);
-            idx = p.spots.status & p.spots.channel == channel ...
-                & inpolygon(p.spots.x,p.spots.y,x,y);
-            p.spots.maskID(idx) = tempMaskID;
-            p.spots.status(idx) = false;
-        end
-        
-        function p = removeMasks(p,maskIDs, channel)
-             p.masks(ismember(p.masks.maskID,maskIDs),:) = [];
-             p.masksBB(ismember(p.masksBB.maskID,maskIDs),:) = [];
-             
-             p.spots(ismember(p.spots.maskID,maskIDs), 'maskID') = single(0);
-             %Need to check threshold then update status.
-             p.updateSpotStatus(channel)
-        end
-        
-        function p = updateMaskPoly(p,channel,maskID,maskPoly,localRect)
-            p.removeMasks(maskID);
-            p.addMask(maskPoly,localRect,channel)
-        end
-        
-        function outMasks = getMasksInRect(p,channel, rect)
-            
-            %tempMasksBB = p.masksBB(p.masksBB.channel == channel,:);
-
-            idx = p.masksBB.channel == channel ...
-                & p.masksBB.x >= rect(1) & p.masksBB.x < rect(1) + rect(3) ...
-                & p.masksBB.y >= rect(2) & p.masksBB.y < rect(2) + rect(4);
-            
-            maskIDtoKeep = unique(tempMasksBB.maskID(idx));
-            
-            %outMasks = p.masks(p.masks.channel == channel,:);
-            outMasks = p.masks(p.masks.channel == channel & ismember(p.masks.maskID, maskIDtoKeep) ,:);
-        end
-        
-        function p = allMasks2Corners(p)
-            p.masksBB = cell2table(cell(0,4), 'VariableNames', {'maskID', 'channel', 'x', 'y'});
-            uniqueMaskIDs = unique(p.masks.maskID);
-            for i = 1:numel(uniqueMaskIDs)
-                tempPoly = p.masks{p.masks.maskID == uniqueMaskIDs(i), ['x', 'y']};
-                tempChannel = p.masks{p.masks.maskID == uniqueMaskIDs(i), 'channel'};
-                tempCorners = d2utils.polygon2BoundingCorners(tempPoly);
-                p.masksBB = [p.masksBB; {repmat(uniqueMaskIDs(i), 4, 1),repmat(tempChannel, 4, 1),tempCorners(:,1),tempCorners(:,2)}];
-            end
-        end
-        
-%         function p = assignSpotsToCells2(p,cellTable) %Version in case we
-%         want to have unique cellIDs for different channels
-%             
-%             channels = p.spotChannels;
-%             for i = 1:numel(channels)
-%                 tempSpots = p.spots(p.spots.channel == channel,:);
-%                 tempCells = cellTable(cellTable.channel == channel,:);
-%                 [idx, dist] = knnsearch([tempCells.x tempCells.y], [tempSpots.x tempSpots.y], 'K', 1, 'Distance', 'euclidean');
-%                 
-%                 p.spots{ismember(p.spots.spotID, tempSpots.spotID), 'nearestCellID'} = single(tempCells.cellID(idx));
-%                 p.spots{ismember(p.spots.spotID, tempSpots.spotID), 'distanceToCell'} = single(dist);
-%                 %farCells = tempSpots.spotID(dist > p.maxDistance);
-%                 %p.spots{ismember(p.spots.spotID, farCells), 'nearestCellID'} = single(0);
-%                 
-%             end
-%         end
-        
         function p = assignSpotsToCells2(p,cellTable)
             
             [idx, dist] = knnsearch([cellTable.x cellTable.y], [p.spots.x p.spots.y], 'K', 1, 'Distance', 'euclidean');
@@ -355,8 +251,6 @@ classdef spotTable < handle
             n = inputParser;
             n.addParameter('spotsFile', 'spots.csv', @(x) assert((ischar(x) & endsWith(x, '.csv')),...
                 'Specify .csv filename to save spots. e.g "spots.csv"')); 
-            n.addParameter('masksFile', 'masks.csv', @(x) assert((ischar(x) & endsWith(x, '.csv')),...
-                'Specify .csv filename to save masks. e.g "masks.csv"')); 
             n.addParameter('thresholdsFile', 'thresholds.csv', @(x) assert((ischar(x) & endsWith(x, '.csv')),...
                 'Specify .csv filename to save thresholds. e.g "thresholds.csv"'));
 

@@ -3,19 +3,19 @@ classdef cellTable < handle
     properties (Access = public)
         
         cells
-        cellMasks %Do we want to mask cells? 
-        cellMasksBB
+        maskObj %Mask object 
         minNucleusSize = 1000; % Set method should probably call findCells
 
     end
     
     methods
         
-        function p = cellTable(varargin)
-            if nargin == 0
+        function p = cellTable(maskObj, varargin)
+            p.maskObj = maskObj;
+            if nargin == 1
                 fprintf('New Table\n');
                 p.cells = cell2table(cell(0,6), 'VariableNames', {'cellID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}); 
-            elseif nargin == 1
+            elseif nargin == 2
                 fprintf('Loading Table\n');
                 p.cells = readtable(varargin{1},'TextType','string');
             end
@@ -106,7 +106,28 @@ classdef cellTable < handle
             
         end
         
-        function p = addMask(p,maskPoly,localRect)
+        function p = maskAllCells(p)
+            
+            masksToUpdate = setdiff(p.maskObj.masks.maskID, p.cells.maskID);
+
+            for i = 1:numel(masksToUpdate)
+            end
+            
+            %maskPoly = [x y];
+            corners = d2utils.polygon2BoundingCorners([x,y]);
+            
+            p.cellMasks = [p.cellMasks; table(repmat(tempMaskID, length(x), 1),single(x),single(y), 'VariableNames', {'maskID', 'x', 'y'})];
+            p.cellMasksBB = [p.cellMasksBB; table(repmat(tempMaskID, 4, 1),corners(:,1),corners(:,2), 'VariableNames', {'maskID', 'x', 'y'})];
+            
+            %UPDATE CELLS - inpolygon seems to fast enough for many millions of cells. If it gets too slow, could try selecting cells in localRect first.
+%             tempcells = p.getValidCellsInRect(localRect);
+%             tempIdx = inpolygon(tempcells.x,tempcells.y,x,y);
+            idx = inpolygon(p.cells.x, p.cells.y, x, y) & p.cells.status;
+            p.cells.maskID(idx) = tempMaskID;
+            p.cells.status(idx) = false;
+        end
+        
+        function p = maskCellsInRect(p, localRect)
             if isempty(p.cellMasks)
                 tempMaskID = single(1);
             else
@@ -129,15 +150,15 @@ classdef cellTable < handle
             p.cells.status(idx) = false;
         end
         
-        function p = removeMasks(p,maskIDs)
-             
-            p.masks(ismember(p.masks.maskID,maskIDs),:) = [];
-            p.masksBB(ismember(p.masksBB.maskID,maskIDs),:) = [];
-            
-            p.cells(ismember(p.cells.maskID,maskIDs), 'maskID') = single(0);
-            p.cells(ismember(p.cells.maskID,maskIDs), 'status') = true; %This assumes that status is determined only by masks
-            
-        end
+%         function p = removeMasks(p,maskIDs)
+%              
+%             p.masks(ismember(p.masks.maskID,maskIDs),:) = [];
+%             p.masksBB(ismember(p.masksBB.maskID,maskIDs),:) = [];
+%             
+%             p.cells(ismember(p.cells.maskID,maskIDs), 'maskID') = single(0);
+%             p.cells(ismember(p.cells.maskID,maskIDs), 'status') = true; %This assumes that status is determined only by masks
+%             
+%         end
         
         function [] = saveCellTable(p, varargin)
             if ~isempty(p.cells)
