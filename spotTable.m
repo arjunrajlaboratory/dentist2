@@ -3,39 +3,45 @@ classdef spotTable < handle
     properties (Access = public)
         
         spots
-        maskObj %Mask object
+        
         thresholds
         spotChannels
-        maxDistance = 100; %Should this be channel specific? 
+        maxDistance = 100;  
         theFilter
         percentileToKeep = 98;
+        
+        scanObj
+        maskObj 
+        nucleiObj 
         
     end
     
     methods
         
-        function p = spotTable(scanObject, maskObj, varargin)
+        function p = spotTable(scanObject, maskObject, nucleiObject, varargin)
             n = inputParser;
             n.addRequired('scanObject');
-            n.addRequired('maskObj');
+            n.addRequired('maskObject');
+            n.addRequired('nucleiObject');
             n.addParameter('spotsFile', '', @ischar); 
             n.addParameter('thresholdsFile', '', @ischar);
 
-            n.parse(scanObject, maskObj, varargin{:});
+            n.parse(scanObject, maskObject, nucleiObject, varargin{:});
             
             channels = n.Results.scanObject.channels;
             p.spotChannels = channels(~ismember(channels,{'dapi','trans'}));
-            p.maskObj = n.Results.maskObj;
+            p.scanObj = scanObject;
+            p.maskObj = n.Results.maskObject;
+            p.nucleiObj = n.Results.nucleiObject;
             
             if isempty(n.Results.spotsFile)
                 fprintf('New spots table\n');
                 p.spots = cell2table(cell(0,9),...
-                    'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'status', 'maskID', 'channel', 'distanceToCell'});
+                    'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
             else
                 fprintf('Loading spot table');
-                p.spots = readtable(n.Results.spotsFile,'TextType','string');
-                p.spots{:,{'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'maskID', 'distanceToCell'}} =...
-                    single(p.spots{:,{'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'maskID', 'distanceToCell'}});
+                tmpSpots = readtable(n.Results.spotsFile,'TextType','string');
+                p.spots = convertvars(tmpSpots, {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'maskID', 'distanceToNuc'}, 'single');
                 p.spots.status = logical(p.spots.status);
             end
                         
@@ -49,58 +55,25 @@ classdef spotTable < handle
         end
         
         
-        function p = maskAllPoints(p) 
-            for i = 1:height(p.masks)
-                poly = p.masks.polygon(i);
-                poly = poly{1};
-                channel = p.masks.channel(i);
-                bb = d2utils.polygonBoundingBox(poly);
-                spotsIdx = p.getSpotsInRectIndex(channel,bb);
-                p.spots.maskID(spotsIdx) = p.masks.maskID(i);
-            end
-        end
-        
-        function p = maskAllPoints2(p)
-            %create logical array with all spots
-            %Create mask array
-            %multiple
-            %Update spots table
-
-         end
+        function p = assignSpotsToNuclei(p)
+            validNuclei = p.nucleiObj.nuclei(p.nucleiObj.nuclei.status);
             
-        function p = assignSpotsToCells2(p,cellTable)
+            [idx, dist] = knnsearch([validNuclei.x, validNuclei.y], [p.spots.x, p.spots.y], 'K', 1, 'Distance', 'euclidean');
             
-            [idx, dist] = knnsearch([cellTable.x cellTable.y], [p.spots.x p.spots.y], 'K', 1, 'Distance', 'euclidean');
-            
-            p.spots.nearestCellID = cellTable.cellID(idx);
-            p.spots.distanceToCell = single(dist);
+            p.spots.nearestNucID = validNuclei.nucID(idx);
+            p.spots.distanceToNuc = single(dist);
             
         end
         
-        function p = assignSpotsInRect(p, channel, rect, cellObject) %Maybe useful for reassigning spots after add/removing cells 
+        function p = assignSpotsInRect(p, channel, rect) %Maybe useful for reassigning spots after add/removing cells 
             
             spotIdx = p.getValidSpotsInRectIndex(channel,rect);
-            cellsNearRect = cellObject.getCellsNearRect(rect, p.maxDistance);
-            [cellIdx, dist] = knnsearch([cellsNearRect.x cellsNearRect.y], [p.spots.x(spotIdx) p.spots.y(spotIdx)], 'K', 1, 'Distance', 'euclidean');
+            nucleiNearRect = p.nucleiObj.getNucleiNearRect(rect, p.maxDistance);
+            [nucIdx, dist] = knnsearch([nucleiNearRect.x nucleiNearRect.y], [p.spots.x(spotIdx) p.spots.y(spotIdx)], 'K', 1, 'Distance', 'euclidean');
             
-            p.spots.nearestCellID(spotIdx) = cellsNearRect.cellID(cellIdx);
-            p.spots.distanceToCell(spotIdx) = single(dist);
-            
-            %spotsInRect.nearestCellID = single(cellsInRect.cellID(cellIdx));
-            %spotsInRect.distanceToCell = single(dist);
-            
-            %spotsInRect{dist > p.maxDistance,'nearestCellID'} = single(0);
-            
-            %p.spots(ismemeber(p.spots.spotID, spotsInRect.spotID), :) = spotsInRect;
-
-        end
-        
-        function intensities = getIntensities(p,channel)
-            intensities = p.spots{p.spots.channel == channel,'intensity'};
-        end
-        
-        function intensityThresh = getIntensityThreshold(p,channel)
-            intensityThresh = p.thresholds{p.spots.channel == channel};
+            p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
+            p.spots.distanceToNuc(spotIdx) = single(dist);
+           
         end
         
         function [outSpots,idx] = getAllSpotsInRect(p,rect) %rect specified as [x y nrows ncols]
@@ -111,11 +84,7 @@ classdef spotTable < handle
             outSpots = p.spots(idx,:);
         end
         
-        function outSpots = getValidNonmaskedSpotsInRect(p,channel,rect) %rect specified as [x y nrows ncols]
-            %To speed things up, creating one index instead of multiple assignments.  
-%             outSpots = p.spots(p.spots.channel == channel,:);
-%             outSpots = outSpots(outSpots.status,:);
-%             outSpots = outSpots(outSpots.maskID == 0,:);
+        function [outSpots, idx] = getValidSpotsInRect(p,channel,rect) %rect specified as [x y nrows ncols]
 
             idx = p.spots.channel == channel & p.spots.status ... 
                 & p.spots.x >= rect(1) & p.spots.x < rect(1) + rect(3) ...
@@ -142,11 +111,86 @@ classdef spotTable < handle
                 & p.spots.y >= rect(2) & p.spots.y < rect(2) + rect(4);
             
         end
+        
+        function p = updateAllMasks(p)  %Note, this will overwrite previous maskIDs in spotTable. 
+            
+            for i = 1:numel(p.spotChannels)
+                channelIdx = p.maskObj.masks(:, p.spotChannels(i));
+                maskTable = p.maskObj.masks(channelIdx,:);
+                maskIDs = unique(maskTable.maskID);
+                spotIdx = p.spots.channel == channel;
+                spotTable = p.spots(spotIdx,:);
+                spotTable.maskID = single(0);
+                for ii = 1:numel(maskIDs)
+                    idx = inpolygon(spotTable.x, spotTable.y,...
+                        maskTable{maskTable.maskID == maskIDs(ii), 'x'}, maskTable{maskTable.maskID == maskIDs(ii), 'y'}) & spotTable.maskID == 0;
+                    spotTable.maskID(idx) = maskIDs(ii); 
+                    spotTable.status(idx) = false; 
+                end
+                p.spots.maskID(spotIdx) = spotTable.maskID;
+                p.spots.status(spotIdx) = spotTable.status;
+            end 
+            
+        end
+        
+        function p = addNewMaskInRect(p, channel)
+            
+            maxSpotMask = max(p.maskObj.masks{p.maskObj.masks{:,channel},'maskID'});
+            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxSpotMask,{'x', 'y'}}; %Only query spots within mask bouding box
+            polyRect = d2utils.boundingCorners2Rect(maskBB);
+            spotIdx = getValidSpotsInRectIndex(channel, polyRect);
+            idx = inpolygon(p.spots.x(spotIdx), p.spots.y(spotIdx),...
+                p.maskObj.masks{p.maskObj.masks.maskID == maxSpotMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxSpotMask, 'y'});
+            
+            spotIdx(spotIdx) = idx; %Only spots in polygon remain true
+                
+            p.spots.maskID(spotIdx) = maxSpotMask;
+            p.spots.status(spotIdx) = false;
+            
+        end
+        
+%         function p = updateMasksInRect(p, channel, localRect) %%NEEDS TO
+%         BE FIXED
+%             %Use for removing masks or if we want to change multiple masks
+%             %before updating spots
+%             %Probably could use some speeding up. 
+%             masksInRect = p.maskObj.getChannelMasksInRect(localRect, channel);
+%             maskIDsinRect = unique(masksInRect.maskID);
+%             [tmpSpots, spotIdx] = getValidSpotsInRect(channel, localRect);            
+%             
+%             %Resest status for nuclei
+%             p.spots.maskID(spotIdx) = single(0);
+%             tmpSpots.status = true;
+%             for i = 1:numel(maskIDsinRect)
+%                 idxPoly = inpolygon(tmpSpots.x, tmpSpots.y,...
+%                     masksInRect{masksInRect.maskID == maskIDsinRect(i), 'x'}, masksInRect{masksInRect.maskID == maskIDsinRect(i), 'y'}) & tmpSpots.status;
+%                 
+%                 tmpSpots.maskID(idxPoly) = maskIDsinRect(i);
+%                 tmpSpots.status(idxPoly) = false;
+%                 
+%             end
+%             
+%             p.spots.maskID(spotIdx) = tmpSpots.maskID;
+%             p.updateSpotStatus();
+%             
+%             p.spots.status(spotIdx) = tmpSpots.status;
+%  
+%         end
+        
+        function p = removeMasks(p, channel) 
+            %If spot falls within multiple masks and only 1 is removed,
+            %this function may incorrectly set status to true. Can instead
+            %use updateMasksInRect
+            
+            masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masks.maskID(p.maskObj.masks{:,channel}));
+            p.spots.maskID(ismember(p.spots.maskID, masksToRemove)) = single(0);
+            p.spots.status(ismember(p.spots.maskID, masksToRemove)) = true;
+        end
        
         function p = updateSpotStatus(p,channel)
             threshold = p.thresholds{p.spotChannels == channel};
             spotIdx = p.spots.channel == channel & p.spots.intensity >= threshold ...
-                & p.spots.distanceToCell <= p.maxDistance & p.spots.maskID == 0;
+                & p.spots.distanceToNuc <= p.maxDistance & p.spots.maskID == 0;
             
             p.spots.status(spotIdx) = true;
             p.spots.status(~spotIdx) = false;
@@ -159,32 +203,16 @@ classdef spotTable < handle
             end
         end
         
-%         function applyIntensityThreshold(p,channel,threshold)
-%             
-%             
-%             spotIdx = p.spots.channel == channel & p.spots.intensity < threshold;
-%             
-%             p.spots.status(spotIdx) = false;
-%             p.spots.status(~spotIdx) = true;
-%             
-%             %UPDATE p.thresholds
-%             
-%         end
-%         
-%         function applyDistThreshold(p,channel,threshold) %Should this be channel specific? 
-%             
-%             
-%             spotIdx = p.spots.channel == channel & p.spots.distanceToCell < threshold;
-%             
-%             p.spots.status(spotIdx) = false;
-%             p.spots.status(~spotIdx) = true;
-%             
-%             %UPDATE p.maxDistance
-%             
-%         end
+        function intensities = getIntensities(p,channel)
+            intensities = p.spots{p.spots.channel == channel,'intensity'};
+        end
         
+        function intensityThresh = getIntensityThreshold(p,channel)
+            intensityThresh = p.thresholds{p.spots.channel == channel};
+        end
         
-        function p = findSpots(p, scanObject) %BE should we make a faster version that uses blockproc on stitched data? 
+
+        function p = findSpots(p) %BE should we make a faster version that uses blockproc on stitched data? 
 
             if isempty(p.theFilter) == 2
                 filt = -fspecial('log',20,2);
@@ -192,8 +220,8 @@ classdef spotTable < handle
             else
                 filt = p.theFilter;
             end
-            tilesTable = scanObject.tilesTable;
-            scanMatrix = scanObject.scanMatrix;
+            tilesTable = p.scanObj.tilesTable;
+            scanMatrix = p.scanObj.scanMatrix;
             tilesTmp = transpose(scanMatrix);
             tiles = tilesTmp(:);
             
@@ -201,7 +229,7 @@ classdef spotTable < handle
             y = [];
             intensity = [];
             channel = [];
-            reader = bfGetReader(scanObject.scanFile);
+            reader = bfGetReader(p.scanObj.scanFile);
             
             for i = 1:numel(p.spotChannels)
                 currChannel = p.spotChannels(i);
@@ -226,15 +254,15 @@ classdef spotTable < handle
             reader.close()
             
             spotID = single((1:length(x)))';
-            nearestCellID = single(zeros(length(x),1));
+            nearestNucID = single(zeros(length(x),1));
             maskID = single(zeros(length(x),1));
             status = true(length(x),1);
             dist =  single(zeros(length(x),1));
-            p.spots = table(spotID, single(x), single(y), intensity, nearestCellID, status, maskID, channel, dist,...
-                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestCellID', 'status', 'maskID', 'channel', 'distanceToCell'});
+            p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
+                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
-        function outTable = getSpotsPerCell(p)
+        function outTable = getSpotsPerNuc(p)
             %INSERT CODE
         end
         
@@ -257,7 +285,6 @@ classdef spotTable < handle
             n.parse(varargin{:});
             
             writetable(p.spots, n.Results.spotsFile);
-           % writetable(p.masks, n.Results.masksFile);
            % writetable(p.thresholds, n.Results.thresholdsFile);
         end
         

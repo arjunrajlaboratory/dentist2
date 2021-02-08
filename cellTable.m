@@ -4,7 +4,8 @@ classdef cellTable < handle
         
         cells
         maskObj %Mask object 
-        minNucleusSize = 1000; % Set method should probably call findCells
+        minNucleusSize = 1000; % Should set method call findCells? 
+        dapiMask
 
     end
     
@@ -21,10 +22,40 @@ classdef cellTable < handle
             end
         end
         
-        
-        function p = findCells(p,dapiMask)
+        function p = stitchDAPImask(p, scanObject, varargin)  
+            tileTable = scanObject.tilesTable;
+            tilesTmp = transpose(scanObject.scanMatrix);
+            tiles = tilesTmp(:);
+            [height, width] = scanObject.tileSize();
+            tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'logical');
+            channel = find(scanObject.channels == 'dapi');
+            reader = bfGetReader(scanObject.scanFile);
+            iPlane = reader.getIndex(0, channel - 1, 0) + 1;
             
-            CC = bwconncomp(dapiMask);
+            if nargin == 2
+                s = 0.1;
+            elseif nargin == 3
+                s = varargin{1};
+            end
+                
+            for i = 1:numel(tiles)
+                
+                reader.setSeries(tiles(i)-1);
+                tmpPlane  = bfGetPlane(reader, iPlane);
+                
+                tileMask = d2utils.makeDAPImask(scale(tmpPlane), 'sensitivity', s);
+                
+                tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
+                tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tileMask;
+            end
+            reader.close()
+            
+            p.dapiMask = tmpStitch;
+        end
+        
+        function p = findCells(p)
+            
+            CC = bwconncomp(p.dapiMask);
             rp = regionprops(CC);
             area = [rp.Area];
             idx = area >= p.minNucleusSize;
@@ -42,59 +73,14 @@ classdef cellTable < handle
                 'VariableNames', {'cellID', 'x', 'y', 'status', 'maskID', 'nucleusArea'});
         end
         
-        function outCells = getCellsInRect(p,rect) %rect specified as [x y nrows ncols]
+        function [outCells, idx] = getCellsInRect(p,rect) %rect specified as [x y nrows ncols]
             
-            %outCells = p.cells(p.cells.status==1,:);
-
             idx = p.cells.x >= rect(1) & p.cells.x < rect(1) + rect(3) ...
-                & p.cells.y >= rect(2) & p.cells.y < rect(2) + rect(4) ...
-                & p.cells.status;
+                & p.cells.y >= rect(2) & p.cells.y < rect(2) + rect(4);
             
             outCells = p.cells(idx,:);
         end
         
-        function outCells = getCellsNearRect(p,rect, radius) %rect specified as [x y nrows ncols]
-            
-            %outCells = p.cells(p.cells.status==1,:);
-
-            idx = p.cells.x >= rect(1) - radius & p.cells.x < rect(1) + rect(3) + radius ...
-                & p.cells.y >= rect(2) - radius & p.cells.y < rect(2) + rect(4) + radius ...
-                & p.cells.status;
-            
-            outCells = p.cells(idx,:);
-        end
-                
-        function p = setMinNucleusSize(p,area, dapiMask)
-            p.minNucleusSize = area;
-            %UPDATE CELLS. Shoudl we just change status instead? 
-            p.findCells(dapiMask)
-        end
-        
-        function p = addCell(p, x, y, status, area)
-            if ~isempty(p.cells)
-                tempCells = p.cells;
-                maxID = max(p.cellID);
-                newCell = {maxID+1, x, y, status, 0, area};
-                tempCells = [tempCells;newCell];
-                p.cells = tempCells;
-                % UPDATE SPOTS?
-            else
-                p.cells(1,:) = {1, x, y, status, 0, area};
-            end
-        end
-        
-        function p = removeCell(p, x, y)
-            if ~isempty(p.cells)
-                tempCells = p.cells;
-                [idx, dist] = knnsearch(p.cells{:,{'x','y'}}, [x, y], 'K', 1, 'Distance', 'euclidean');
-                if dist < 40 %make sure that the query point is near a cell
-                    p.cells(idx,:) = [];
-                end
-                % UPDATE SPOTS
-            else
-                disp("cells is empty.")
-            end
-        end
         
         function outCells = getValidCellsInRect(p, rect)
             
@@ -106,59 +92,100 @@ classdef cellTable < handle
             
         end
         
-        function p = maskAllCells(p)
+        function idx = getCellsInRectIdx(p,rect) %rect specified as [x y nrows ncols]
             
-            masksToUpdate = setdiff(p.maskObj.masks.maskID, p.cells.maskID);
-
-            for i = 1:numel(masksToUpdate)
-            end
-            
-            %maskPoly = [x y];
-            corners = d2utils.polygon2BoundingCorners([x,y]);
-            
-            p.cellMasks = [p.cellMasks; table(repmat(tempMaskID, length(x), 1),single(x),single(y), 'VariableNames', {'maskID', 'x', 'y'})];
-            p.cellMasksBB = [p.cellMasksBB; table(repmat(tempMaskID, 4, 1),corners(:,1),corners(:,2), 'VariableNames', {'maskID', 'x', 'y'})];
-            
-            %UPDATE CELLS - inpolygon seems to fast enough for many millions of cells. If it gets too slow, could try selecting cells in localRect first.
-%             tempcells = p.getValidCellsInRect(localRect);
-%             tempIdx = inpolygon(tempcells.x,tempcells.y,x,y);
-            idx = inpolygon(p.cells.x, p.cells.y, x, y) & p.cells.status;
-            p.cells.maskID(idx) = tempMaskID;
-            p.cells.status(idx) = false;
+            idx = p.cells.x >= rect(1) & p.cells.x < rect(1) + rect(3) ...
+                & p.cells.y >= rect(2) & p.cells.y < rect(2) + rect(4) ...
+                & p.cells.status;
         end
         
-        function p = maskCellsInRect(p, localRect)
-            if isempty(p.cellMasks)
-                tempMaskID = single(1);
+        function outCells = getCellsNearRect(p,rect, radius) %rect specified as [x y nrows ncols]
+            
+            idx = p.cells.x >= rect(1) - radius & p.cells.x < rect(1) + rect(3) + radius ...
+                & p.cells.y >= rect(2) - radius & p.cells.y < rect(2) + rect(4) + radius ...
+                & p.cells.status;
+            
+            outCells = p.cells(idx,:);
+        end
+        
+        function p = addCell(p, x, y)  
+            if ~isempty(p.cells)
+                maxID = max(p.cellID);
+                newCell = {maxID+1, single(x), single(y), true, single(0), single(0)}; %Should area be NaN?
+                p.cells = [p.cells; newCell];
+                
             else
-                tempMaskID = single(max(p.cellMasks.maskID)+1);
+                p.cells(1,:) = {single(1), single(x), single(y), true, single(0), single(area)};
             end
-            
-            [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
-            
-            %maskPoly = [x y];
-            corners = d2utils.polygon2BoundingCorners([x,y]);
-            
-            p.cellMasks = [p.cellMasks; table(repmat(tempMaskID, length(x), 1),single(x),single(y), 'VariableNames', {'maskID', 'x', 'y'})];
-            p.cellMasksBB = [p.cellMasksBB; table(repmat(tempMaskID, 4, 1),corners(:,1),corners(:,2), 'VariableNames', {'maskID', 'x', 'y'})];
-            
-            %UPDATE CELLS - inpolygon seems to fast enough for many millions of cells. If it gets too slow, could try selecting cells in localRect first.
-%             tempcells = p.getValidCellsInRect(localRect);
-%             tempIdx = inpolygon(tempcells.x,tempcells.y,x,y);
-            idx = inpolygon(p.cells.x, p.cells.y, x, y) & p.cells.status;
-            p.cells.maskID(idx) = tempMaskID;
-            p.cells.status(idx) = false;
         end
         
-%         function p = removeMasks(p,maskIDs)
-%              
-%             p.masks(ismember(p.masks.maskID,maskIDs),:) = [];
-%             p.masksBB(ismember(p.masksBB.maskID,maskIDs),:) = [];
-%             
-%             p.cells(ismember(p.cells.maskID,maskIDs), 'maskID') = single(0);
-%             p.cells(ismember(p.cells.maskID,maskIDs), 'status') = true; %This assumes that status is determined only by masks
-%             
-%         end
+        function p = removeCell(p, x, y)
+            if ~isempty(p.cells)
+                [idx, dist] = knnsearch(p.cells{:,{'x','y'}}, [x, y], 'K', 1, 'Distance', 'euclidean');
+                if dist < 40 %make sure that the query point is near a cell
+                    p.cells(idx,:) = [];
+                end
+                
+            else
+                disp("cells is empty.")
+            end
+        end
+        
+        function p = updateAllMasks(p) %This will overwrite previous maskIDs in cellTable. 
+            
+            maskTable = p.maskObj.masks(p.maskObj.masks.dapi);
+            maskIDs = unique(maskTable.maskID);
+           
+            for i = 1:numel(maskIDs)
+                idx = inpolygon(p.cells.x, p.cells.y,...
+                    maskTable{maskTable.maskID == maskIDs(i), 'x'}, maskTable{maskTable.maskID == maskIDs(i), 'y'});
+                p.cells.maskID(idx) = maskIDs(i);
+                p.cells.status(idx) = false;
+                
+            end
+            
+        end
+        
+        function p = addNewMask(p)
+            
+            maxCellMask = max(p.maskObj.masks{p.maskObj.masks.dapi,'maskID'});
+            idx = inpolygon(p.cells.x, p.cells.y,...
+                    p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'y'}) & p.cells.status;
+            p.cells.maskID(idx) = maxCellMask;
+            p.cells.status(idx) = false;
+            
+        end
+       
+        function p = updateMasksInRect(p, localRect) %Use for removing masks or if we want to change multiple masks before updating cellTable
+            masksInRect = p.maskObj.getChannelMasksInRect(localRect, 'dapi');
+            maskIDsinRect = unique(masksInRect.maskID);
+            [tmpCells, cellIdx] = p.getCellsInRect(localRect); %It might be faster to not subset the cells and just run inpolygon on entire cellTable. 
+            
+            %Resest status for cellTable
+            p.cells.maskID(cellIdx) = single(0);
+            p.cells.status(cellIdx) = true;
+            for i = 1:numel(maskIDsinRect)
+                idx = inpolygon(tmpCells.x, tmpCells.y,...
+                    masksInRect{masksInRect.maskID == maskIDsinRect(i), 'x'}, masksInRect{masksInRect.maskID == maskIDsinRect(i), 'y'}) & tmpCells.status;
+                tmpCells.maskID(idx) = maskIDs(i);
+                tmpCells.status(idx) = false;
+                
+            end
+            p.cells.maskID(cellIdx) = tmpCells.maskID;
+            p.cells.status(cellIdx) = tmpCells.status;
+ 
+        end
+        
+        function p = removeMasks(p) 
+            %If cell falls within multiple masks and only 1 is removed,
+            %this function may incorrectly set status to true. Prefer using
+            %updateMasksInRect to remove masks
+            
+            masksToRemove = setdiff(p.cells.maskID, p.maskObj.masks.maskID(p.maskObj.masks.dapi));
+            p.cells.maskID(ismember(p.cells.maskID, masksToRemove)) = single(0);
+            p.cells.status(ismember(p.cells.maskID, masksToRemove)) = true;
+        end
+        
         
         function [] = saveCellTable(p, varargin)
             if ~isempty(p.cells)

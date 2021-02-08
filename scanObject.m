@@ -9,8 +9,8 @@ classdef scanObject < handle
         scanMatrix
         dapiStitch
         stitchedScans
-        dapiMask
-        dapiMask2
+%         dapiMask
+%         dapiMask2
         
     end
     
@@ -45,7 +45,7 @@ classdef scanObject < handle
         
         function p = loadTiles(p, scanMatrix, rowTransformCoords, columnTransformCoords)
             
-            [height, width] = tileSize(p);
+            [height, width] = p.tileSize();
             
             for i = 1:numel(scanMatrix)
                 [row,col] = find(scanMatrix == i);
@@ -74,9 +74,9 @@ classdef scanObject < handle
             tileTable = p.tilesTable;
             tilesTmp = transpose(scanMatrix);
             tiles = tilesTmp(:);
-            [height, width] = tileSize(p);
+            [height, width] = p.tileSize();
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
-            channel = find(p.channels == 'dapi');
+            channel = find(ismember(p.channels, 'dapi'));
             reader = bfGetReader(p.scanFile);
             iPlane = reader.getIndex(0, channel - 1, 0) + 1;
             for i = 1:numel(tiles)
@@ -91,60 +91,60 @@ classdef scanObject < handle
             p.dapiStitch = tmpStitch;
         end
         
-        function p = maskDAPI(p, varargin) %vargargin option to specify sensitivity value (between 0 and 1) for adaptthresh.
-            if ~isempty(p.dapiStitch)
-                if nargin == 1
-                    function_binarize = @(block_struct)...
-                        imbinarize(scale(block_struct.data), adaptthresh(scale(block_struct.data), 0.05, 'ForegroundPolarity','bright'));
-                    binary = blockproc(p.dapiStitch, [5000 5000], function_binarize, 'BorderSize', [200 200]);
-                    p.dapiMask = binary;
-                elseif nargin == 2
-                    function_binarize = @(block_struct)...
-                        imbinarize(scale(block_struct.data), adaptthresh(scale(block_struct.data), varargin{1}, 'ForegroundPolarity','bright'));
-                    binary = blockproc(p.dapiStitch, [5000 5000], function_binarize, 'BorderSize', [200 200]);
-                    p.dapiMask = binary;
-                end
-            else
-                disp("dapiStitch is empty. Run stitchDAPI method and try again.")
-            end
-        end
+%         function p = maskDAPI(p, varargin) %vargargin option to specify sensitivity value (between 0 and 1) for adaptthresh.
+%             if ~isempty(p.dapiStitch)
+%                 if nargin == 1
+%                     function_binarize = @(block_struct)...
+%                         imbinarize(scale(block_struct.data), adaptthresh(scale(block_struct.data), 0.05, 'ForegroundPolarity','bright'));
+%                     binary = blockproc(p.dapiStitch, [5000 5000], function_binarize, 'BorderSize', [200 200]);
+%                     p.dapiMask = binary;
+%                 elseif nargin == 2
+%                     function_binarize = @(block_struct)...
+%                         imbinarize(scale(block_struct.data), adaptthresh(scale(block_struct.data), varargin{1}, 'ForegroundPolarity','bright'));
+%                     binary = blockproc(p.dapiStitch, [5000 5000], function_binarize, 'BorderSize', [200 200]);
+%                     p.dapiMask = binary;
+%                 end
+%             else
+%                 disp("dapiStitch is empty. Run stitchDAPI method and try again.")
+%             end
+%         end
         
-        function p = stitchDAPImask(p, scanMatrix, varargin)  
-            tileTable = p.tilesTable;
-            tilesTmp = transpose(scanMatrix);
-            tiles = tilesTmp(:);
-            [height, width] = tileSize(p);
-            tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'logical');
-            channel = find(p.channels == 'dapi');
-            reader = bfGetReader(p.scanFile);
-            iPlane = reader.getIndex(0, channel - 1, 0) + 1;
-            
-            if nargin == 2
-                s = 0.1;
-            elseif nargin == 3
-                s = varargin{1};
-            end
-                
-            for i = 1:numel(tiles)
-                
-                reader.setSeries(tiles(i)-1);
-                tmpPlane  = bfGetPlane(reader, iPlane);
-                
-                tileMask = d2utils.makeDAPImask(scale(tmpPlane), 'sensitivity', s);
-                
-                tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
-                tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tileMask;
-            end
-            reader.close()
-            
-            p.dapiMask2 = tmpStitch;
-        end
+%         function p = stitchDAPImask(p, scanMatrix, varargin)  
+%             tileTable = p.tilesTable;
+%             tilesTmp = transpose(scanMatrix);
+%             tiles = tilesTmp(:);
+%             [height, width] = p.tileSize();
+%             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'logical');
+%             channel = find(p.channels == 'dapi');
+%             reader = bfGetReader(p.scanFile);
+%             iPlane = reader.getIndex(0, channel - 1, 0) + 1;
+%             
+%             if nargin == 2
+%                 s = 0.1;
+%             elseif nargin == 3
+%                 s = varargin{1};
+%             end
+%                 
+%             for i = 1:numel(tiles)
+%                 
+%                 reader.setSeries(tiles(i)-1);
+%                 tmpPlane  = bfGetPlane(reader, iPlane);
+%                 
+%                 tileMask = d2utils.makeDAPImask(scale(tmpPlane), 'sensitivity', s);
+%                 
+%                 tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
+%                 tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tileMask;
+%             end
+%             reader.close()
+%             
+%             p.dapiMask2 = tmpStitch;
+%         end
                 
         function tmpStitch = stitchChannel(p, scanMatrix, channel)  
             tileTable = p.tilesTable;
             tilesTmp = transpose(scanMatrix);
             tiles = tilesTmp(:);
-            [height, width] = tileSize(p);
+            [height, width] = p.tileSize();
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
             c = find(p.channels == channel);
             reader = bfGetReader(p.scanFile);
@@ -164,7 +164,7 @@ classdef scanObject < handle
             tileTable = p.tilesTable;
             tilesTmp = transpose(p.scanMatrix);
             tiles = tilesTmp(:);
-            [height, width] = tileSize(p);
+            [height, width] = p.tileSize();
             stitches = cell(1,numel(channels));
             channelIdx = find(ismember(p.channels, channels));
             reader = bfGetReader(p.scanFile);
