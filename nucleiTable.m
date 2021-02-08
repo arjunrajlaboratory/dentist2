@@ -138,14 +138,13 @@ classdef nucleiTable < handle
             
             maskTable = p.maskObj.masks(p.maskObj.masks.dapi, :);
             maskIDs = unique(maskTable.maskID);
-            p.nuclei.maskID = single(0);
-            p.nuclei.status = false;
+            p.nuclei.maskID(:) = single(0);
+            p.nuclei.status(:) = true;
             for i = 1:numel(maskIDs)
                 idx = inpolygon(p.nuclei.x, p.nuclei.y,...
                     maskTable{maskTable.maskID == maskIDs(i), 'x'}, maskTable{maskTable.maskID == maskIDs(i), 'y'}) & p.nuclei.status;
                 p.nuclei.maskID(idx) = maskIDs(i);
                 p.nuclei.status(idx) = false;
-                
             end
             
         end
@@ -175,8 +174,8 @@ classdef nucleiTable < handle
             [tmpNuclei, nucIdx] = p.getNucleiInRect(localRect); %It might be faster to not subset the nuclei and just run inpolygon on entire nuclei table. 
             
             %Resest status for nuclei
-            p.nuclei.maskID(nucIdx) = single(0);
-            p.nuclei.status(nucIdx) = true;
+            tmpNuclei.maskID(:) = single(0);
+            tmpNuclei.status(:) = true;
             for i = 1:numel(maskIDsinRect)
                 idx = inpolygon(tmpNuclei.x, tmpNuclei.y,...
                     masksInRect{masksInRect.maskID == maskIDsinRect(i), 'x'}, masksInRect{masksInRect.maskID == maskIDsinRect(i), 'y'}) & tmpNuclei.status;

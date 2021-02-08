@@ -44,8 +44,8 @@ classdef maskTable < handle
             
             tmpMaskBBTable = array2table(repmat(channelIdx, 4, 1), 'VariableNames', p.masksBB.Properties.VariableNames);
             tmpMaskBBTable.maskID = repmat(tempMaskID,  4, 1);
-            tmpMaskBBTable.x = corners(:,1);
-            tmpMaskBBTable.y = corners(:,2);
+            tmpMaskBBTable.x =  single(corners(:,1));
+            tmpMaskBBTable.y =  single(corners(:,2));
             p.masksBB = [p.masksBB; tmpMaskBBTable];
 
         end

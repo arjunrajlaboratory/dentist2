@@ -56,11 +56,11 @@ classdef spotTable < handle
         
         
         function p = assignSpotsToNuclei(p)
-            validNuclei = p.nucleiObj.nuclei(p.nucleiObj.nuclei.status);
+            validNucleiIdx = p.nucleiObj.nuclei.status;
             
-            [idx, dist] = knnsearch([validNuclei.x, validNuclei.y], [p.spots.x, p.spots.y], 'K', 1, 'Distance', 'euclidean');
+            [idx, dist] = knnsearch([p.nucleiObj.nuclei.x(validNucleiIdx), p.nucleiObj.nuclei.y(validNucleiIdx)], [p.spots.x, p.spots.y], 'K', 1, 'Distance', 'euclidean');
             
-            p.spots.nearestNucID = validNuclei.nucID(idx);
+            p.spots.nearestNucID = p.nucleiObj.nuclei.nucID(idx);
             p.spots.distanceToNuc = single(dist);
             
         end
@@ -93,7 +93,7 @@ classdef spotTable < handle
             outSpots = p.spots(idx,:);
         end
         
-        function outSpots = getSpotsInRect(p,channel,rect) %rect specified as [x y nrows ncols]
+        function [outSpots,idx] = getSpotsInRect(p,channel,rect) %rect specified as [x y nrows ncols]
             %outSpots = p.spots(p.spots.channel == channel,:);
             %outSpots = outSpots(outSpots.status,:);
 
@@ -107,6 +107,14 @@ classdef spotTable < handle
         function idx = getValidSpotsInRectIndex(p,channel,rect) 
             
             idx = p.spots.channel == channel & p.spots.status ... 
+                & p.spots.x >= rect(1) & p.spots.x < rect(1) + rect(3) ...
+                & p.spots.y >= rect(2) & p.spots.y < rect(2) + rect(4);
+            
+        end
+        
+        function idx = getSpotsInRectIndex(p,channel,rect)
+
+            idx = p.spots.channel == channel ... 
                 & p.spots.x >= rect(1) & p.spots.x < rect(1) + rect(3) ...
                 & p.spots.y >= rect(2) & p.spots.y < rect(2) + rect(4);
             
@@ -137,12 +145,12 @@ classdef spotTable < handle
             
         end
         
-        function p = addNewMaskInRect(p, channel)
+        function p = addNewMask(p, channel)
             
             maxSpotMask = max(p.maskObj.masks{p.maskObj.masks{:,channel},'maskID'});
             maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxSpotMask,{'x', 'y'}}; %Only query spots within mask bouding box
             polyRect = d2utils.boundingCorners2Rect(maskBB);
-            spotIdx = getValidSpotsInRectIndex(channel, polyRect);
+            spotIdx = p.getSpotsInRectIndex(channel, polyRect);
             idx = inpolygon(p.spots.x(spotIdx), p.spots.y(spotIdx),...
                 p.maskObj.masks{p.maskObj.masks.maskID == maxSpotMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxSpotMask, 'y'});
             
@@ -153,46 +161,42 @@ classdef spotTable < handle
             
         end
         
-%         function p = updateMasksInRect(p, channel, localRect) %%NEEDS TO
-%         BE FIXED
-%             %Use for removing masks or if we want to change multiple masks
-%             %before updating spots
-%             %Probably could use some speeding up. 
-%             masksInRect = p.maskObj.getChannelMasksInRect(localRect, channel);
-%             maskIDsinRect = unique(masksInRect.maskID);
-%             [tmpSpots, spotIdx] = getValidSpotsInRect(channel, localRect);            
-%             
-%             %Resest status for nuclei
-%             p.spots.maskID(spotIdx) = single(0);
-%             tmpSpots.status = true;
-%             for i = 1:numel(maskIDsinRect)
-%                 idxPoly = inpolygon(tmpSpots.x, tmpSpots.y,...
-%                     masksInRect{masksInRect.maskID == maskIDsinRect(i), 'x'}, masksInRect{masksInRect.maskID == maskIDsinRect(i), 'y'}) & tmpSpots.status;
-%                 
-%                 tmpSpots.maskID(idxPoly) = maskIDsinRect(i);
-%                 tmpSpots.status(idxPoly) = false;
-%                 
-%             end
-%             
-%             p.spots.maskID(spotIdx) = tmpSpots.maskID;
-%             p.updateSpotStatus(channel);
-%             
-%             p.spots.status(spotIdx) = tmpSpots.status;
-%  
-%         end
+        function p = updateMasksInRect(p, channel, localRect) 
+            %Use for removing masks or if we want to change multiple masks
+            %before updating spots
+            %Probably could use some speeding up. 
+            masksInRect = p.maskObj.getChannelMasksInRect(localRect, channel);
+            maskIDsinRect = unique(masksInRect.maskID);
+            [tmpSpots, spotIdx] = getSpotsInRect(channel, localRect);            
+            
+            %Resest status for nuclei
+            tmpSpots.maskID(:) = single(0);
+            tmpSpots.status(:) = true;
+            for i = 1:numel(maskIDsinRect)
+                idxPoly = inpolygon(tmpSpots.x, tmpSpots.y,...
+                    masksInRect{masksInRect.maskID == maskIDsinRect(i), 'x'}, masksInRect{masksInRect.maskID == maskIDsinRect(i), 'y'}) & tmpSpots.status;
+                
+                tmpSpots.maskID(idxPoly) = maskIDsinRect(i);
+                tmpSpots.status(idxPoly) = false;
+                
+            end
+            
+            p.spots.maskID(spotIdx) = tmpSpots.maskID;
+            p.updateSpotStatus(channel);
+        end
         
         function p = removeMasks(p, channel) 
             %If spot falls within multiple masks and only 1 is removed,
             %this function may incorrectly set status to true. Can instead
             %use updateMasksInRect
             
-            masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masks.maskID(p.maskObj.masks{:,channel}));
+            masksToRemove = setdiff(p.spots.maskID, p.maskObj.masks.maskID(p.maskObj.masks{:,channel}));
             p.spots.maskID(ismember(p.spots.maskID, masksToRemove)) = single(0);
             p.updateSpotStatus(channel);
         end
        
         function p = updateSpotStatus(p,channel)
-            threshold = p.thresholds{p.spotChannels == channel};
+            threshold = p.thresholds{ismember(p.spotChannels, channel)};
             spotIdx = p.spots.channel == channel & p.spots.intensity >= threshold ...
                 & p.spots.distanceToNuc <= p.maxDistance & p.spots.maskID == 0;
             
@@ -203,19 +207,10 @@ classdef spotTable < handle
         
         function p = updateAllSpotStatus(p)
             for i = 1:numel(p.spotChannels)
-                p.updateSpotStatus(p.spotChannels{i})
+                p.updateSpotStatus(p.spotChannels{i});
             end
         end
-        
-        function intensities = getIntensities(p,channel)
-            intensities = p.spots{p.spots.channel == channel,'intensity'};
-        end
-        
-        function intensityThresh = getIntensityThreshold(p,channel)
-            intensityThresh = p.thresholds{p.spots.channel == channel};
-        end
-        
-
+       
         function p = findSpots(p) %BE should we make a faster version that uses blockproc on stitched data? 
 
             if isempty(p.theFilter) == 2
@@ -236,7 +231,7 @@ classdef spotTable < handle
             reader = bfGetReader(p.scanObj.scanFile);
             
             for i = 1:numel(p.spotChannels)
-                currChannel = p.spotChannels(i);
+                currChannel = p.spotChannels{i};
                 fprintf('Finding %s spots\n',currChannel);
                 iPlane = reader.getIndex(0, i - 1, 0) + 1;
                 channelCount = 0;
@@ -245,15 +240,15 @@ classdef spotTable < handle
                     tmpPlane  = bfGetPlane(reader, iPlane);
                     [tempX, tempY, tempIntensity] = d2utils.findSpotsInImage(tmpPlane, p.percentileToKeep, 'filter', filt);
                     %Adjust local to global coordinates
-                    tempX = tempX + tilesTable.left(tiles(ii)) - 1;
-                    tempY = tempY + tilesTable.top(tiles(ii)) - 1; 
+                    tempX = tempX + tilesTable.left(tiles(ii));
+                    tempY = tempY + tilesTable.top(tiles(ii)); 
                     
                     x = [x ; tempX];
                     y = [y ; tempY];
                     intensity = [intensity ; tempIntensity];
                     channelCount = channelCount + length(tempX);
                 end
-                channel = [channel ; repmat(currChannel,channelCount,1)];
+                channel = [channel ; repmat(string(currChannel),channelCount,1)]; %somewhat less memory with string array vs cell array
             end
             reader.close()
             
