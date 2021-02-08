@@ -111,7 +111,7 @@ classdef spotTable < handle
                 & p.spots.y >= rect(2) & p.spots.y < rect(2) + rect(4);
             
         end
-        
+                
         function p = updateAllMasks(p)  %Note, this will overwrite previous maskIDs in spotTable. 
             
             for i = 1:numel(p.spotChannels)
@@ -119,16 +119,20 @@ classdef spotTable < handle
                 maskTable = p.maskObj.masks(channelIdx,:);
                 maskIDs = unique(maskTable.maskID);
                 spotIdx = p.spots.channel == channel;
-                spotTable = p.spots(spotIdx,:);
-                spotTable.maskID = single(0);
+                p.spots.maskID(spotIdx) =  single(0);
+                p.updateSpotStatus(p.spotChannels(i))
+                
+                validSpotIdx = p.spots.channel == channel & p.spots.status;
+                spotTable = p.spots(validSpotIdx,:);
+                
                 for ii = 1:numel(maskIDs)
                     idx = inpolygon(spotTable.x, spotTable.y,...
-                        maskTable{maskTable.maskID == maskIDs(ii), 'x'}, maskTable{maskTable.maskID == maskIDs(ii), 'y'}) & spotTable.maskID == 0;
+                        maskTable{maskTable.maskID == maskIDs(ii), 'x'}, maskTable{maskTable.maskID == maskIDs(ii), 'y'}) & spotTable.status;
                     spotTable.maskID(idx) = maskIDs(ii); 
                     spotTable.status(idx) = false; 
                 end
-                p.spots.maskID(spotIdx) = spotTable.maskID;
-                p.spots.status(spotIdx) = spotTable.status;
+                p.spots.maskID(validSpotIdx) = spotTable.maskID;
+                p.spots.status(validSpotIdx) = spotTable.status;
             end 
             
         end
@@ -171,7 +175,7 @@ classdef spotTable < handle
 %             end
 %             
 %             p.spots.maskID(spotIdx) = tmpSpots.maskID;
-%             p.updateSpotStatus();
+%             p.updateSpotStatus(channel);
 %             
 %             p.spots.status(spotIdx) = tmpSpots.status;
 %  
@@ -184,7 +188,7 @@ classdef spotTable < handle
             
             masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masks.maskID(p.maskObj.masks{:,channel}));
             p.spots.maskID(ismember(p.spots.maskID, masksToRemove)) = single(0);
-            p.spots.status(ismember(p.spots.maskID, masksToRemove)) = true;
+            p.updateSpotStatus(channel);
         end
        
         function p = updateSpotStatus(p,channel)
