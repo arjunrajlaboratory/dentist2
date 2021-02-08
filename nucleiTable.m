@@ -6,21 +6,20 @@ classdef nucleiTable < handle
         minNucleusSize = 1000; %Update set method to call findNuclei and updateAllMasks
         dapiMask
         
-        maskObj  
         scanObj
-        
-
+        maskObj  
+       
     end
     
     methods
         
-        function p = nucleiTable(maskObj, scanObject, varargin)
-            p.maskObj = maskObj;
+        function p = nucleiTable(scanObject, maskObj, varargin)
             p.scanObj = scanObject;
-            if nargin == 1
+            p.maskObj = maskObj;
+            if nargin == 2
                 fprintf('New Table\n');
                 p.nuclei = cell2table(cell(0,6), 'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}); 
-            elseif nargin == 2
+            elseif nargin == 3
                 fprintf('Loading Table\n');
                 p.nuclei = readtable(varargin{1},'TextType','string');
             end
@@ -32,13 +31,13 @@ classdef nucleiTable < handle
             tiles = tilesTmp(:);
             [height, width] = p.scanObj.tileSize();
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'logical');
-            channel = find(p.scanObj.channels == 'dapi');
+            channel = find(ismember(p.scanObj.channels,'dapi'));
             reader = bfGetReader(p.scanObj.scanFile);
             iPlane = reader.getIndex(0, channel - 1, 0) + 1;
             
-            if nargin == 2
+            if nargin == 1
                 s = 0.1;
-            elseif nargin == 3
+            elseif nargin == 2
                 s = varargin{1};
             end
                 
@@ -172,7 +171,7 @@ classdef nucleiTable < handle
             %Use for removing masks or if we want to change multiple masks before updating nuclei
             %Probably could use some speeding up. 
             masksInRect = p.maskObj.getChannelMasksInRect(localRect, 'dapi');
-            
+            maskIDsinRect = unique(masksInRect.maskID);
             [tmpNuclei, nucIdx] = p.getNucleiInRect(localRect); %It might be faster to not subset the nuclei and just run inpolygon on entire nuclei table. 
             
             %Resest status for nuclei
@@ -181,7 +180,7 @@ classdef nucleiTable < handle
             for i = 1:numel(maskIDsinRect)
                 idx = inpolygon(tmpNuclei.x, tmpNuclei.y,...
                     masksInRect{masksInRect.maskID == maskIDsinRect(i), 'x'}, masksInRect{masksInRect.maskID == maskIDsinRect(i), 'y'}) & tmpNuclei.status;
-                tmpNuclei.maskID(idx) = maskIDs(i);
+                tmpNuclei.maskID(idx) = maskIDsinRect(i);
                 tmpNuclei.status(idx) = false;
                 
             end

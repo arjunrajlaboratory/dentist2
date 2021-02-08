@@ -146,7 +146,7 @@ classdef scanObject < handle
             tiles = tilesTmp(:);
             [height, width] = p.tileSize();
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
-            c = find(p.channels == channel);
+            c = find(ismember(p.channels,channel));
             reader = bfGetReader(p.scanFile);
             iPlane = reader.getIndex(0, c - 1, 0) + 1;
             for i = 1:numel(tiles)
@@ -191,6 +191,10 @@ classdef scanObject < handle
             channelIdx = ismember(p.stitchedScans.labels, channel);
             outIm = p.stitchedScans.stitches{channelIdx};
             outIm = outIm(rect(1):rect(1)+rect(3), rect(2):rect(2)+rect(4)); %Kinda ugly, would prefer using imcrop
+        end
+        
+        function outIm = getDapiImage(p, rect) %rect specified as [x y nrows ncols]
+            outIm = p.dapiStitch(rect(1):rect(1)+rect(3), rect(2):rect(2)+rect(4));
         end
         
         function [] = savetilesTable(p, varargin)
