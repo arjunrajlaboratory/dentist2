@@ -4,23 +4,30 @@ classdef maskTable < handle
         
         masks
         masksBB
+        channels
     end
     
     methods
         
         function p = maskTable(scanObject, varargin)
             channels = convertStringsToChars(scanObject.channels);
-            channels = channels(~ismember(channels, 'trans'));
+            p.channels = channels(~ismember(channels, 'trans'));
             if nargin == 1
                 fprintf('New Mask Table\n');
-                p.masks = array2table(false(0,numel(channels) + 3), 'VariableNames', [{'maskID','x','y'} , channels]);
-                p.masksBB = array2table(false(0,numel(channels) + 3), 'VariableNames', [{'maskID','x','y'} , channels]);
+                p.masks = table('Size', [0, numel(p.channels) + 3],...
+                    'VariableNames', [{'maskID','x','y'} , p.channels],...
+                    'VariableTypes', [repmat({'single'}, 1, 3) , repmat({'logical'}, 1, numel(p.channels))]);
+                p.masksBB = table('Size', [0, numel(p.channels) + 2],...
+                    'VariableNames', [{'maskID','BB'} , p.channels],...
+                    'VariableTypes', [repmat({'single'}, 1, 2) , repmat({'logical'}, 1, numel(p.channels))]);
+%                 p.masks = table(false(0,numel(p.channels) + 3), 'VariableNames', [{'maskID','x','y'} , p.channels]);
+%                 p.masksBB = array2table(false(0,numel(p.channels) + 5), 'VariableNames', [{'maskID','x','y', 'h', 'w'} , p.channels]);
             elseif nargin == 2 % Otherwise, load the specified table
                 fprintf('Loading Table\n');
                 tmpMasks = readtable(varargin{1},'TextType','string');
-                tmpMasks = convertvars(tmpMasks,{'maskID', 'x', 'y'},'single'); %NEED TO FIX: even though converting to single, x and y not == to orignal data
+                tmpMasks = convertvars(tmpMasks,{'maskID', 'x', 'y'},'single');
                 p.masks = convertvars(tmpMasks,4:width(tmpMasks),'logical');
-                p.allMasks2Corners();
+                p.allMasks2BB();
             end
         end
         
@@ -34,19 +41,16 @@ classdef maskTable < handle
             
             [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
             
-            corners = d2utils.polygon2BoundingCorners([x,y]);
-            channelIdx = ismember(p.masks.Properties.VariableNames, channel);
-            tmpMaskTable = array2table(repmat(channelIdx, length(x), 1), 'VariableNames', p.masks.Properties.VariableNames);
-            tmpMaskTable.maskID = repmat(tempMaskID,  length(x), 1);
-            tmpMaskTable.x = single(x);
-            tmpMaskTable.y = single(y);
-            p.masks = [p.masks; tmpMaskTable];
+            channelIdx = ismember(p.channels, channel);
             
-            tmpMaskBBTable = array2table(repmat(channelIdx, 4, 1), 'VariableNames', p.masksBB.Properties.VariableNames);
-            tmpMaskBBTable.maskID = repmat(tempMaskID,  4, 1);
-            tmpMaskBBTable.x =  single(corners(:,1));
-            tmpMaskBBTable.y =  single(corners(:,2));
-            p.masksBB = [p.masksBB; tmpMaskBBTable];
+            tmpCoords = table(repmat(tempMaskID,  length(x), 1), single(x), single(y), 'VariableNames',{'maskID', 'x', 'y'});
+            tmpChannelTable = array2table(repmat(channelIdx, length(x), 1), 'VariableNames', p.channels);
+
+            p.masks = [p.masks; [tmpCoords, tmpChannelTable]];
+
+            BB = d2utils.polygonBoundingBox([x,y]);
+            tmpCoords = cell2table({tempMaskID, single(BB)}, 'VariableNames',{'maskID', 'BB'});
+            p.masksBB = [p.masksBB; [tmpCoords, tmpChannelTable(1,:)]];
 
         end
         
@@ -63,35 +67,28 @@ classdef maskTable < handle
         
         function outMasks = getAllMasksInRect(p, rect)
             
-            idx = p.masksBB.x >= rect(1) & p.masksBB.x < rect(1) + rect(3) ...
-                & p.masksBB.y >= rect(2) & p.masksBB.y < rect(2) + rect(4);
-            
-            maskIDtoKeep = unique(p.masksBB.maskID(idx));
-            
-            outMasks = p.masks(ismember(p.masks.maskID, maskIDtoKeep) ,:);
+            idx = rectint(p.masksBB.BB,rect) > 0;
+                        
+            outMasks = p.masks(ismember(p.masks.maskID, p.masksBB.maskID(idx)) ,:);
         end
         
         function outMasks = getChannelMasksInRect(p, rect, channel)
-            channelIdx = ismember(p.masks.Properties.VariableNames, channel);
             
-            idx = p.masksBB{:,channelIdx} ...
-                & p.masksBB.x >= rect(1) & p.masksBB.x < rect(1) + rect(3) ...
-                & p.masksBB.y >= rect(2) & p.masksBB.y < rect(2) + rect(4);
-            
-            maskIDtoKeep = unique(p.masksBB.maskID(idx));
-            
-            outMasks = p.masks(ismember(p.masks.maskID, maskIDtoKeep) ,:);
+            idx = rectint(p.masksBB.BB, rect) > 0 & p.masksBB{:, channel};
+           
+            outMasks = p.masks(ismember(p.masks.maskID, p.masksBB.maskID(idx)) ,:);
         end
         
-        function p = allMasks2Corners(p)
-            p.masksBB = array2table(false(0,width(p.masks)), 'VariableNames', p.masks.Properties.VariableNames);
+        function p = allMasks2BB(p)
+            p.masksBB = table('Size', [0, numel(p.channels) + 2],...
+                    'VariableNames', [{'maskID','BB'} , p.channels],...
+                    'VariableTypes', [repmat({'single'}, 1, 2) , repmat({'logical'}, 1, numel(p.channels))]);
             uniqueMaskIDs = unique(p.masks.maskID);
             for i = 1:numel(uniqueMaskIDs)
                 tempMask = p.masks(p.masks.maskID == uniqueMaskIDs(i), :);
-                tempMaskBB = repmat(tempMask(1,:), 4, 1);
-                tempCorners = d2utils.polygon2BoundingCorners(tempMask{:,{'x', 'y'}});
-                tempMaskBB{:,{'x', 'y'}} =  single(tempCorners);
-                p.masksBB = [p.masksBB; tempMaskBB];
+                BB = d2utils.polygonBoundingBox(tempMask{:,{'x', 'y'}});
+                tmpCoords = cell2table({uniqueMaskIDs(i), single(BB)}, 'VariableNames',{'maskID', 'BB'});
+                p.masksBB = [p.masksBB; [tmpCoords, tempMask(1,4:end)]];
             end
         end
        
