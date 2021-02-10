@@ -3,6 +3,7 @@ classdef spotTable < handle
     properties (Access = public)
         
         spots
+        centroidLists %Not sure if this should go into the View
         
         thresholds
         spotChannels
@@ -148,9 +149,9 @@ classdef spotTable < handle
         function p = addNewMask(p, channel)
             
             maxSpotMask = max(p.maskObj.masks{p.maskObj.masks{:,channel},'maskID'});
-            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxSpotMask,{'x', 'y'}}; %Only query spots within mask bouding box
-            polyRect = d2utils.boundingCorners2Rect(maskBB);
-            spotIdx = p.getSpotsInRectIndex(channel, polyRect);
+            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,{'BB'}}; %Only query nuclei within mask bouding box
+            %polyRect = d2utils.boundingCorners2Rect(maskBB);
+            spotIdx = p.getSpotsInRectIndex(channel, maskBB);
             idx = inpolygon(p.spots.x(spotIdx), p.spots.y(spotIdx),...
                 p.maskObj.masks{p.maskObj.masks.maskID == maxSpotMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxSpotMask, 'y'});
             
@@ -197,11 +198,12 @@ classdef spotTable < handle
        
         function p = updateSpotStatus(p,channel)
             threshold = p.thresholds{ismember(p.spotChannels, channel)};
-            spotIdx = p.spots.channel == channel & p.spots.intensity >= threshold ...
-                & p.spots.distanceToNuc <= p.maxDistance & p.spots.maskID == 0;
+            channelIdx = ismember(p.spots.channel, channel);
+            spotIdx = p.spots.intensity(channelIdx) >= threshold ...
+                & p.spots.distanceToNuc(channelIdx) <= p.maxDistance & p.spots.maskID(channelIdx) == 0;
             
-            p.spots.status(spotIdx) = true;
-            p.spots.status(~spotIdx) = false;
+            p.spots.status(channelIdx) = spotIdx;
+            %p.spots.status(~spotIdx) = false;
                     
         end
         
@@ -261,8 +263,37 @@ classdef spotTable < handle
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
-        function outTable = getSpotsPerNuc(p)
-            %INSERT CODE
+        function p = findSpots2(p) 
+            %Consider method that first stitches the filtered images then
+            %finds regional maxima to avoid artifacts of spots in tile
+            %overlap. c
+        end
+        
+        function p = makeCentroidList(p)
+            p.centroidLists = cell(0, numel(p.spotChannels));
+            for i = 1:numel(p.spotChannels)
+                p.centroidLists{i} = sortrows(p.tabluteChannel(p.spotChannels{i}), 'GroupCount', 'descend');
+            end
+        end
+        
+        function outTable = centroidTableInRect(p, channelIdx, rect)
+%             channelIdx = ismember(p.spotChannels, channel);
+            centroidIdx = p.centroidLists{channelIdx}.x >= rect(1)...
+                & p.centroidLists{channelIdx}.x < rect(1) + rect(3) ...
+                & p.centroidLists{channelIdx}.y >= rect(2)...
+                & p.centroidLists{channelIdx}.y < rect(2) + rect(4);
+            outTable = p.centroidLists{channelIdx}(centroidIdx,:);
+        end
+        
+        function outTable = tabluteChannel(p, channel)
+            idx = ismember(p.spots.channel, channel) & p.spots.status;
+            tmpSpots = groupsummary(p.spots(idx, :), 'nearestNucID');
+            outTable = outerjoin(tmpSpots, p.nucleiObj.nuclei(:,{'nucID', 'x', 'y'}), 'Type', 'left', 'LeftKeys', 'nearestNucID', 'RightKeys', 'nucID');
+        end
+        
+        function outTable = tabluteAllChannels(p)
+            tmpSpots = groupsummary(p.spots(p.spots.status, :), {'channel', 'nearestNucID'});
+            outTable = outerjoin(tmpSpots, p.nucleiObj.nuclei(:,{'nucID', 'x', 'y'}), 'Type', 'left', 'LeftKeys', 'nearestNucID', 'RightKeys', 'nucID');
         end
         
         %Set functions

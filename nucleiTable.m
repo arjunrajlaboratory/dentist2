@@ -151,11 +151,11 @@ classdef nucleiTable < handle
         
         function p = addNewMask(p)
             
-            maxCellMask = max(p.maskObj.masks{p.maskObj.masks.dapi,'maskID'});
-            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,{'x', 'y'}}; %Only query nuclei within mask bouding box
-            polyRect = d2utils.boundingCorners2Rect(maskBB);
+            maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
+            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,{'BB'}}; %Only query nuclei within mask bouding box
+            %polyRect = d2utils.boundingCorners2Rect(maskBB);
             
-            nucIdx = p.getNucleiInRectIdx(polyRect);
+            nucIdx = p.getNucleiInRectIdx(maskBB);
             polyIdx = inpolygon(p.nuclei.x(nucIdx), p.nuclei.y(nucIdx),...
                 p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'y'});
             
@@ -193,7 +193,7 @@ classdef nucleiTable < handle
             %this function may incorrectly set status to true. Can instead
             %use updateMasksInRect
             
-            masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masks.maskID(p.maskObj.masks.dapi));
+            masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masksBB.maskID(p.maskObj.masksBB.dapi));
             p.nuclei.maskID(ismember(p.nuclei.maskID, masksToRemove)) = single(0);
             p.nuclei.status(ismember(p.nuclei.maskID, masksToRemove)) = true;
         end
