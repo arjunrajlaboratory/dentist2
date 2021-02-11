@@ -26,7 +26,7 @@ classdef d2ThresholdController < handle
             p.maskObj = maskObj;
             p.nucleiObj = nucleiObj;
             
-            p.viewRect = [1, 1, max(p.spotTable.centroidLists{1}{:,{'x', 'y'}})];
+            p.viewRect = [1, 1, max(p.spotTable.centroidLists{1}{:,{'y', 'x'}})];
             p.startup()
         end
         
@@ -38,15 +38,15 @@ classdef d2ThresholdController < handle
             p.plotIntensityThreshold(p.channelIdx)
         end
         
-        function p = changeChannel(p, src, evt)
+        function p = changeChannel(p, ~, ~)
             p.channelIdx = p.viewObj.channelPopup.Value;
             %Update centroid listbox
             p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.channelIdx}.GroupCount);
-            updateMainAxes(p, p.channelIdx);
+            p.plotScatterMain(p.channelIdx);
             
         end
         
-        function p = centroidSelected(p, src, evt)
+        function p = centroidSelected(p, src, ~)
             if strcmp(src.Parent.SelectionType, 'open') %Respond to double mouse click
                 p.channelIdx = p.viewObj.channelPopup.Value;
                 cellIdx = p.viewObj.centroidList.Value;
@@ -93,32 +93,26 @@ classdef d2ThresholdController < handle
         function plotScatterMain(p, channelIdx)
             %channelIdx = p.viewObj.channelPopup.Value;
             centroidsInView = p.spotTable.centroidTableInRect(channelIdx, p.viewRect);
-            p.scatterH = scatter(centroidsInView.y, centroidsInView.x,...
-                20, centroidsInView.GroupCount, 'filled',...
-                'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'scatterH');
             set(p.viewObj.mainAxes, 'Xlim', [p.viewRect(2)-1,  p.viewRect(2)+p.viewRect(4)+1])
             set(p.viewObj.mainAxes, 'Ylim', [p.viewRect(1)-1,  p.viewRect(1)+p.viewRect(3)+1])
-            set(p.viewObj.mainAxes, 'Ydir','reverse');
-            colorbar(p.viewObj.mainAxes, 'Location', 'eastoutside','HitTest','off')
-            set(p.viewObj.mainAxes, 'Interactions',[]);
-            set(p.viewObj.mainAxes.Toolbar, 'Visible','off');
-
+            hold(p.viewObj.mainAxes, 'on')
+            p.scatterH = scatter(centroidsInView.y, centroidsInView.x,...
+                20, centroidsInView.GroupCount, 'filled',...
+                'Parent', p.viewObj.mainAxes, 'HitTest','off');
+             hold(p.viewObj.mainAxes, 'off')
+            %colorbar(p.viewObj.mainAxes, 'Location', 'eastoutside','HitTest','off')
         end
         
         function figWindowDown(p, ~, ~)
-            %disp(get(p.viewObj.mainAxes, 'CurrentPoint'));
             if ~(p.selectionOutSideMainView(get(p.viewObj.mainAxes, 'CurrentPoint')))
-                disp('mainAxesClicked')
-                %k = p.getSelectionType
                 switch(p.getSelectionType)
                     case 'normal'
                         p.zoomStart = get(p.viewObj.mainAxes, 'CurrentPoint');
                         set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopDragFcn});
                         set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.mainAxesZoom});
                     case 'open'
-                        p.viewRect = [1, 1, max(p.spotTable.centroidLists{1}{:,{'x', 'y'}})];
+                        p.viewRect = [1, 1, max(p.spotTable.centroidLists{1}{:,{'y', 'x'}})];
                         p.plotScatterMain(p.viewObj.channelPopup.Value)
-                        %(p.viewObj.figHandle, 'WindowButtonUpFcn', '');
                 end
             end
         end
@@ -126,7 +120,6 @@ classdef d2ThresholdController < handle
         function mainAxesZoom(p, ~, ~)
             if ishandle(p.viewObj.zoomH)
                 delete(p.viewObj.zoomH)
-                %delete(p.zoomRect)
             end
             p.getSelectedRectangleCoords()
             if p.zoomRect(3) > 4 && p.zoomRect(4) > 4
@@ -135,22 +128,16 @@ classdef d2ThresholdController < handle
                     'EdgeColor', 'r', ...
                     'Parent', p.viewObj.mainAxes,...
                     'Hittest', 'off');
-                
              end
         end
         
         function pos = selectionOutSideMainView(p, point)
             pos = p.viewRect(1) > point(1,2) || p.viewRect(1)+ p.viewRect(3) < point(1,2)...
-                || p.viewRect(2) > point(1,1) || p.viewRect(2)+ p.viewRect(4) < point(1,1)
+                || p.viewRect(2) > point(1,1) || p.viewRect(2)+ p.viewRect(4) < point(1,1);
         end
         
         function getSelectedRectangleCoords(p)
             currentPoint = get(p.viewObj.mainAxes, 'CurrentPoint');
-            %xLimits = xlim(p.axH);
-            %yLimits = ylim(p.axH);
-            
-            %currentPoint(1,1) = max(min(currentPoint(1,1), xLimits(2)), xLimits(1));
-            %currentPoint(1,2) = max(min(currentPoint(1,2), yLimits(2)), yLimits(1));
             p.zoomRect = round([min(p.zoomStart(1,1:2), currentPoint(1,1:2)),...
                 abs(p.zoomStart(1,1:2) - currentPoint(1,1:2))]);
         end
@@ -158,13 +145,14 @@ classdef d2ThresholdController < handle
         function stopDragFcn(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonMotionFcn', '');
             if ~isempty(p.zoomRect)
-                p.viewRect  = p.zoomRect; % Should notify event "viewChange"
+                p.viewRect  = d2utils.coordToPixelRect(p.zoomRect); % Should notify event "viewChange"
                 p.plotScatterMain(p.viewObj.channelPopup.Value)
                 p.zoomRect = [];
             end
+            delete(p.viewObj.zoomH)
             set(p.viewObj.figHandle, 'WindowButtonUpFcn', '');
         end
-        
+       
         function figButtonDown(p, ~, ~)
             disp('fig button down')
         end

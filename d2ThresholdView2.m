@@ -17,6 +17,7 @@ classdef d2ThresholdView2 < handle
         centroidList %List box 
         spotsCheckBox %Check box
         centroidsCheckBox %Check box
+        scatterCheckBox %Check box
         
         channelPopup %Drop down
         saveButton %Push button
@@ -86,8 +87,9 @@ classdef d2ThresholdView2 < handle
 
             p.figHandle = figure('Visible', 'off', 'Position', [100 100 1550 900]);
 
-            p.mainAxes = axes('Position', [0.025 0.025 0.60 0.95], 'Ydir', 'reverse', 'Tag', 'mainAxes');
-            p.thumbAxes = axes('XTickLabel', '', 'YTickLabel', '', 'Position', [0.64 0.645 0.21 0.33], 'Interactions', []);
+            p.mainAxes = axes('Position', [0.025 0.025 0.60 0.95], 'Ydir', 'reverse', 'Interactions',[]);
+            set(p.mainAxes.Toolbar, 'Visible','off');
+            p.thumbAxes = axes('XTickLabel', '', 'YTickLabel', '', 'Ydir', 'reverse', 'Position', [0.64 0.645 0.21 0.33], 'Interactions', []);
             set(p.thumbAxes.Toolbar, 'Visible', 'off')
             p.threshAxes = axes('Position', [0.64 0.025 0.34 0.34], 'Interactions', []);
             set(p.threshAxes.Toolbar, 'Visible', 'off')
@@ -96,6 +98,7 @@ classdef d2ThresholdView2 < handle
             p.centroidList = uicontrol('Style', 'listbox', 'String', string(p.spotTable.centroidLists{1}.GroupCount),'Units', 'normalized', 'Position', [0.86 0.645 0.12 0.33]);
             p.spotsCheckBox = uicontrol('Style', 'checkbox', 'String', 'spots', 'Value', p.showSpots,'Units', 'normalized', 'Position', [0.65 0.585 0.0722 0.0333]);
             p.centroidsCheckBox = uicontrol('Style', 'checkbox', 'String', 'nuclei', 'Value', p.showCentroids, 'Units', 'normalized', 'Position', [0.72 0.585 0.0722 0.0333]);
+            p.scatterCheckBox = uicontrol('Style', 'checkbox', 'String', 'scatter', 'Value', p.showScatter, 'Units', 'normalized', 'Position', [0.79 0.585 0.0722 0.0333]);
 
             p.addCellButton = uicontrol('Style', 'togglebutton', 'String', 'add cells', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
             p.deleteCellButton = uicontrol('Style', 'togglebutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]);
@@ -134,12 +137,13 @@ classdef d2ThresholdView2 < handle
             p.centroidList.Callback = {@controller.centroidSelected};
             %p.spotsCheckBox.Callback = {@controller.};
             %p.centroidsCheckBox.Callback = {@controller.};
+            %p.scatterCheckBox.Callback = {@controller.};
             %p.addCellButton.Callback = {@controller.};
             %p.deleteCellButton.Callback = {@controller.};
             %p.maskSpotsButton.Callback = {@controller.};
             %p.maskCellButton.Callback = {@controller.};
             %p.deleteMaskButton.Callback = {@controller.};
-            %p.zoomInAxes.Callback = {@controller.};
+            %p.zoomInAxes.Callback = {@contrsoller.};
             %p.zoomOutAxes.Callback = {@controller.};
             %p.saveButton.Callback = {@controller.};
             %p.exportButton.Callback = {@controller.};
