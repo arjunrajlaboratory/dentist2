@@ -10,6 +10,7 @@ classdef d2ThresholdController < handle
         viewObj
         threshZoom
         localRect %Image coords not axes coords
+        zoomROI
         
     end
     
@@ -22,7 +23,15 @@ classdef d2ThresholdController < handle
             p.nucleiObj = nucleiObj;
             
             p.localRect = [1, 1, max(p.spotTable.centroidLists{1}.x), max(p.spotTable.centroidLists{1}.y)];
-            plotScatterMain(p)
+            p.startup()
+        end
+        
+        function startup(p)
+            channelIdx = p.viewObj.channelPopup.Value;
+            p.spotTable.makeIntensitiesToPlot();
+            %p.plotScatterMain(channelIdx)
+            p.plotIntensityHistogram(channelIdx)
+            p.plotIntensityThreshold(channelIdx)
         end
         
         function p = changeChannel(p, src, evt)
@@ -30,6 +39,7 @@ classdef d2ThresholdController < handle
             %Update centroid listbox
             p.viewObj.centroidList.String = string(p.spotTable.centroidLists{channelIdx}.GroupCount);
             updateMainAxes(p, channelIdx);
+            
         end
         
         function p = centroidSelected(p, src, evt)
@@ -40,17 +50,54 @@ classdef d2ThresholdController < handle
             end
         end
         
-        function plotScatterMain(p)
-            channelIdx = p.viewObj.channelPopup.Value;
+        function plotIntensityHistogram(p, channelIdx)
+            %channelIdx = p.viewObj.channelPopup.Value;
+            if ~isempty(p.viewObj.histogramLineH) && ishandle(p.viewObj.histogramLineH)
+                delete(p.viewObj.histogramLineH)
+            end
+            intensities = p.spotTable.intensitiesToPlot{channelIdx};
+            logRank = log(numel(intensities):-1:1);
+            p.viewObj.histogramLineH = line(p.viewObj.threshAxes, intensities, logRank, ...
+                'HitTest', 'off', ...
+                'Color', 'k');
+            
+            xAxisMin = intensities(1);
+            xAxisMax = intensities(end) * 1.05;
+            
+            set(p.viewObj.threshAxes, 'XLim', [xAxisMin xAxisMax]);
+            
+            yaxismax = logRank(1)*1.1;
+          
+            set(p.viewObj.threshAxes, 'YLim', [0 yaxismax]);
+        end
+        
+        function plotIntensityThreshold(p, channelIdx)
+            %channelIdx = p.viewObj.channelPopup.Value;
+            if ~isempty(p.viewObj.thresholdLineH) && ishandle(p.viewObj.thresholdLineH)
+                delete(p.viewObj.thresholdLineH)
+            end
+            if isempty(p.spotTable.thresholds)
+                p.spotTable.defaultThresholds();
+            end
+            threshold = p.spotTable.thresholds{channelIdx};
+            yaxis = get(p.viewObj.threshAxes, 'Ylim');
+            p.viewObj.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis, ...
+                'Color', 'b', 'HitTest', 'off');
+            p.viewObj.threshValue.String = num2str(threshold);
+        end
+        
+        function plotScatterMain(p, channelIdx)
+            %channelIdx = p.viewObj.channelPopup.Value;
             centroidsInView = p.spotTable.centroidTableInRect(channelIdx, p.localRect);
-            scatter(p.viewObj.mainAxes,...
-                centroidsInView.y, centroidsInView.x,...
-                20, centroidsInView.GroupCount, 'filled')
+            scatter(p.viewObj.mainAxes, centroidsInView.y, centroidsInView.x,...
+                20, centroidsInView.GroupCount, 'filled',...
+                'HitTest','off')
+            colorbar(p.viewObj.mainAxes, 'Location', 'eastoutside','HitTest','off')
             set(p.viewObj.mainAxes, 'Xlim', [p.localRect(2)-1,  p.localRect(2)+p.localRect(4)+1])
             set(p.viewObj.mainAxes, 'Ylim', [p.localRect(1)-1,  p.localRect(1)+p.localRect(3)+1])
-            set(p.viewObj.mainAxes, 'Ydir', 'reverse')
+            set(p.viewObj.mainAxes, 'Ydir','reverse');
             set(p.viewObj.mainAxes, 'Interactions',[]);
-            p.viewObj.mainAxes.Toolbar.Visible = 'off';
+            set(p.viewObj.mainAxes.Toolbar, 'Visible','off');
 
         end
         
@@ -58,39 +105,33 @@ classdef d2ThresholdController < handle
             
         end
         
-        function startUpPlots(p)
-            channelIdx = p.viewObj.channelPopup.Value;
-            scatter(p.viewObj.mainAxes,...
-                p.spotTable.centroidLists{channelIdx}.y, p.spotTable.centroidLists{channelIdx}.x,...
-                20, p.spotTable.centroidLists{channelIdx}.GroupCount, 'filled')
-            xlim(p.viewObj.mainAxes, [0 max(p.spotTable.centroidLists{channelIdx}.y)+5])
-            ylim(p.viewObj.mainAxes, [0 max(p.spotTable.centroidLists{channelIdx}.x)+5])
-            %p.viewObj.mainAxes.Xlim = [0 max(p.spotTable.centroidLists{channelIdx}.y)+5];
-            %p.viewObj.mainAxes.Ylim = [0 max(p.spotTable.centroidLists{channelIdx}.x)+5];
-        end
-        
-        function p = updateMainAxes(p, channelIdx)
-%             channelIdx = p.viewObj.channelPopup.Value;
-            scatter(p.viewObj.mainAxes,...
-                p.spotTable.centroidLists{channelIdx}.y, p.spotTable.centroidLists{channelIdx}.x,...
-                20, p.spotTable.centroidLists{channelIdx}.GroupCount, 'filled')
-        end
-        
-        function p = updateThumbnail(p)
+        function zoomInPressed(p, ~, ~)
+            p.zoomROI = drawrectangle(p.viewObj.mainAxes);
             
+
         end
         
-        function p = plotIntensity(p)
-            
+        function keyPressFcns(p, src, evt)
+            keyPressed = evt.Key;
+            switch(keyPressed)
+                case 'return'
+                    if isvalid(p.zoomROI)
+                        pos = p.zoomROI.Position
+                        delete(p.zoomROI)
+                        drawrectangle('Position', pos, 'Color', 'r', 'InteractionsAllowed', 'none');
+                    end
+                    
+                
+                    
+            end
+                
         end
         
-        function p = plotSpotCounts(p)
-            
-        end
         
-        function updateThresholdPlot(p)
-            
-        end
+        
+        
+        
+
         
         
     end

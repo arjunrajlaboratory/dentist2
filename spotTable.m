@@ -10,6 +10,7 @@ classdef spotTable < handle
         maxDistance = 100;  
         theFilter
         percentileToKeep = 98;
+        intensitiesToPlot
         
         scanObj
         maskObj 
@@ -267,6 +268,23 @@ classdef spotTable < handle
             %Consider method that first stitches the filtered images then
             %finds regional maxima to avoid artifacts of spots in tile
             %overlap. c
+        end
+        
+        function intensities = getIntensities(p, channel)
+            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance, {'intensity'}}; %May want to exclude spots not assigned to nuclei
+        end
+        
+        function p = makeIntensitiesToPlot(p)
+            p.intensitiesToPlot = cell(0, numel(p.spotChannels));
+            for i = 1:numel(p.spotChannels)
+                p.intensitiesToPlot{i} = sort(uint16(p.getIntensities(p.spotChannels{i})));
+            end
+        end
+        
+        function p = defaultThresholds(p) %Need to update this with something better
+            for i = 1:numel(p.spotChannels)
+                p.thresholds{i} = round(mean(p.getIntensities(p.spotChannels{i})));
+            end
         end
         
         function p = makeCentroidList(p)
