@@ -39,7 +39,8 @@ classdef d2ThresholdView2 < handle
         lowerContrastSlider %Slider
         sliderLabel
         
-        localRect
+        zoomH
+        zoomRect
         histogramLineH
         thresholdLineH
         
@@ -85,7 +86,7 @@ classdef d2ThresholdView2 < handle
 
             p.figHandle = figure('Visible', 'off', 'Position', [100 100 1550 900]);
 
-            p.mainAxes = axes('Position', [0.025 0.025 0.60 0.95], 'Ydir', 'reverse');
+            p.mainAxes = axes('Position', [0.025 0.025 0.60 0.95], 'Ydir', 'reverse', 'Tag', 'mainAxes');
             p.thumbAxes = axes('XTickLabel', '', 'YTickLabel', '', 'Position', [0.64 0.645 0.21 0.33], 'Interactions', []);
             set(p.thumbAxes.Toolbar, 'Visible', 'off')
             p.threshAxes = axes('Position', [0.64 0.025 0.34 0.34], 'Interactions', []);
@@ -147,9 +148,10 @@ classdef d2ThresholdView2 < handle
             %p.saveButton.Callback = {@controller.};
             %p.exportButton.Callback = {@controller.};
             
-            %p.mainAxes.ButtonDownFcn = {@controller.};
+            %p.mainAxes.ButtonDownFcn = {@controller.mainAxesButtonDown};
             %p.mainAxes.ButtonDownFcn = {@p.drawRect};
-            
+            p.figHandle.ButtonDownFcn = {@controller.figButtonDown};
+            p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
             p.figHandle.KeyPressFcn = {@controller.keyPressFcns};
         end
         
