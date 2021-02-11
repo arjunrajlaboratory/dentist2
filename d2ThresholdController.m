@@ -167,23 +167,24 @@ classdef d2ThresholdController < handle
         end
         
         function zoomInPressed(p, ~, ~)
-            p.zoomROI = drawrectangle(p.viewObj.mainAxes);
-            
-
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '');
+            p.zoomROI = drawrectangle(p.viewObj.mainAxes); %Can add callback for clicking on ROI
         end
         
         function type = getSelectionType(p)
             type = get(p.viewObj.figHandle, 'SelectionType');
         end
         
-        function keyPressFcns(p, src, evt)
+        function keyPressFcns(p, ~, evt)
             keyPressed = evt.Key;
             switch(keyPressed)
                 case 'return'
                     if isvalid(p.zoomROI)
-                        pos = p.zoomROI.Position
+                        p.viewRect = d2utils.coordToPixelRect(p.zoomROI.Position);
                         delete(p.zoomROI)
-                        drawrectangle('Position', pos, 'Color', 'r', 'InteractionsAllowed', 'none');
+                        set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown});
+                        p.plotScatterMain(p.viewObj.channelPopup.Value)
+                        %drawrectangle('Position', pos, 'Color', 'r', 'InteractionsAllowed', 'none');
                     end
                     
                 
