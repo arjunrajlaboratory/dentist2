@@ -41,7 +41,7 @@ classdef spotTable < handle
                 p.spots = cell2table(cell(0,9),...
                     'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
             else
-                fprintf('Loading spot table');
+                fprintf('Loading spot table\n');
                 tmpSpots = readtable(n.Results.spotsFile,'TextType','string');
                 p.spots = convertvars(tmpSpots, {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'maskID', 'distanceToNuc'}, 'single');
                 p.spots.status = logical(p.spots.status);
@@ -49,10 +49,11 @@ classdef spotTable < handle
                         
             if isempty(n.Results.thresholdsFile)
                 fprintf('New thresholds table\n');
-                p.thresholds = cell2table(cell(0,numel(p.spotChannels)), 'VariableNames', p.spotChannels);
+                p.thresholds = cell(0,numel(p.spotChannels));
             else
-                fprintf('Loading thresholds table');
-                p.thresholds = readtable(n.Results.thresholdsFile,'TextType','string');
+                fprintf('Loading thresholds table\n'); %Need to check this
+                tmpThreshold = readtable(n.Results.thresholdsFile,'TextType','string');
+                p.thresholds = table2cell(tmpThreshold);
             end
         end
         

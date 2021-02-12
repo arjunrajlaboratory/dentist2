@@ -121,12 +121,15 @@ classdef d2ThresholdController < handle
             %Could probably save on time by adding colormap to
             %centroidTable in the spotTableObject.
             centroidsInView = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
-            set(p.viewObj.mainAxes, 'Xlim', [p.viewRect(2),  p.viewRect(2)+p.viewRect(4)])
-            set(p.viewObj.mainAxes, 'Ylim', [p.viewRect(1),  p.viewRect(1)+p.viewRect(3)])
+            set(p.viewObj.mainAxes, 'Xlim', [p.viewRect(2)-1,  p.viewRect(2)+p.viewRect(4)+1])
+            set(p.viewObj.mainAxes, 'Ylim', [p.viewRect(1)-1,  p.viewRect(1)+p.viewRect(3)+1])
             hold(p.viewObj.mainAxes, 'on')
+            %axes(p.viewObj.mainAxes)
             p.scatterH = scatter(centroidsInView.y, centroidsInView.x,...
                 20, centroidsInView.GroupCount, 'filled',...
                 'Parent', p.viewObj.mainAxes, 'HitTest','off');
+            axis fill
+            pbaspect auto
             hold(p.viewObj.mainAxes, 'off')
             %colorbar(p.viewObj.mainAxes, 'Location', 'eastoutside','HitTest','off')
         end
@@ -202,17 +205,19 @@ classdef d2ThresholdController < handle
             tmpIm = imadjust(p.resizedImg, contrastIn, []);
             %Decide if overlay with DAPI?
             tmpRGB = cat(3, tmpIm, tmpIm, tmpIm+p.resizedDapi);
-            xlimits = [p.viewRect(2),  p.viewRect(2)+p.viewRect(4)];
-            ylimits = [p.viewRect(1),  p.viewRect(1)+p.viewRect(3)];
-            %axis(p.viewObj.mainAxes, [xlimits, ylimits], 'square')
-            set(p.viewObj.mainAxes, 'Xlim', xlimits)
-            set(p.viewObj.mainAxes, 'Ylim', ylimits)
-            hold(p.viewObj.mainAxes, 'on')
+            xlimits = [p.viewRect(2)-1,  p.viewRect(2)+p.viewRect(4)+1];
+            ylimits = [p.viewRect(1)-1,  p.viewRect(1)+p.viewRect(3)+1];
+            axis(p.viewObj.mainAxes, [xlimits, ylimits], 'square')
+            p.viewObj.mainAxes = axes('Parent', p.viewObj.figHandle, 'Xlim', xlimits, 'Position', 'Ylim', ylimits, [0.025 0.025 0.60 0.95],...
+                'Ydir','reverse', 'XAxisLocation', 'bottom', 'YAxisLocation', 'left', 'Interactions',[]);
+            %set(p.viewObj.mainAxes, 'Xlim', xlimits)
+            %set(p.viewObj.mainAxes, 'Ylim', ylimits)
+            %axes(p.viewObj.mainAxes)
             p.imageH = imshow(tmpRGB, 'XData', xlimits, 'YData', ylimits, 'Parent', p.viewObj.mainAxes);
             %axis fill
             %pbaspect auto
             set(p.viewObj.mainAxes, 'Visible', 'on')
-            hold(p.viewObj.mainAxes, 'off')
+            %hold(p.viewObj.mainAxes, 'off')
             
             
         end

@@ -91,6 +91,12 @@ classdef scanObject < handle
             p.dapiStitch = tmpStitch;
         end
         
+        function p = contrastDAPIstitch(p)
+            function_scale =  @(block_struct) scale(block_struct.data);
+            
+            p.dapiStitch = blockproc(p.dapiStitch, [2000 2000], function_scale, 'BorderSize', [200 200]);
+        end
+        
 %         function p = maskDAPI(p, varargin) %vargargin option to specify sensitivity value (between 0 and 1) for adaptthresh.
 %             if ~isempty(p.dapiStitch)
 %                 if nargin == 1

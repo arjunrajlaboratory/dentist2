@@ -45,7 +45,7 @@ classdef d2ThresholdView2 < handle
         histogramLineH
         thresholdLineH
         
-        showSpots = true;
+        showSpots = true; %Not sure if these handles are necessary. 
         showCentroids = true;
         showScatter= true;
     end
@@ -87,11 +87,11 @@ classdef d2ThresholdView2 < handle
 
             p.figHandle = figure('Visible', 'off', 'Position', [100 100 1550 900]);
 
-            p.mainAxes = axes('Position', [0.025 0.025 0.60 0.95], 'Ydir', 'reverse', 'Interactions',[]);
+            p.mainAxes = axes('Parent', p.figHandle, 'Position', [0.025 0.025 0.60 0.95], 'Ydir','reverse', 'XAxisLocation', 'bottom', 'YAxisLocation', 'left', 'Interactions',[]);
             set(p.mainAxes.Toolbar, 'Visible','off');
-            p.thumbAxes = axes('XTickLabel', '', 'YTickLabel', '', 'Ydir', 'reverse', 'Position', [0.64 0.645 0.21 0.33], 'Interactions', []);
+            p.thumbAxes = axes('Parent', p.figHandle, 'XTickLabel', '', 'YTickLabel', '', 'Ydir', 'reverse', 'Position', [0.64 0.645 0.21 0.33], 'Interactions', []);
             set(p.thumbAxes.Toolbar, 'Visible', 'off')
-            p.threshAxes = axes('Position', [0.64 0.025 0.34 0.34], 'Interactions', []);
+            p.threshAxes = axes('Parent', p.figHandle, 'Position', [0.64 0.025 0.34 0.34], 'Interactions', []);
             set(p.threshAxes.Toolbar, 'Visible', 'off')
             
             p.channelPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.spotChannels, 'Units', 'normalized', 'Position', [0.64 0.5067 0.1111 0.0367]);          
@@ -137,7 +137,7 @@ classdef d2ThresholdView2 < handle
             p.centroidList.Callback = {@controller.centroidSelected};
             %p.spotsCheckBox.Callback = {@controller.};
             %p.centroidsCheckBox.Callback = {@controller.};
-            %p.scatterCheckBox.Callback = {@controller.};
+            p.scatterCheckBox.Callback = {@controller.scatterCallback};
             %p.addCellButton.Callback = {@controller.};
             %p.deleteCellButton.Callback = {@controller.};
             %p.maskSpotsButton.Callback = {@controller.};
