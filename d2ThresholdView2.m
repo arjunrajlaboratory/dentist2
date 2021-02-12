@@ -154,7 +154,6 @@ classdef d2ThresholdView2 < handle
             
             %p.mainAxes.ButtonDownFcn = {@controller.mainAxesButtonDown};
             %p.mainAxes.ButtonDownFcn = {@p.drawRect};
-            p.figHandle.ButtonDownFcn = {@controller.figButtonDown};
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
             p.figHandle.KeyPressFcn = {@controller.keyPressFcns};
         end

@@ -10,6 +10,7 @@ classdef d2ThresholdController < handle
         viewObj
         threshZoom
         viewRect %Image coords not axes coords
+        cellViewRadius = 750
         zoomROI
         zoomStart
         zoomRect
@@ -33,7 +34,7 @@ classdef d2ThresholdController < handle
             p.maskObj = maskObj;
             p.nucleiObj = nucleiObj;
             
-            p.viewRect = [1, 1, max(p.spotTable.centroidLists{1}{:,{'y', 'x'}})];
+            p.viewRect = [1, 1, size(p.scanObj.dapiStitch)];
             p.startup()
         end
         
@@ -56,11 +57,11 @@ classdef d2ThresholdController < handle
         end
         
         function p = updateMainAxes(p)
-            disp(p.viewObj.scatterCheckBox.Value)
-            disp(class(p.viewObj.scatterCheckBox.Value))
-            disp(isvalid(p.scatterH))
-            disp(isgraphics(p.scatterH))
-            disp(logical(p.viewObj.scatterCheckBox.Value))
+%             disp(p.viewObj.scatterCheckBox.Value)
+%             disp(class(p.viewObj.scatterCheckBox.Value))
+%             disp(isvalid(p.scatterH))
+%             disp(isgraphics(p.scatterH))
+%             disp(logical(p.viewObj.scatterCheckBox.Value))
             if isvalid(p.viewObj.mainAxes.Children)
                 delete(get(p.viewObj.mainAxes, 'Children'));
             end
@@ -139,9 +140,9 @@ classdef d2ThresholdController < handle
                         set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopDragFcn});
                         set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.mainAxesZoom});
                     case 'open'
-                        p.viewRect = [1, 1, max(p.spotTable.centroidLists{1}{:,{'y', 'x'}})];
+                        p.viewRect = [1, 1, size(p.scanObj.dapiStitch)];
                         p.updateImageInView();
-                        p.updateMainAxes()
+                        p.updateMainAxes();
                 end
             end
         end
@@ -168,13 +169,13 @@ classdef d2ThresholdController < handle
         
         function stopDragFcn(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonMotionFcn', '');
-            if ~isempty(p.zoomRect)
+            if ~isempty(p.zoomRect) && all(p.zoomRect > 0)
                 p.viewRect  = d2utils.coordToPixelRect(p.zoomRect); % Should notify event "viewChange"
                 %Update imagesInView
                 p.updateImageInView();
-                delete(p.scatterH)
+                %delete(p.scatterH)
                 %Update main axes
-                p.updateMainAxes()
+                p.updateMainAxes();
                 p.zoomRect = [];
             end
             delete(p.viewObj.zoomH)
@@ -183,25 +184,28 @@ classdef d2ThresholdController < handle
        
         function p = updateImageInView(p)
             p.imagesInView = cell(0, numel(p.spotTable.spotChannels));
-            if p.viewRect(3) * p.viewRect(4) < 1000000001 %Avoid showing very large images
+            if p.viewRect(3) * p.viewRect(4) < 4000001
                 for i = 1:numel(p.spotTable.spotChannels)
                     p.imagesInView{i} = p.scanObj.getImageRect(p.spotTable.spotChannels{i}, p.viewRect);
                 end
                 p.dapiInView = p.scanObj.getDapiImage(p.viewRect);
-                p.resizeImageInView;
+            elseif p.viewRect(3) * p.viewRect(4) < 64000001
+                for i = 1:numel(p.spotTable.spotChannels)
+                    p.imagesInView{i} = p.scanObj.getSmallImageRect(p.spotTable.spotChannels{i}, p.viewRect);
+                end
+                p.dapiInView = p.scanObj.getSmallDapiImage(p.viewRect);
             else
                 disp('View is too large to display image. Plotting scatter')
                 set(p.viewObj.scatterCheckBox, 'Value', 1)
             end
-            
         end
         
         function showImage(p)
            %Adjust contrast
             contrastIn = [get(p.viewObj.lowerContrastSlider, 'Value'), get(p.viewObj.upperContrastSlider, 'Value')];
-            tmpIm = imadjust(p.resizedImg, contrastIn, []);
+            tmpIm = imadjust(p.imagesInView{p.channelIdx}, contrastIn, []);
             %Decide if overlay with DAPI?
-            tmpRGB = cat(3, tmpIm, tmpIm, tmpIm+p.resizedDapi);
+            tmpRGB = cat(3, tmpIm, tmpIm, tmpIm+p.dapiInView);
             xlimits = [p.viewRect(2),  p.viewRect(2)+p.viewRect(4)];
             ylimits = [p.viewRect(1),  p.viewRect(1)+p.viewRect(3)];
             %axis(p.viewObj.mainAxes, [xlimits, ylimits], 'square')
@@ -217,24 +221,24 @@ classdef d2ThresholdController < handle
             
         end
         
-        function resizeImageInView(p)
-           %Decide if overlay with DAPI?
-           %Resize if too large
-           if p.viewRect(3) * p.viewRect(4) < 2250001
-               p.resizedImg = p.imagesInView{p.channelIdx};
-               p.resizedDapi = p.dapiInView;
-           elseif p.viewRect(3) * p.viewRect(4) < 6250001
-               p.resizedImg = im2uint8(p.imagesInView{p.channelIdx});
-               p.resizedDapi = im2uint8(p.dapiInView);
-           elseif p.viewRect(3) * p.viewRect(4) < 1000000001
-               p.resizedImg = im2uint8(imresize(p.imagesInView{p.channelIdx}, 1/4));
-               p.resizedDapi = im2uint8(imresize(p.dapiInView, 1/4));
-           else
-               disp('View is too large to display image. Plotting scatter')
-               set(p.viewObj.scatterCheckBox, 'Value', 1)
-               p.updateMainAxes();
-           end
-        end
+%         function resizeImageInView(p)
+%            %Decide if overlay with DAPI?
+%            %Resize if too large
+%            if p.viewRect(3) * p.viewRect(4) < 2250001
+%                p.resizedImg = p.imagesInView{p.channelIdx};
+%                p.resizedDapi = p.dapiInView;
+%            elseif p.viewRect(3) * p.viewRect(4) < 6250001
+%                p.resizedImg = im2uint8(p.imagesInView{p.channelIdx});
+%                p.resizedDapi = im2uint8(p.dapiInView);
+%            elseif p.viewRect(3) * p.viewRect(4) < 1000000001
+%                p.resizedImg = im2uint8(imresize(p.imagesInView{p.channelIdx}, 1/4));
+%                p.resizedDapi = im2uint8(imresize(p.dapiInView, 1/4));
+%            else
+%                disp('View is too large to display image. Plotting scatter')
+%                set(p.viewObj.scatterCheckBox, 'Value', 1)
+%                p.updateMainAxes();
+%            end
+%         end
         
         function scatterCallback(p, ~, ~)
             if p.viewObj.scatterCheckBox.Value == 0
@@ -263,7 +267,7 @@ classdef d2ThresholdController < handle
                         set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown});
                         p.updateImageInView
                         %Update main axes
-                        p.updateMainAxes()
+                        p.updateMainAxes();
                         %drawrectangle('Position', pos, 'Color', 'r', 'InteractionsAllowed', 'none');
                     end
                     

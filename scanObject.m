@@ -8,7 +8,10 @@ classdef scanObject < handle
         channels
         scanMatrix
         dapiStitch
+        smallDapiStitch
         stitchedScans
+        smallStitchedScans
+        resizeFactor = 4
 %         dapiMask
 %         dapiMask2
         
@@ -92,9 +95,22 @@ classdef scanObject < handle
         end
         
         function p = contrastDAPIstitch(p)
-            function_scale =  @(block_struct) scale(block_struct.data);
+            function_scale =  @(block_struct) im2uint16(scale(block_struct.data));
             
             p.dapiStitch = blockproc(p.dapiStitch, [2000 2000], function_scale, 'BorderSize', [200 200]);
+        end
+        
+        function p = resizeStitchedScans(p)
+            %Can use blockproc as below but set 'BorderSize' to [0 0]. 
+%             function_resize =  @(block_struct)... 
+%             imresize(block_struct.data, 1/p.resizeFactor); 
+            p.smallStitchedScans.labels = p.stitchedScans.labels;
+            p.smallStitchedScans.stitches = cell(0, numel(p.stitchedScans.stitches));
+            for i = 1:numel(p.stitchedScans.stitches)
+                p.smallStitchedScans.stitches{i} = imresize(p.stitchedScans.stitches{i}, 1/p.resizeFactor);
+            end
+            p.smallDapiStitch = imresize(p.dapiStitch, 1/p.resizeFactor);
+%             p.smallDapiStitch = blockproc(p.dapiStitch, [5000 5000], function_resize, 'BorderSize', [0 0]);
         end
         
 %         function p = maskDAPI(p, varargin) %vargargin option to specify sensitivity value (between 0 and 1) for adaptthresh.
@@ -166,6 +182,7 @@ classdef scanObject < handle
             reader.close()
         end
         
+
         function p = stitchChannels(p, channels)
             tileTable = p.tilesTable;
             tilesTmp = transpose(p.scanMatrix);
@@ -199,8 +216,20 @@ classdef scanObject < handle
             outIm = outIm(rect(1):rect(1)+rect(3), rect(2):rect(2)+rect(4)); %Kinda ugly, would prefer using imcrop
         end
         
+        function outIm = getSmallImageRect(p, channel, rect) %rect specified as [x y nrows ncols]
+            channelIdx = ismember(p.smallStitchedScans.labels, channel);
+            smallRect = round(rect/p.resizeFactor);
+            outIm = p.stitchedScans.stitches{channelIdx};
+            outIm = outIm(smallRect(1):smallRect(1)+smallRect(3), smallRect(2):smallRect(2)+smallRect(4)); %Kinda ugly, would prefer using imcrop
+        end
+        
         function outIm = getDapiImage(p, rect) %rect specified as [x y nrows ncols]
             outIm = p.dapiStitch(rect(1):rect(1)+rect(3), rect(2):rect(2)+rect(4));
+        end
+        
+        function outIm = getSmallDapiImage(p, rect) %rect specified as [x y nrows ncols]
+            smallRect = round(rect/p.resizeFactor);
+            outIm = p.smallDapiStitch(smallRect(1):smallRect(1)+smallRect(3), smallRect(2):smallRect(2)+smallRect(4));
         end
         
         function [] = savetilesTable(p, varargin)

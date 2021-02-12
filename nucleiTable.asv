@@ -112,8 +112,8 @@ classdef nucleiTable < handle
         end
         
         function outRect = getRectAroundNuc(p, ID, radius)
-            startPos = max([1, 1], p.nuclei{p.nuclei.nucID == ID, {'x', 'y'}} - radius); %Avoid rect outside range of scan. 
-            startPos = min(size(p.scanObj.dapiStitch)- radius+1,startPos);
+            startPos = max([1, 1], p.nuclei{p.nuclei.nucID == ID, {'x', 'y'}} - radius);
+            startPos = min( - radius,startPos);
             outRect = [startPos, [2, 2] * radius];
         end
         
