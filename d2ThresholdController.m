@@ -18,6 +18,7 @@ classdef d2ThresholdController < handle
         scatterH %Not sure if we need these handle. 
         imageH
         spotScatterH
+        nucleiScatterH
         
         imagesInView
         dapiInView
@@ -67,16 +68,25 @@ classdef d2ThresholdController < handle
             else
                 p.showImage();
                 p.overlaySpots();
+                p.overlayNuclei();
             end
         end
         
         
-        function p = centroidSelected(p, src, ~)
-            if strcmp(src.Parent.SelectionType, 'open') %Respond to double mouse click
-                p.channelIdx = p.viewObj.channelPopup.Value;
-                cellIdx = p.viewObj.centroidList.Value;
-                disp(p.spotTable.centroidLists{p.channelIdx}(cellIdx, :));
+        function p = centroidSelected(p, ~, ~)
+            if strcmp(get(p.viewObj.figHandle, 'SelectionType'), 'open') %Respond to double mouse click
+                cellIdx = get(p.viewObj.centroidList, 'Value');
+                cellPos = p.spotTable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
+                p.viewRect = p.getRectAroundPoint(cellPos);
+                p.updateImageInView();
+                p.updateMainAxes();
             end
+        end
+        
+        function outRect = getRectAroundPoint(p, point)
+            startPos = max([1, 1], point - p.cellViewRadius); %Avoid rect outside range of scan. 
+            startPos = min(size(p.scanObj.dapiStitch)- p.cellViewRadius+1,startPos);
+            outRect = [startPos, [2, 2] * p.cellViewRadius];
         end
         
         function plotIntensityHistogram(p)
@@ -285,14 +295,26 @@ classdef d2ThresholdController < handle
         end
         
         function overlaySpots(p, ~, ~)
-            if logical(p.viewObj.spotsCheckBox.Value)
+            if logical(p.viewObj.spotsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
                 [spotsInView, spotIdx] = p.spotTable.getValidSpotsInRect(p.spotTable.spotChannels{p.channelIdx}, p.viewRect);
                 hold(p.viewObj.mainAxes, 'on')
-                p.spotScatterH = scatter(spotsInView.y, spotsInView.x, 10,...
+                p.spotScatterH = scatter(spotsInView.y, spotsInView.x, 10, spotsInView{:,'colors'},...
                     'Parent', p.viewObj.mainAxes, 'HitTest','off');
                 hold(p.viewObj.mainAxes, 'off')
             else
                 delete(p.spotScatterH)
+            end
+        end
+        
+        function overlayNuclei(p, ~, ~)
+            if logical(p.viewObj.centroidsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
+                outTableTmp = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
+                hold(p.viewObj.mainAxes, 'on')
+                p.nucleiScatterH = scatter(outTableTmp.y, outTableTmp.x, 30, outTableTmp{:,'colors'}, 'filled',...
+                    'Parent', p.viewObj.mainAxes, 'HitTest','off');
+                hold(p.viewObj.mainAxes, 'off')
+            else
+                delete(p.nucleiScatterH)
             end
         end
         

@@ -65,6 +65,7 @@ classdef spotTable < handle
             
             p.spots.nearestNucID = p.nucleiObj.nuclei.nucID(idx);
             p.spots.distanceToNuc = single(dist);
+            p.spots.colors = p.nucleiObj.nuclei.colors(idx, :);
             
         end
         
@@ -76,7 +77,7 @@ classdef spotTable < handle
             
             p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
             p.spots.distanceToNuc(spotIdx) = single(dist);
-           
+            p.spots.colors(spotIdx) = nucleiNearRect.colors(nucIdx, :);
         end
         
         function [outSpots,idx] = getAllSpotsInRect(p,rect) %rect specified as [x y nrows ncols]
@@ -300,13 +301,13 @@ classdef spotTable < handle
         function p = makeCentroidList(p)
             p.centroidLists = cell(0, numel(p.spotChannels));
             for i = 1:numel(p.spotChannels)
-                p.centroidLists{i} = sortrows(p.tabluteChannel(p.spotChannels{i}), 'GroupCount', 'descend');
+                p.centroidLists{i} = sortrows(p.tabulateChannel(p.spotChannels{i}), 'GroupCount', 'descend');
             end
         end
         
         function p = updateCentroidList(p, channel)
             p.centroidLists{ismember(p.spotChannels, channel)}...
-                = sortrows(p.tabluteChannel(channel), 'GroupCount', 'descend');
+                = sortrows(p.tabulateChannel(channel), 'GroupCount', 'descend');
         end
         
         function outTable = centroidTableInRect(p, channelIdx, rect)
@@ -318,16 +319,16 @@ classdef spotTable < handle
             outTable = p.centroidLists{channelIdx}(centroidIdx,:);
         end
         
-        function outTable = tabluteChannel(p, channel)
+        function outTable = tabulateChannel(p, channel)
             idx = ismember(p.spots.channel, channel) & p.spots.status;
             tmpSpots = groupsummary(p.spots(idx, :), 'nearestNucID');
-            outTable = outerjoin(p.nucleiObj.nuclei(:,{'nucID', 'x', 'y'}), tmpSpots, 'Type', 'left', 'LeftKeys', 'nucID', 'RightKeys', 'nearestNucID');
+            outTable = outerjoin(p.nucleiObj.nuclei(p.nucleiObj.nuclei.status,{'nucID', 'x', 'y', 'colors'}), tmpSpots, 'Type', 'left', 'LeftKeys', 'nucID', 'RightKeys', 'nearestNucID');
             outTable{isnan(outTable.GroupCount), 'GroupCount'} = single(0);
         end
         
-        function outTable = tabluteAllChannels(p)
+        function outTable = tabulateAllChannels(p)
             tmpSpots = groupsummary(p.spots, {'channel', 'nearestNucID'});
-            outTable = outerjoin(p.nucleiObj.nuclei(:,{'nucID', 'x', 'y'}), tmpSpots, 'Type', 'left', 'LeftKeys', 'nucID', 'RightKeys', 'nearestNucID');
+            outTable = outerjoin(p.nucleiObj.nuclei(p.nucleiObj.nuclei.status,{'nucID', 'x', 'y'}), tmpSpots, 'Type', 'left', 'LeftKeys', 'nucID', 'RightKeys', 'nearestNucID');
             outTable.nearestNucID = [];
             outTable{isnan(outTable.GroupCount), 'GroupCount'} = single(0);
         end

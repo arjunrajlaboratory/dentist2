@@ -22,8 +22,8 @@ classdef d2ThresholdView2 < handle
         channelPopup %Drop down
         saveButton %Push button
         exportButton %Push button
-        zoomInAxes %Push button
-        zoomOutAxes %Push button
+        zoomAxes %Push button
+        panAxes %Push button
         
         zoomInThresh %Push button
         zoomOutThresh %Push button
@@ -100,15 +100,15 @@ classdef d2ThresholdView2 < handle
             p.centroidsCheckBox = uicontrol('Style', 'checkbox', 'String', 'nuclei', 'Value', p.showCentroids, 'Units', 'normalized', 'Position', [0.72 0.585 0.0722 0.0333]);
             p.scatterCheckBox = uicontrol('Style', 'checkbox', 'String', 'scatter', 'Value', p.showScatter, 'Units', 'normalized', 'Position', [0.79 0.585 0.0722 0.0333]);
 
-            p.addCellButton = uicontrol('Style', 'togglebutton', 'String', 'add cells', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
-            p.deleteCellButton = uicontrol('Style', 'togglebutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]);
+            p.addCellButton = uicontrol('Style', 'pushbutton', 'String', 'add cells', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
+            p.deleteCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]);
 
             p.maskSpotsButton = uicontrol('Style', 'pushbutton', 'String', 'mask spots', 'Units', 'normalized', 'Position', [0.64 0.37 0.1111 0.0367]);
             p.maskCellButton = uicontrol('Style', 'pushbutton', 'String', 'mask cells', 'Units', 'normalized', 'Position', [0.755 0.37 0.1111 0.0367]);
             p.deleteMaskButton = uicontrol('Style', 'pushbutton', 'String', 'delete mask', 'Units', 'normalized', 'Position', [0.755 0.41 0.1111 0.0367]);
 
-            p.zoomInAxes = uicontrol('Style', 'pushbutton', 'String', 'zoom in', 'Units', 'normalized', 'Position', [0.64 0.45 0.1111 0.0367]);
-            p.zoomOutAxes = uicontrol('Style', 'pushbutton', 'String', 'zoom out', 'Units', 'normalized', 'Position', [0.64 0.41 0.1111 0.0367]);
+            p.zoomAxes = uicontrol('Style', 'pushbutton', 'String', 'zoom', 'Units', 'normalized', 'Position', [0.64 0.45 0.1111 0.0367]);
+            p.panAxes = uicontrol('Style', 'pushbutton', 'String', 'pan view', 'Units', 'normalized', 'Position', [0.64 0.41 0.1111 0.0367]);
             p.saveButton = uicontrol('Style', 'pushbutton', 'String', 'save', 'Units', 'normalized', 'Position', [0.755 0.49 0.0778 0.0367]);
             p.exportButton = uicontrol('Style', 'pushbutton', 'String', 'export', 'Units', 'normalized', 'Position', [0.755 0.45 0.0778 0.0367]);
 
@@ -135,8 +135,8 @@ classdef d2ThresholdView2 < handle
         function p = attatchToController(p, controller)
             p.channelPopup.Callback = {@controller.changeChannel};
             p.centroidList.Callback = {@controller.centroidSelected};
-            p.spotsCheckBox.Callback = {@controller.updateMainAxes};
-            %p.centroidsCheckBox.Callback = {@controller.};
+            p.spotsCheckBox.Callback = {@controller.overlaySpots};
+            p.centroidsCheckBox.Callback = {@controller.overlayNuclei};
             p.scatterCheckBox.Callback = {@controller.scatterCallback};
             %p.addCellButton.Callback = {@controller.};
             %p.deleteCellButton.Callback = {@controller.};
@@ -147,7 +147,7 @@ classdef d2ThresholdView2 < handle
             %p.zoomOutAxes.Callback = {@controller.};
             %p.saveButton.Callback = {@controller.};
             %p.exportButton.Callback = {@controller.};
-            p.zoomInAxes.Callback = {@controller.zoomInPressed};
+            p.zoomAxes.Callback = {@controller.zoomInPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};
             p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
             %p.zoomOutAxes.Callback = {@controller.};
@@ -160,10 +160,13 @@ classdef d2ThresholdView2 < handle
             p.threshAxes.ButtonDownFcn = {@controller.thresholdButtonDown};
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
             p.figHandle.KeyPressFcn = {@controller.keyPressFcns};
+            p.figHandle.CloseRequestFcn = {@p.closeFigFcn};
         end
         
-
-
+        function closeFigFcn(p, ~, ~)
+            delete(p.figHandle)
+        end
+        
     end
 
 end

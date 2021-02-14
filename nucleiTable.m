@@ -117,6 +117,13 @@ classdef nucleiTable < handle
             outRect = [startPos, [2, 2] * radius];
         end
         
+        function p = addColors(p)
+            randomColors  = single(d2utils.distinguishable_colors(50));
+            %randomColors = randomColors(randperm(50), :);
+            p.nuclei.colors = [repmat(randomColors, floor(height(p.nuclei)/height(randomColors)), 1);...
+                randomColors(1:mod(height(p.nuclei), height(randomColors)), :)];
+        end
+        
         function p = addCell(p, x, y)  
             if ~isempty(p.nuclei)
                 maxID = max(p.nucID);
@@ -208,9 +215,9 @@ classdef nucleiTable < handle
         function [] = saveNucleiTable(p, varargin)
             if ~isempty(p.nuclei)
                 if nargin == 1
-                    writetable(p.nuclei, 'nuclei.csv')
+                    writetable(p.nuclei(:,{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), 'nuclei.csv') %Not saving nuclei.colors
                 elseif nargin ==2 
-                    writetable(p.nuclei, varargin{1})
+                    writetable(p.nuclei(:,{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), varargin{1})
                 end
             else
                 fprintf("nuclei is empty. Run findNuclei and try again")
