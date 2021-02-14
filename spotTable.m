@@ -197,6 +197,13 @@ classdef spotTable < handle
             p.spots.maskID(ismember(p.spots.maskID, masksToRemove)) = single(0);
             p.updateSpotStatus(channel);
         end
+        
+        function p = setThreshold(p, channel, value)
+            p.thresholds{ismember(p.spotChannels, channel)} = value;
+            %Update spot status
+            p.updateSpotStatus(channel);
+            p.updateCentroidList(channel);
+        end
        
         function p = updateSpotStatus(p,channel)
             threshold = p.thresholds{ismember(p.spotChannels, channel)};
@@ -282,10 +289,12 @@ classdef spotTable < handle
             end
         end
         
-        function p = defaultThresholds(p) %Need to update this with something better
+        function p = defaultThresholds(p) %Need to update this with some better heuristic
             for i = 1:numel(p.spotChannels)
                 p.thresholds{i} = round(mean(p.getIntensities(p.spotChannels{i})));
             end
+            p.updateAllSpotStatus();
+            p.makeCentroidList();
         end
         
         function p = makeCentroidList(p)
@@ -293,6 +302,11 @@ classdef spotTable < handle
             for i = 1:numel(p.spotChannels)
                 p.centroidLists{i} = sortrows(p.tabluteChannel(p.spotChannels{i}), 'GroupCount', 'descend');
             end
+        end
+        
+        function p = updateCentroidList(p, channel)
+            p.centroidLists{ismember(p.spotChannels, channel)}...
+                = sortrows(p.tabluteChannel(channel), 'GroupCount', 'descend');
         end
         
         function outTable = centroidTableInRect(p, channelIdx, rect)
@@ -307,12 +321,15 @@ classdef spotTable < handle
         function outTable = tabluteChannel(p, channel)
             idx = ismember(p.spots.channel, channel) & p.spots.status;
             tmpSpots = groupsummary(p.spots(idx, :), 'nearestNucID');
-            outTable = outerjoin(tmpSpots, p.nucleiObj.nuclei(:,{'nucID', 'x', 'y'}), 'Type', 'left', 'LeftKeys', 'nearestNucID', 'RightKeys', 'nucID');
+            outTable = outerjoin(p.nucleiObj.nuclei(:,{'nucID', 'x', 'y'}), tmpSpots, 'Type', 'left', 'LeftKeys', 'nucID', 'RightKeys', 'nearestNucID');
+            outTable{isnan(outTable.GroupCount), 'GroupCount'} = single(0);
         end
         
         function outTable = tabluteAllChannels(p)
-            tmpSpots = groupsummary(p.spots(p.spots.status, :), {'channel', 'nearestNucID'});
-            outTable = outerjoin(tmpSpots, p.nucleiObj.nuclei(:,{'nucID', 'x', 'y'}), 'Type', 'left', 'LeftKeys', 'nearestNucID', 'RightKeys', 'nucID');
+            tmpSpots = groupsummary(p.spots, {'channel', 'nearestNucID'});
+            outTable = outerjoin(p.nucleiObj.nuclei(:,{'nucID', 'x', 'y'}), tmpSpots, 'Type', 'left', 'LeftKeys', 'nucID', 'RightKeys', 'nearestNucID');
+            outTable.nearestNucID = [];
+            outTable{isnan(outTable.GroupCount), 'GroupCount'} = single(0);
         end
         
         %Set functions

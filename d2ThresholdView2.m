@@ -135,7 +135,7 @@ classdef d2ThresholdView2 < handle
         function p = attatchToController(p, controller)
             p.channelPopup.Callback = {@controller.changeChannel};
             p.centroidList.Callback = {@controller.centroidSelected};
-            %p.spotsCheckBox.Callback = {@controller.};
+            p.spotsCheckBox.Callback = {@controller.updateMainAxes};
             %p.centroidsCheckBox.Callback = {@controller.};
             p.scatterCheckBox.Callback = {@controller.scatterCallback};
             %p.addCellButton.Callback = {@controller.};
@@ -148,12 +148,16 @@ classdef d2ThresholdView2 < handle
             %p.saveButton.Callback = {@controller.};
             %p.exportButton.Callback = {@controller.};
             p.zoomInAxes.Callback = {@controller.zoomInPressed};
+            p.upperContrastSlider.Callback = {@controller.updateMainAxes};
+            p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
             %p.zoomOutAxes.Callback = {@controller.};
             %p.saveButton.Callback = {@controller.};
             %p.exportButton.Callback = {@controller.};
-            
+            p.threshValue.Callback = {@controller.threshValueChange};
+            %p.threshValue.KeyPressFcn = {@controller.threshValueKey};
             %p.mainAxes.ButtonDownFcn = {@controller.mainAxesButtonDown};
             %p.mainAxes.ButtonDownFcn = {@p.drawRect};
+            p.threshAxes.ButtonDownFcn = {@controller.thresholdButtonDown};
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
             p.figHandle.KeyPressFcn = {@controller.keyPressFcns};
         end

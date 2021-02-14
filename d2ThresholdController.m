@@ -15,8 +15,9 @@ classdef d2ThresholdController < handle
         zoomStart
         zoomRect
         channelIdx
-        scatterH %Not sure if we'll need these handle. 
+        scatterH %Not sure if we need these handle. 
         imageH
+        spotScatterH
         
         imagesInView
         dapiInView
@@ -56,12 +57,7 @@ classdef d2ThresholdController < handle
             p.plotIntensityHistogram();
         end
         
-        function p = updateMainAxes(p)
-%             disp(p.viewObj.scatterCheckBox.Value)
-%             disp(class(p.viewObj.scatterCheckBox.Value))
-%             disp(isvalid(p.scatterH))
-%             disp(isgraphics(p.scatterH))
-%             disp(logical(p.viewObj.scatterCheckBox.Value))
+        function p = updateMainAxes(p, ~, ~)
             if isvalid(p.viewObj.mainAxes.Children)
                 delete(get(p.viewObj.mainAxes, 'Children'));
             end
@@ -70,6 +66,7 @@ classdef d2ThresholdController < handle
                 p.plotScatterMain();
             else
                 p.showImage();
+                p.overlaySpots();
             end
         end
         
@@ -113,7 +110,7 @@ classdef d2ThresholdController < handle
             end
             threshold = p.spotTable.thresholds{p.channelIdx};
             yaxis = get(p.viewObj.threshAxes, 'Ylim');
-            p.viewObj.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis, ...
+            p.viewObj.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis,...
                 'Color', 'b', 'HitTest', 'off');
             p.viewObj.threshValue.String = num2str(threshold);
         end
@@ -122,8 +119,8 @@ classdef d2ThresholdController < handle
             %Could probably save on time by adding colormap to
             %centroidTable in the spotTableObject.
             centroidsInView = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
-            set(p.viewObj.mainAxes, 'Xlim', [p.viewRect(2),  p.viewRect(2)+p.viewRect(4)])
-            set(p.viewObj.mainAxes, 'Ylim', [p.viewRect(1),  p.viewRect(1)+p.viewRect(3)])
+            set(p.viewObj.mainAxes, 'XLim', [p.viewRect(2),  p.viewRect(2)+p.viewRect(4)])
+            set(p.viewObj.mainAxes, 'YLim', [p.viewRect(1),  p.viewRect(1)+p.viewRect(3)])
             hold(p.viewObj.mainAxes, 'on')
             p.scatterH = scatter(centroidsInView.y, centroidsInView.x,...
                 20, centroidsInView.GroupCount, 'filled',...
@@ -148,7 +145,7 @@ classdef d2ThresholdController < handle
         end
         
         function mainAxesZoom(p, ~, ~)
-            if ishandle(p.viewObj.zoomH)
+            if ~isempty(p.viewObj.zoomH)
                 delete(p.viewObj.zoomH)
             end
             p.getSelectedRectangleCoords()
@@ -181,6 +178,74 @@ classdef d2ThresholdController < handle
             delete(p.viewObj.zoomH)
             set(p.viewObj.figHandle, 'WindowButtonUpFcn', '');
         end
+        
+        function thresholdButtonDown(p, ~, ~)
+            %set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopThresholdDrag});
+            %set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.thresholdDrag});
+            currentPoint = get(p.viewObj.threshAxes, 'CurrentPoint');
+            if abs(currentPoint(1,1) - p.viewObj.thresholdLineH.XData(1)) < 150
+                disp('near')
+                set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopThreshDrag});
+                set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.dragThresh});
+            end
+        end
+        
+        function dragThresh(p, ~, ~)
+            currentPont = get(p.viewObj.threshAxes, 'CurrentPoint');
+            newThresh = max(currentPont(1,1), 1);
+            newThresh = min(newThresh, p.viewObj.threshAxes.XLim(2));
+            if isvalid(p.viewObj.thresholdLineH)
+                set(p.viewObj.thresholdLineH, 'XData', [newThresh, newThresh])
+                p.viewObj.threshValue.String = num2str(round(newThresh));
+            else
+                yaxis = get(p.viewObj.threshAxes, 'Ylim');
+                p.viewObj.thresholdLineH = line(p.viewObj.threshAxes, [newThresh, newThresh], yaxis,...
+                    'Color', 'b', 'HitTest', 'off');
+                p.viewObj.threshValue.String = num2str(round(newThresh));
+            end
+        end
+        
+        function stopThreshDrag(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', '');
+            %Should notify threshold change
+            newThresh = str2double(p.viewObj.threshValue.String);
+            p.spotTable.setThreshold(p.spotTable.spotChannels{p.channelIdx}, newThresh);
+            p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.channelIdx}.GroupCount);
+            p.updateMainAxes();
+            set(p.viewObj.figHandle, 'WindowButtonUpFcn', '');
+        end
+        
+        function threshValueChange(p, ~, ~)
+            if ~isnan(str2double(p.viewObj.threshValue.String)) && isreal(str2double(p.viewObj.threshValue.String))
+                newThresh = round(str2double(p.viewObj.threshValue.String));
+                set(p.viewObj.thresholdLineH, 'XData', [newThresh, newThresh])
+                %Update threshold for spots
+                p.spotTable.setThreshold(p.spotTable.spotChannels{p.channelIdx}, newThresh);
+                p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.channelIdx}.GroupCount);
+                p.updateMainAxes();
+            else
+                %If not number, return to previous threshold or default
+                %threshold
+                if isvalid(p.viewObj.thresholdLineH)
+                    oldThresh = get(p.viewObj.thresholdLineH, 'XData');
+                    set(p.viewObj.threshValue, 'String', num2str(oldThresh(1)))
+                else
+                    threshold = p.spotTable.thresholds{p.channelIdx};
+                    yaxis = get(p.viewObj.threshAxes, 'Ylim');
+                    p.viewObj.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis,...
+                        'Color', 'b', 'HitTest', 'off');
+                    p.viewObj.threshValue.String = num2str(threshold);
+                    p.spotTable.setThreshold(p.spotTable.spotChannels{p.channelIdx}, num2str(threshold));
+                    p.updateMainAxes();
+                end
+            end
+            
+        end
+%         function threshValueKey(p, ~, evt) %Could use this to toggle up and down with arrow keys
+%             if strcmp(evt.Key, 'return')
+%                 disp(p.viewObj.threshValue.String)
+%             end
+%         end
        
         function p = updateImageInView(p)
             p.imagesInView = cell(0, numel(p.spotTable.spotChannels));
@@ -209,36 +274,27 @@ classdef d2ThresholdController < handle
             xlimits = [p.viewRect(2),  p.viewRect(2)+p.viewRect(4)];
             ylimits = [p.viewRect(1),  p.viewRect(1)+p.viewRect(3)];
             %axis(p.viewObj.mainAxes, [xlimits, ylimits], 'square')
-            set(p.viewObj.mainAxes, 'Xlim', xlimits)
-            set(p.viewObj.mainAxes, 'Ylim', ylimits)
+            set(p.viewObj.mainAxes, 'XLim', xlimits)
+            set(p.viewObj.mainAxes, 'YLim', ylimits)
             hold(p.viewObj.mainAxes, 'on')
             p.imageH = imshow(tmpRGB, 'XData', xlimits, 'YData', ylimits, 'Parent', p.viewObj.mainAxes);
             %axis fill
             %pbaspect auto
             set(p.viewObj.mainAxes, 'Visible', 'on')
             hold(p.viewObj.mainAxes, 'off')
-            
-            
         end
         
-%         function resizeImageInView(p)
-%            %Decide if overlay with DAPI?
-%            %Resize if too large
-%            if p.viewRect(3) * p.viewRect(4) < 2250001
-%                p.resizedImg = p.imagesInView{p.channelIdx};
-%                p.resizedDapi = p.dapiInView;
-%            elseif p.viewRect(3) * p.viewRect(4) < 6250001
-%                p.resizedImg = im2uint8(p.imagesInView{p.channelIdx});
-%                p.resizedDapi = im2uint8(p.dapiInView);
-%            elseif p.viewRect(3) * p.viewRect(4) < 1000000001
-%                p.resizedImg = im2uint8(imresize(p.imagesInView{p.channelIdx}, 1/4));
-%                p.resizedDapi = im2uint8(imresize(p.dapiInView, 1/4));
-%            else
-%                disp('View is too large to display image. Plotting scatter')
-%                set(p.viewObj.scatterCheckBox, 'Value', 1)
-%                p.updateMainAxes();
-%            end
-%         end
+        function overlaySpots(p, ~, ~)
+            if logical(p.viewObj.spotsCheckBox.Value)
+                [spotsInView, spotIdx] = p.spotTable.getValidSpotsInRect(p.spotTable.spotChannels{p.channelIdx}, p.viewRect);
+                hold(p.viewObj.mainAxes, 'on')
+                p.spotScatterH = scatter(spotsInView.y, spotsInView.x, 10,...
+                    'Parent', p.viewObj.mainAxes, 'HitTest','off');
+                hold(p.viewObj.mainAxes, 'off')
+            else
+                delete(p.spotScatterH)
+            end
+        end
         
         function scatterCallback(p, ~, ~)
             if p.viewObj.scatterCheckBox.Value == 0
