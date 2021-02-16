@@ -18,6 +18,7 @@ classdef d2ThresholdView2 < handle
         spotsCheckBox %Check box
         centroidsCheckBox %Check box
         scatterCheckBox %Check box
+        masksCheckBox  %Check box
         
         channelPopup %Drop down
         saveButton %Push button
@@ -45,9 +46,10 @@ classdef d2ThresholdView2 < handle
         histogramLineH
         thresholdLineH
         
-        showSpots = true; %Not sure if these handles are necessary. 
-        showCentroids = true;
-        showScatter= true;
+        showSpots = true %Not sure if these handles are necessary. 
+        showCentroids = true
+        showScatter= true
+        showMasks = true
     end
     
     % GUI startup and deletion
@@ -97,9 +99,10 @@ classdef d2ThresholdView2 < handle
             p.channelPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.spotChannels, 'Units', 'normalized', 'Position', [0.64 0.5067 0.1111 0.0367]);          
             p.centroidList = uicontrol('Style', 'listbox', 'String', string(p.spotTable.centroidLists{1}.GroupCount),'Units', 'normalized', 'Position', [0.86 0.645 0.12 0.33]);
             p.spotsCheckBox = uicontrol('Style', 'checkbox', 'String', 'spots', 'Value', p.showSpots,'Units', 'normalized', 'Position', [0.65 0.585 0.0722 0.0333]);
-            p.centroidsCheckBox = uicontrol('Style', 'checkbox', 'String', 'nuclei', 'Value', p.showCentroids, 'Units', 'normalized', 'Position', [0.72 0.585 0.0722 0.0333]);
-            p.scatterCheckBox = uicontrol('Style', 'checkbox', 'String', 'scatter', 'Value', p.showScatter, 'Units', 'normalized', 'Position', [0.79 0.585 0.0722 0.0333]);
-
+            p.centroidsCheckBox = uicontrol('Style', 'checkbox', 'String', 'nuclei', 'Value', p.showCentroids, 'Units', 'normalized', 'Position', [0.695 0.585 0.0722 0.0333]);
+            p.masksCheckBox = uicontrol('Style', 'checkbox', 'String', 'masks', 'Value', p.showMasks, 'Units', 'normalized', 'Position', [0.74 0.585 0.0722 0.0333]);
+            p.scatterCheckBox = uicontrol('Style', 'checkbox', 'String', 'scatter', 'Value', p.showScatter, 'Units', 'normalized', 'Position', [0.785 0.585 0.0722 0.0333]);
+            
             p.addCellButton = uicontrol('Style', 'pushbutton', 'String', 'add cells', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
             p.deleteCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]);
 
@@ -138,16 +141,18 @@ classdef d2ThresholdView2 < handle
             p.spotsCheckBox.Callback = {@controller.overlaySpots};
             p.centroidsCheckBox.Callback = {@controller.overlayNuclei};
             p.scatterCheckBox.Callback = {@controller.scatterCallback};
+            p.masksCheckBox.Callback = {@controller.overlayMasks};
             %p.addCellButton.Callback = {@controller.};
             %p.deleteCellButton.Callback = {@controller.};
-            %p.maskSpotsButton.Callback = {@controller.};
+            p.maskSpotsButton.Callback = {@controller.addSpotMask};
             %p.maskCellButton.Callback = {@controller.};
-            %p.deleteMaskButton.Callback = {@controller.};
+            p.deleteMaskButton.Callback = {@controller.deleteMask};
             %p.zoomInAxes.Callback = {@contrsoller.};
             %p.zoomOutAxes.Callback = {@controller.};
             %p.saveButton.Callback = {@controller.};
             %p.exportButton.Callback = {@controller.};
             p.zoomAxes.Callback = {@controller.zoomInPressed};
+            p.panAxes.Callback = {@controller.panViewPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};
             p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
             %p.zoomOutAxes.Callback = {@controller.};

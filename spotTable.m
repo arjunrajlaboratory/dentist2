@@ -302,12 +302,15 @@ classdef spotTable < handle
             p.centroidLists = cell(0, numel(p.spotChannels));
             for i = 1:numel(p.spotChannels)
                 p.centroidLists{i} = sortrows(p.tabulateChannel(p.spotChannels{i}), 'GroupCount', 'descend');
+                p.centroidLists{i}.expression_color = d2utils.expressionToColors2(p.centroidLists{i}.GroupCount);
             end
         end
         
         function p = updateCentroidList(p, channel)
-            p.centroidLists{ismember(p.spotChannels, channel)}...
+            channelIdx = ismember(p.spotChannels, channel);
+            p.centroidLists{channelIdx}...
                 = sortrows(p.tabulateChannel(channel), 'GroupCount', 'descend');
+            p.centroidLists{channelIdx}.expression_color = d2utils.expressionToColors2(p.centroidLists{channelIdx}.GroupCount);
         end
         
         function outTable = centroidTableInRect(p, channelIdx, rect)

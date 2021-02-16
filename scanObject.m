@@ -219,6 +219,7 @@ classdef scanObject < handle
         function outIm = getSmallImageRect(p, channel, rect) %rect specified as [x y nrows ncols]
             channelIdx = ismember(p.smallStitchedScans.labels, channel);
             smallRect = round(rect/p.resizeFactor);
+            smallRect(1:2) = max([1, 1], smallRect(1:2));
             outIm = p.stitchedScans.stitches{channelIdx};
             outIm = outIm(smallRect(1):smallRect(1)+smallRect(3), smallRect(2):smallRect(2)+smallRect(4)); %Kinda ugly, would prefer using imcrop
         end
@@ -229,6 +230,7 @@ classdef scanObject < handle
         
         function outIm = getSmallDapiImage(p, rect) %rect specified as [x y nrows ncols]
             smallRect = round(rect/p.resizeFactor);
+            smallRect(1:2) = max([1, 1], smallRect(1:2));
             outIm = p.smallDapiStitch(smallRect(1):smallRect(1)+smallRect(3), smallRect(2):smallRect(2)+smallRect(4));
         end
         
