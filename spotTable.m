@@ -130,6 +130,7 @@ classdef spotTable < handle
                 channelIdx = p.maskObj.masks(:, p.spotChannels(i));
                 maskTable = p.maskObj.masks(channelIdx,:);
                 maskIDs = unique(maskTable.maskID);
+                maskIDs(maskIDs == 0) = [];
                 spotIdx = p.spots.channel == channel;
                 p.spots.maskID(spotIdx) =  single(0);
                 p.updateSpotStatus(p.spotChannels(i))
@@ -152,7 +153,7 @@ classdef spotTable < handle
         function p = addNewMask(p, channel)
             
             maxSpotMask = max(p.maskObj.masks{p.maskObj.masks{:,channel},'maskID'});
-            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,{'BB'}}; %Only query nuclei within mask bouding box
+            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxSpotMask,{'BB'}}; %Only query spots within mask bouding box
             %polyRect = d2utils.boundingCorners2Rect(maskBB);
             spotIdx = p.getSpotsInRectIndex(channel, maskBB);
             idx = inpolygon(p.spots.x(spotIdx), p.spots.y(spotIdx),...
@@ -171,7 +172,7 @@ classdef spotTable < handle
             %Probably could use some speeding up. 
             masksInRect = p.maskObj.getChannelMasksInRect(localRect, channel);
             maskIDsinRect = unique(masksInRect.maskID);
-            [tmpSpots, spotIdx] = getSpotsInRect(channel, localRect);            
+            [tmpSpots, spotIdx] = p.getSpotsInRect(channel, localRect);            
             
             %Resest status for nuclei
             tmpSpots.maskID(:) = single(0);
@@ -190,12 +191,20 @@ classdef spotTable < handle
         end
         
         function p = removeMasks(p, channel) 
-            %If spot falls within multiple masks and only 1 is removed,
-            %this function may incorrectly set status to true. Can instead
-            %use updateMasksInRect
-            
             masksToRemove = setdiff(p.spots.maskID, p.maskObj.masks.maskID(p.maskObj.masks{:,channel}));
             p.spots.maskID(ismember(p.spots.maskID, masksToRemove)) = single(0);
+            p.updateSpotStatus(channel);
+        end
+        
+        function p = removeMasks2(p, channel, rect)
+            %Not sure if it'll be faster to first get spots and masks in
+            %rect. 
+            [spotsInRect, spotIdx] = p.getSpotsInRect(channel, rect);
+            maskIDsInRect = p.maskObj.getChannelMaskIDsInRect(rect, channel);
+            
+            goodLabelIdx = ismember(spotsInRect.maskID, [maskIDsInRect; 0]);  %add zero in case maskTable is full
+            spotIdx(goodLabelIdx) = false;
+            p.spots.maskID(spotIdx) = single(0);
             p.updateSpotStatus(channel);
         end
         
@@ -210,7 +219,8 @@ classdef spotTable < handle
             threshold = p.thresholds{ismember(p.spotChannels, channel)};
             channelIdx = ismember(p.spots.channel, channel);
             spotIdx = p.spots.intensity(channelIdx) >= threshold ...
-                & p.spots.distanceToNuc(channelIdx) <= p.maxDistance & p.spots.maskID(channelIdx) == 0;
+                & p.spots.distanceToNuc(channelIdx) <= p.maxDistance & p.spots.maskID(channelIdx) == 0 ...
+                & ismember(p.spots.nearestNucID(channelIdx), p.nucleiObj.nuclei.nucID(p.nucleiObj.nuclei.status));%spots near masked cells will be set to false but not re-assigned. 
             
             p.spots.status(channelIdx) = spotIdx;
             %p.spots.status(~spotIdx) = false;

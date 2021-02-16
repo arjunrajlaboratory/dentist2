@@ -15,6 +15,7 @@ classdef d2ThresholdController < handle
         zoomROI
         zoomStart
         zoomRect
+        fixedZoom = false
         panStart
         channelIdx
         zoomMode = true
@@ -23,7 +24,7 @@ classdef d2ThresholdController < handle
         spotScatterH
         nucleiScatterH
         maskH
-        
+        handPointStruct 
         imagesInView
         dapiInView
         
@@ -52,6 +53,7 @@ classdef d2ThresholdController < handle
 %             p.updateColorMap();  %Specifying colors directly in scatter instead
             p.plotScatterMain();
             p.updateImageInView();
+            p.handPointStruct = d2utils.makePointStruct();
             %p.updateMainAxes()
         end
         
@@ -152,17 +154,46 @@ classdef d2ThresholdController < handle
         
         function zoomInPressed(p, ~, ~)
             p.zoomMode = true;
+            %iptPointerManager(p.viewObj.figHandle, 'disable');
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
-%             p.zoomROI = drawrectangle(p.viewObj.mainAxes); %Can add callback for clicking on ROI
+            %Below are old functions that draw rectangle using matlab
+            %ROI instead of mainAxesZoom fcn. Probably slightly more efficient but doesn't allow using
+            %the console until roi completed. 
+            %set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDownZoomMode}) %need a zoomMode that doesn't use 'normal' clicks
+%             while p.zoomMode
+%                 if p.fixedZoom
+%                     p.zoomROI = drawrectangle(p.viewObj.mainAxes, 'Color', 'r', 'FaceAlpha', 0, 'FixedAspectRatio', true);
+%                 else 
+%                     p.zoomROI = drawrectangle(p.viewObj.mainAxes, 'Color', 'r', 'FaceAlpha', 0);
+%                 end
+%                 
+%                 if isempty(p.zoomROI.Position) %if escape pressed
+%                     break
+%                 elseif all(p.zoomROI.Position(3:4) > 4) %minimum view size
+%                     p.viewRect  = d2utils.coordToPixelRect(round(p.zoomROI.Position));
+%                     delete(p.zoomROI) %Possibly unnecessary since Children deleted in p.updateMainAxes(); 
+%                     p.updateImageInView();
+%                     p.updateMainAxes();
+%                     p.fixedZoom = false;
+%                 end
+%             end
         end
-        
+    
         function figWindowDown(p, ~, ~)
-            if p.zoomMode && d2utils.pointInSideRect(p.viewRect, get(p.viewObj.mainAxes, 'CurrentPoint'))
+            if d2utils.pointInSideRect(p.viewRect, get(p.viewObj.mainAxes, 'CurrentPoint'))
                 switch(p.getSelectionType)
+                    %'normal' click was used for drawing rectangle before using
+                    %rectangle roi
                     case 'normal'
-                        p.zoomStart = get(p.viewObj.mainAxes, 'CurrentPoint');
-                        set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopDragFcn});
-                        set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.mainAxesZoom});
+                        if p.zoomMode
+                            p.zoomStart = get(p.viewObj.mainAxes, 'CurrentPoint');
+                            set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopDragFcn});
+                            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.mainAxesZoom});
+                        else
+                            p.panStart =  get(p.viewObj.mainAxes, 'CurrentPoint');
+                            set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopPan})
+                            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.panView});
+                        end
                     case 'open'
                         p.viewRect = [1, 1, p.scanDim];
                         p.updateImageInView();
@@ -179,14 +210,21 @@ classdef d2ThresholdController < handle
             if ~isempty(p.viewObj.zoomH)
                 delete(p.viewObj.zoomH)
             end
-            p.getSelectedRectangleCoords()
-            if p.zoomRect(3) > 4 && p.zoomRect(4) > 4
+            
+            if p.fixedZoom
+                p.getSelectedRectangleCoordsFixed()
+            else
+                p.getSelectedRectangleCoords()
+            end
+            
+            if all(p.zoomRect(3:4) > 4) %min view size
                 p.viewObj.zoomH = rectangle(...
                     'Position', p.zoomRect, ...
                     'EdgeColor', 'r', ...
                     'Parent', p.viewObj.mainAxes,...
                     'Hittest', 'off');
-             end
+            end
+
         end
         
         function stopDragFcn(p, ~, ~)
@@ -209,27 +247,28 @@ classdef d2ThresholdController < handle
                 abs(p.zoomStart(1,1:2) - currentPoint(1,1:2))]);
         end
         
+        function getSelectedRectangleCoordsFixed(p)
+            currentPoint = get(p.viewObj.mainAxes, 'CurrentPoint');
+            sz = max(abs(p.zoomStart(1,1:2) - currentPoint(1,1:2)));
+            p.zoomRect = round([min(p.zoomStart(1,1:2), currentPoint(1,1:2)), [sz sz]]);
+        end
+        
         function panViewPressed(p, ~, ~)
-            p.zoomMode = false;
-            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.startPan})
-            %set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.figWindowPan})
-            set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopPan})
-            %p.resetPanView();
-        end
-        
-        function startPan(p, ~, ~)
-            if ~p.zoomMode && d2utils.pointInSideRect(p.viewRect, get(p.viewObj.mainAxes, 'CurrentPoint'))
-                p.panStart =  get(p.viewObj.mainAxes, 'CurrentPoint');
-                set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.panView});
+            if any(p.viewRect(3:4) < p.scanDim) %No need to pan if view is of entire scan
+                p.zoomMode = false; 
+                %iptPointerManager(p.viewObj.figHandle, 'enable');
+                %iptSetPointerBehavior(p.viewObj.mainAxes, @(hfig, currentPoint) set(hfig, 'Pointer', 'hand'));
+                set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
+            else
+                p.zoomMode = false; 
+                set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
             end
-            
         end
-        
+                
         function stopPan(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonMotionFcn', '');
             set(p.viewObj.figHandle, 'WindowButtonUpFcn', '')
         end
-        
         
         function panView(p, ~, ~)
             currentPoint = get(p.viewObj.mainAxes, 'CurrentPoint');
@@ -386,15 +425,17 @@ classdef d2ThresholdController < handle
             if logical(p.viewObj.masksCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
                 maskTableTmp = p.maskObj.getChannelMasksInRect(p.viewRect, p.spotTable.spotChannels{p.channelIdx});
                 maskIDs = unique(maskTableTmp.maskID);
+                maskIDs(maskIDs == 0) = [];
                 for i = 1:numel(maskIDs)
                     drawfreehand(p.viewObj.mainAxes, 'Position', maskTableTmp{maskTableTmp.maskID == maskIDs(i), {'y', 'x'}},...
-                        'Color', 'red', 'InteractionsAllowed', 'none')
+                        'Color', 'red', 'InteractionsAllowed', 'none');
                 end
                 cellMasksTmp = p.maskObj.getChannelMasksInRect(p.viewRect, 'dapi');
                 maskIDs = unique(cellMasksTmp.maskID);
+                maskIDs(maskIDs == 0) = [];
                 for i = 1:numel(maskIDs)
                     drawfreehand(p.viewObj.mainAxes, 'Position', cellMasksTmp{cellMasksTmp.maskID == maskIDs(i), {'y', 'x'}},...
-                        'Color', 'blue', 'InteractionsAllowed', 'none')
+                        'Color', 'blue', 'InteractionsAllowed', 'none');
                 end
             end
         end
@@ -408,39 +449,92 @@ classdef d2ThresholdController < handle
         
         function addSpotMask(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set(p.viewObj.masksCheckBox, 'Value', true)
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'off')
             channel = p.spotTable.spotChannels{p.channelIdx};
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             %addlistener(p.maskH, 'DrawingFinished', @p.maskSpots);
-            p.maskSpots(p.maskH, channel)
+            if ~isempty(p.maskH.Position) %Allows 'escape' from ROI
+                p.maskSpots(p.maskH, channel)
+            end
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
         function maskSpots(p, roi, channel)
-            tmpPoly = roi.Position;
+            %tmpPoly = roi.Position;
+            set(p.viewObj.masksCheckBox, 'Value', true)
+            p.maskObj.addMaskLocalCoords(roi.Position, channel);
             delete(roi)
-            %drawfreehand(p.viewObj.mainAxes, 'Position', tmpPoly, 'Color', 'red', 'InteractionsAllowed', 'none')
-            p.maskObj.addMaskLocalCoords(tmpPoly, channel);
-            p.overlayMasks();
-%             p.spotTable.addNewMask(channel);
-%             p.spotTable.updateSpotStatus(channel);
-%             p.updateCentroidList(channel);
-%             delete(p.maskH);
+            tic
+            p.spotTable.addNewMask(channel);
+            p.spotTable.updateSpotStatus(channel);
+            toc
+            p.spotTable.updateCentroidList(channel);
+            p.updateMainAxes();
+        end
+        
+        function addCellMask(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'off')
+            p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
+            if ~isempty(p.maskH.Position) %Allows 'escape' from ROI
+                p.maskCells(p.maskH)
+            end
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
+        end
+        
+        function maskCells(p, roi)
+            %tmpPoly = roi.Position;
+            channel = p.spotTable.spotChannels{p.channelIdx};
+            set(p.viewObj.masksCheckBox, 'Value', true)
+            p.maskObj.addMaskLocalCoords(roi.Position, 'dapi');
+            delete(roi)
+            p.nucleiObj.addNewMask();
+            p.spotTable.updateSpotStatus(channel);
+            p.spotTable.updateCentroidList(channel);
+            p.updateMainAxes();
         end
         
         function deleteMask(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            [x, y] = getpts(p.viewObj.mainAxes);
-            p.maskObj.removeMasksByLocalPoints([x, y], p.viewRect);
-            p.overlayMasks();
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'off')
+            channel = p.spotTable.spotChannels{p.channelIdx};
+            [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
+            if ~isempty(x)
+                ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
+                p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
+                tic
+                p.nucleiObj.removeMasks();
+                toc
+                %p.nucleiObj.updateMasksInRect(p.viewRect);
+                tic
+                p.spotTable.removeMasks2(channel, p.viewRect);
+                toc
+                %p.spotTable.updateMasksInRect(channel, p.viewRect);
+                p.spotTable.updateCentroidList(channel);
+                p.updateMainAxes();
+                set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
+            end
         end
         
         function type = getSelectionType(p)
             type = get(p.viewObj.figHandle, 'SelectionType');
         end
-        
+                
         function keyPressFcns(p, ~, evt)
             keyPressed = evt.Key;
             switch(keyPressed)
+                case 'z'
+                    p.zoomInPressed();
+                case 'p'
+                    p.panViewPressed();
+                case 'x'
+                    set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+                    %iptPointerManager(p.viewObj.figHandle, 'disable');
+                case 'shift'
+                    disp('shift')
+                    p.fixedZoom = ~p.fixedZoom;
 %                 case 'return' %'return' key is used to end mask polygon.
 %                 % If want to use 'return' here, then change mask callback.  
 %                 

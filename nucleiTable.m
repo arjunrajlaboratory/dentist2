@@ -151,6 +151,7 @@ classdef nucleiTable < handle
             
             maskTable = p.maskObj.masks(p.maskObj.masks.dapi, :);
             maskIDs = unique(maskTable.maskID);
+            maskIDs(maskIDs == 0) = [];
             p.nuclei.maskID(:) = single(0);
             p.nuclei.status(:) = true;
             for i = 1:numel(maskIDs)
@@ -202,13 +203,22 @@ classdef nucleiTable < handle
         end
         
         function p = removeMasks(p) 
-            %If nucleus falls within multiple masks and only 1 is removed,
-            %this function may incorrectly set status to true. Can instead
-            %use updateMasksInRect
             
             masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masksBB.maskID(p.maskObj.masksBB.dapi));
             p.nuclei.maskID(ismember(p.nuclei.maskID, masksToRemove)) = single(0);
             p.nuclei.status(ismember(p.nuclei.maskID, masksToRemove)) = true;
+        end
+        
+        function p = removeMasks2(p, rect)
+            %Not sure if it'll be faster to first get nuclei and masks in
+            %rect. 
+            [nucInRect, nucIdx] = p.getNucleiInRect(rect);
+            maskIDsInRect = p.maskObj.getChannelMaskIDsInRect(rect, 'dapi');
+            
+            goodLabelIdx = ismember(nucInRect.maskID, [maskIDsInRect; 0]); %add zero in case maskTable is full
+            nucIdx(goodLabelIdx) = false;
+            p.nuclei.maskID(nucIdx) = single(0);
+            p.nuclei.status(nucIdx) = true;
         end
         
         

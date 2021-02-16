@@ -50,16 +50,18 @@ classdef d2ThresholdView2 < handle
         showCentroids = true
         showScatter= true
         showMasks = true
+        
     end
     
     % GUI startup and deletion
     methods (Access = public)
 
         % Construct app
-        function p = d2ThresholdView2(scanObject, spotTable, maskObject)
+        function p = d2ThresholdView2(scanObject, spotTable, maskObject, nucleiObject)
             p.scanObj = scanObject;
             p.spotTable = spotTable;
             p.maskObj = maskObject;
+            p.nucleiObj = nucleiObject;
 
             % Create UIFigure and components
             createComponents(p)
@@ -88,7 +90,7 @@ classdef d2ThresholdView2 < handle
         function createComponents(p)
 
             p.figHandle = figure('Visible', 'off', 'Position', [100 100 1550 900]);
-
+            %iptPointerManager(p.figHandle);
             p.mainAxes = axes('Parent', p.figHandle, 'Position', [0.025 0.025 0.60 0.95], 'Ydir','reverse', 'XAxisLocation', 'bottom', 'YAxisLocation', 'left', 'Interactions',[]);
             set(p.mainAxes.Toolbar, 'Visible','off');
             p.thumbAxes = axes('Parent', p.figHandle, 'XTickLabel', '', 'YTickLabel', '', 'Ydir', 'reverse', 'Position', [0.64 0.645 0.21 0.33], 'Interactions', []);
@@ -145,7 +147,7 @@ classdef d2ThresholdView2 < handle
             %p.addCellButton.Callback = {@controller.};
             %p.deleteCellButton.Callback = {@controller.};
             p.maskSpotsButton.Callback = {@controller.addSpotMask};
-            %p.maskCellButton.Callback = {@controller.};
+            p.maskCellButton.Callback = {@controller.addCellMask};
             p.deleteMaskButton.Callback = {@controller.deleteMask};
             %p.zoomInAxes.Callback = {@contrsoller.};
             %p.zoomOutAxes.Callback = {@controller.};
@@ -155,7 +157,6 @@ classdef d2ThresholdView2 < handle
             p.panAxes.Callback = {@controller.panViewPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};
             p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
-            %p.zoomOutAxes.Callback = {@controller.};
             %p.saveButton.Callback = {@controller.};
             %p.exportButton.Callback = {@controller.};
             p.threshValue.Callback = {@controller.threshValueChange};
