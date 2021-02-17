@@ -69,15 +69,15 @@ classdef spotTable < handle
             
         end
         
-        function p = assignSpotsInRect(p, channel, rect) %Maybe useful for reassigning spots after add/removing cells 
+        function p = assignSpotsInRect(p, rect) %Maybe useful for reassigning spots after add/removing cells 
             
-            spotIdx = p.getValidSpotsInRectIndex(channel,rect);
+            [spotsInRect, spotIdx] = p.getAllSpotsInRect(rect);
             nucleiNearRect = p.nucleiObj.getNucleiNearRect(rect, p.maxDistance);
-            [nucIdx, dist] = knnsearch([nucleiNearRect.x nucleiNearRect.y], [p.spots.x(spotIdx) p.spots.y(spotIdx)], 'K', 1, 'Distance', 'euclidean');
+            [nucIdx, dist] = knnsearch([nucleiNearRect.x nucleiNearRect.y], [spotsInRect.x spotsInRect.y], 'K', 1, 'Distance', 'euclidean');
             
             p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
             p.spots.distanceToNuc(spotIdx) = single(dist);
-            p.spots.colors(spotIdx) = nucleiNearRect.colors(nucIdx, :);
+            p.spots.colors(spotIdx, :) = nucleiNearRect.colors(nucIdx, :);
         end
         
         function [outSpots,idx] = getAllSpotsInRect(p,rect) %rect specified as [x y nrows ncols]
@@ -220,7 +220,7 @@ classdef spotTable < handle
             channelIdx = ismember(p.spots.channel, channel);
             spotIdx = p.spots.intensity(channelIdx) >= threshold ...
                 & p.spots.distanceToNuc(channelIdx) <= p.maxDistance & p.spots.maskID(channelIdx) == 0 ...
-                & ismember(p.spots.nearestNucID(channelIdx), p.nucleiObj.nuclei.nucID(p.nucleiObj.nuclei.status));%spots near masked cells will be set to false but not re-assigned. 
+                & ismember(p.spots.nearestNucID(channelIdx), p.nucleiObj.nuclei.nucID(p.nucleiObj.nuclei.status));%spots near masked cells will be set to false. 
             
             p.spots.status(channelIdx) = spotIdx;
             %p.spots.status(~spotIdx) = false;

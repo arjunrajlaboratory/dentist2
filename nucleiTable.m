@@ -18,7 +18,7 @@ classdef nucleiTable < handle
             p.maskObj = maskObj;
             if nargin == 2
                 fprintf('New Table\n');
-                p.nuclei = cell2table(cell(0,6), 'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}); 
+                p.nuclei = cell2table(cell(0,7), 'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'}); 
             elseif nargin == 3
                 fprintf('Loading Table\n');
                 p.nuclei = readtable(varargin{1},'TextType','string');
@@ -66,14 +66,14 @@ classdef nucleiTable < handle
             centroids = [rp.Centroid];
             centroids = round(reshape(centroids,2,[])');
             centroids = single(centroids);
-            
             area = single([rp.Area]);
             
             status = true(height(centroids), 1);
             maskID = single(zeros(height(centroids), 1));
+            colors = single(zeros(height(centroids),3));
 
-            p.nuclei = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area',...
-                'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'});
+            p.nuclei = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
+                'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
         end
         
         function [outNuclei, idx] = getNucleiInRect(p,rect) %rect specified as [x y nrows ncols]
@@ -124,15 +124,15 @@ classdef nucleiTable < handle
                 randomColors(1:mod(height(p.nuclei), height(randomColors)), :)];
         end
         
-        function p = addCell(p, x, y)  
-            if ~isempty(p.nuclei)
-                maxID = max(p.nucID);
-                newNuc = {maxID+1, single(x), single(y), true, single(0), single(0)}; %Should area be NaN?
-                p.nuclei = [p.nuclei; newNuc];
-                
+        function p = addCell(p, x, y)
+            if isempty(p.nuclei)
+                maxID = 1;
             else
-                p.nuclei(1,:) = {single(1), single(x), single(y), true, single(0), single(area)};
+                maxID = max(p.nuclei.nucID);
             end
+            newNuc = table(single(maxID+1:maxID+numel(x))', single(x), single(y), true(numel(x), 1), single(zeros(numel(x), 1)), single(zeros(numel(x), 1)), single(rand(numel(x), 3)),...
+                'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'}); %Should area be NaN?
+            p.nuclei = [p.nuclei; newNuc];
         end
         
         function p = removeCell(p, x, y)

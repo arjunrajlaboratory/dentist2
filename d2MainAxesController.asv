@@ -1,4 +1,4 @@
-classdef d2ThresholdController < handle
+classdef d2MainAxesController < handle
     properties (Access = public)
         
         %Model objects
@@ -11,10 +11,13 @@ classdef d2ThresholdController < handle
         threshZoom
         viewRect %Image coords not axes coords
         panRect
-        cellViewRadius = 750
+        cellViewRadius = 500
         zoomROI
         zoomStart
         zoomRect
+        ThreshAxisMin
+        ThreshAxisMax
+        thumbZoom = false
         fixedZoom = false
         panStart
         channelIdx
@@ -22,9 +25,14 @@ classdef d2ThresholdController < handle
         scatterH %Not sure if we need these handle. 
         imageH
         spotScatterH
+        thumbPlotH
+        thumbRectH
+        zoomThreshStartH
+        zoomThreshEndH
+        zoomThreshRectH
         nucleiScatterH
         maskH
-        handPointStruct 
+         
         imagesInView
         dapiInView
         
@@ -34,7 +42,7 @@ classdef d2ThresholdController < handle
     end
     
     methods
-        function p = d2ThresholdController(view, scanObj, spotTable, maskObj, nucleiObj)
+        function p = d2MainAxesController(view, scanObj, spotTable, maskObj, nucleiObj)
             p.viewObj = view;
             p.spotTable = spotTable;
             p.scanObj = scanObj;
@@ -52,8 +60,8 @@ classdef d2ThresholdController < handle
             p.plotIntensityThreshold()
 %             p.updateColorMap();  %Specifying colors directly in scatter instead
             p.plotScatterMain();
+            p.plotThumbnail();
             p.updateImageInView();
-            p.handPointStruct = d2utils.makePointStruct();
             %p.updateMainAxes()
         end
         
@@ -89,16 +97,12 @@ classdef d2ThresholdController < handle
             if strcmp(get(p.viewObj.figHandle, 'SelectionType'), 'open') %Respond to double mouse click
                 cellIdx = get(p.viewObj.centroidList, 'Value');
                 cellPos = p.spotTable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
-                p.viewRect = p.getRectAroundPoint(cellPos);
+                p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanDim);
+                set(p.viewObj.scatterCheckBox, 'Value', 0)
                 p.updateImageInView();
                 p.updateMainAxes();
+                p.overlayThumbnailRect();
             end
-        end
-        
-        function outRect = getRectAroundPoint(p, point)
-            startPos = max([1, 1], point - p.cellViewRadius); %Avoid rect outside range of scan. 
-            startPos = min(size(p.scanObj.dapiStitch)- p.cellViewRadius+1,startPos);
-            outRect = [startPos, [2, 2] * p.cellViewRadius];
         end
         
         function plotIntensityHistogram(p)
@@ -112,10 +116,10 @@ classdef d2ThresholdController < handle
                 'HitTest', 'off', ...
                 'Color', 'k');
             
-            xAxisMin = intensities(1);
-            xAxisMax = intensities(end) * 1.05;
+            p.ThreshAxisMin = intensities(1);
+            p.ThreshAxisMax = intensities(end) * 1.05;
             
-            set(p.viewObj.threshAxes, 'XLim', [xAxisMin xAxisMax]);
+            set(p.viewObj.threshAxes, 'XLim', [p.ThreshAxisMin p.ThreshAxisMax]);
             
             yaxismax = logRank(1)*1.1;
           
@@ -155,6 +159,36 @@ classdef d2ThresholdController < handle
             %colorbar(p.viewObj.mainAxes, 'Location', 'eastoutside','HitTest','off')
         end
         
+        function plotThumbnail(p)
+            set(p.viewObj.thumbAxes, 'XLim', [1,  p.scanDim(2)])
+            set(p.viewObj.thumbAxes, 'YLim', [1,  p.scanDim(1)])
+            hold(p.viewObj.thumbAxes, 'on')
+            %Note that it is slightly slower specifying RGB colors with expression_color
+            %instead of changing the colormap on the axes however, specifying RGB colors
+            %ensures that the colors don't change with the view 
+            p.thumbPlotH = binscatter(p.spotTable.centroidLists{p.channelIdx}.y, p.spotTable.centroidLists{p.channelIdx}.x, round(min(p.scanDim/1000)),...
+                'Parent', p.viewObj.thumbAxes, 'HitTest','off');
+            p.overlayThumbnailRect();
+            hold(p.viewObj.thumbAxes, 'off')
+            
+        end
+        
+        function overlayThumbnailRect(p)
+            if any(p.viewRect(3:4) < p.scanDim) && all(p.viewRect(3:4) > 4) %No overlay if too zoomed out or in
+                if isempty(p.thumbRectH) || ~isvalid(p.thumbRectH)
+                    p.thumbRectH = rectangle(...
+                    'Position', d2utils.rotateRectROI(p.viewRect), ...
+                    'EdgeColor', 'b', 'LineWidth', 2,...
+                    'Parent', p.viewObj.thumbAxes,...
+                    'Hittest', 'off');
+                else
+                    set(p.thumbRectH, 'Position', d2utils.rotateRectROI(p.viewRect))
+                end
+            else
+                delete(p.thumbRectH)
+            end
+        end
+        
         function zoomInPressed(p, ~, ~)
             p.zoomMode = true;
             %iptPointerManager(p.viewObj.figHandle, 'disable');
@@ -183,7 +217,7 @@ classdef d2ThresholdController < handle
         end
     
         function figWindowDown(p, ~, ~)
-            if d2utils.pointInSideRect(p.viewRect, get(p.viewObj.mainAxes, 'CurrentPoint'))
+            if d2utils.pointInSideViewRect(p.viewRect, get(p.viewObj.mainAxes, 'CurrentPoint'))
                 switch(p.getSelectionType)
                     %'normal' click was used for drawing rectangle before using
                     %rectangle roi
@@ -201,10 +235,12 @@ classdef d2ThresholdController < handle
                         p.viewRect = [1, 1, p.scanDim];
                         p.updateImageInView();
                         p.updateMainAxes();
+                        p.overlayThumbnailRect();
                     case 'alt'
                         p.viewRect = d2utils.expandView2x(p.viewRect, p.scanDim);
                         p.updateImageInView();
                         p.updateMainAxes();
+                        p.overlayThumbnailRect();
                 end
             end
         end
@@ -238,6 +274,7 @@ classdef d2ThresholdController < handle
                 p.updateImageInView();
                 %Update main axes
                 p.updateMainAxes();
+                p.overlayThumbnailRect();
                 p.zoomRect = [];
             end
             delete(p.viewObj.zoomH)
@@ -279,31 +316,78 @@ classdef d2ThresholdController < handle
             p.viewRect = d2utils.updateViewPanning(p.viewRect, displacement, p.scanDim);
             p.updateImageInView;
             p.updateMainAxes;
+            p.overlayThumbnailRect();
+        end
+        
+        function thumbAxesButtonDown(p, ~, ~)
+            if any(p.viewRect(3:4) < p.scanDim)
+                currentPoint = get(p.viewObj.thumbAxes, 'CurrentPoint');
+                switch(p.getSelectionType)
+                    case 'open'
+                        newRect = d2utils.getRectAroundPoint(currentPoint(1,2:-1:1), p.viewRect(3), p.viewRect(4), p.scanDim);
+                        p.viewRect = newRect;
+                        p.updateImageInView;
+                        p.updateMainAxes;
+                        p.overlayThumbnailRect();
+                    case 'normal'
+                        if d2utils.pointInSideViewRect(p.viewRect, currentPoint)
+                            set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopThumbDrag});
+                            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.dragThumb});
+                        end
+                end
+            end
+        end
+        
+        function dragThumb(p, ~, ~)
+            currentPoint = get(p.viewObj.thumbAxes, 'CurrentPoint');
+            newRect = d2utils.getRectAroundPoint(currentPoint(1,2:-1:1), p.viewRect(3), p.viewRect(4), p.scanDim);
+            p.viewRect = newRect;
+            p.overlayThumbnailRect();
+            p.updateImageInView;
+            p.updateMainAxes;
+        end
+        
+        function stopThumbDrag(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', '');
+            set(p.viewObj.figHandle, 'WindowButtonUpFcn', '');
+        end
+        
+        function threshZoomButtonDown(p, ~, ~)
+            p.thumbZoom = true;
+            %p.thresholdButtonDown();
         end
         
         function thresholdButtonDown(p, ~, ~)
             %set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopThresholdDrag});
             %set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.thresholdDrag});
             currentPoint = get(p.viewObj.threshAxes, 'CurrentPoint');
-            if abs(currentPoint(1,1) - p.viewObj.thresholdLineH.XData(1)) < 150
-                set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopThreshDrag});
-                set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.dragThresh});
+            switch(p.getSelectionType)
+                case 'normal'
+                    if ~logical(p.thumbZoom)
+                        if abs(currentPoint(1,1) - p.viewObj.thresholdLineH.XData(1)) < 150
+                            set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopThreshDrag});
+                            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.dragThresh});
+                        end
+                    else
+                        yaxis = get(p.viewObj.threshAxes, 'Ylim');
+                        p.zoomThreshRectH = patch('YData', [yaxis, fliplr(yaxis)], 'XData', [currentPoint(1:2,1)', currentPoint(1:2,1)'],...
+                            'FaceColor', 'red', 'FaceAlpha', 0.2,...
+                            'Parent', p.viewObj.threshAxes, 'Hittest', 'off');
+                        set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopzoomThresh});
+                        set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.zoomThresh});
+                    end
+                case 'open'
+                    set(p.viewObj.threshAxes, 'XLim', [p.ThreshAxisMin p.ThreshAxisMax]);
             end
+            
         end
         
         function dragThresh(p, ~, ~)
-            currentPont = get(p.viewObj.threshAxes, 'CurrentPoint');
-            newThresh = max(currentPont(1,1), 1);
+            currentPoint = get(p.viewObj.threshAxes, 'CurrentPoint');
+            newThresh = max(currentPoint(1,1), 1);
             newThresh = min(newThresh, p.viewObj.threshAxes.XLim(2));
-            if isvalid(p.viewObj.thresholdLineH)
-                set(p.viewObj.thresholdLineH, 'XData', [newThresh, newThresh])
-                p.viewObj.threshValue.String = num2str(round(newThresh));
-            else
-                yaxis = get(p.viewObj.threshAxes, 'Ylim');
-                p.viewObj.thresholdLineH = line(p.viewObj.threshAxes, [newThresh, newThresh], yaxis,...
-                    'Color', 'b', 'HitTest', 'off');
-                p.viewObj.threshValue.String = num2str(round(newThresh));
-            end
+            set(p.viewObj.thresholdLineH, 'XData', [newThresh, newThresh])
+            p.viewObj.threshValue.String = num2str(round(newThresh));
         end
         
         function stopThreshDrag(p, ~, ~)
@@ -314,6 +398,28 @@ classdef d2ThresholdController < handle
             p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.channelIdx}.GroupCount);
 %             p.updateColorMap(); %Specifying colors directly in scatter instead
             p.updateMainAxes();
+            set(p.viewObj.figHandle, 'WindowButtonUpFcn', '');
+        end
+        
+        function zoomThresh(p, ~, ~)
+            currentPoint = get(p.viewObj.threshAxes, 'CurrentPoint');
+            newThresh = max(currentPoint(1,1), 1);
+            newThresh = min(newThresh, p.viewObj.threshAxes.XLim(2));
+            %set(p.zoomThreshEndH, 'XData', [newThresh, newThresh])
+            p.zoomThreshRectH.XData(3:4) = [newThresh; newThresh];
+        end
+        
+        function stopzoomThresh(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', '');
+            set(p.viewObj.threshAxes, 'XLim', [p.zoomThreshRectH.XData(1) p.zoomThreshRectH.XData(3)]);
+            delete(p.zoomThreshRectH)
+            p.thumbZoom = false;
+            %Should notify threshold change
+            %newThresh = str2double(p.viewObj.threshValue.String);
+            %p.spotTable.setThreshold(p.spotTable.spotChannels{p.channelIdx}, newThresh);
+            %p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.channelIdx}.GroupCount);
+%             p.updateColorMap(); %Specifying colors directly in scatter instead
+            %p.updateMainAxes();
             set(p.viewObj.figHandle, 'WindowButtonUpFcn', '');
         end
         
@@ -531,8 +637,9 @@ classdef d2ThresholdController < handle
             if ~isempty(x)
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
                 p.nucleiObj.addCell(ptsInView(:,2), ptsInView(:,1));
+                tic
                 p.spotTable.assignSpotsInRect(p.viewRect)
-                %p.nucleiObj.updateMasksInRect(p.viewRect);
+                toc
                 tic
                 p.spotTable.updateAllSpotStatus();
                 toc
@@ -551,6 +658,19 @@ classdef d2ThresholdController < handle
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.
             if ~isempty(x)
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
+                p.nucleiObj.removeCell(ptsInView(:,2), ptsInView(:,1));
+                tic
+                p.spotTable.assignSpotsInRect(p.viewRect);
+                toc
+                tic
+                p.spotTable.updateAllSpotStatus();
+                toc
+                tic
+                p.spotTable.makeCentroidList();
+                toc
+                p.updateCentroidListView();
+                p.updateMainAxes();
+                set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
             end
         end
         
