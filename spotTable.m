@@ -11,6 +11,7 @@ classdef spotTable < handle
         theFilter
         percentileToKeep = 98;
         intensitiesToPlot
+        expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
         
         scanObj
         maskObj 
@@ -308,19 +309,25 @@ classdef spotTable < handle
             p.makeCentroidList();
         end
         
-        function p = makeCentroidList(p)
+        function p = makeCentroidList(p, paletteIdx)
             p.centroidLists = cell(0, numel(p.spotChannels));
             for i = 1:numel(p.spotChannels)
                 p.centroidLists{i} = sortrows(p.tabulateChannel(p.spotChannels{i}), 'GroupCount', 'descend');
-                p.centroidLists{i}.expression_color = d2utils.expressionToColors2(p.centroidLists{i}.GroupCount);
+                p.centroidLists{i}.expression_color = d2utils.expressionToColors(p.centroidLists{i}.GroupCount, p.expressionColorPal{paletteIdx});
             end
         end
         
-        function p = updateCentroidList(p, channel)
+        function p = updateCentroidList(p, channel, paletteIdx)
             channelIdx = ismember(p.spotChannels, channel);
             p.centroidLists{channelIdx}...
                 = sortrows(p.tabulateChannel(channel), 'GroupCount', 'descend');
-            p.centroidLists{channelIdx}.expression_color = d2utils.expressionToColors2(p.centroidLists{channelIdx}.GroupCount);
+            p.centroidLists{channelIdx}.expression_color = d2utils.expressionToColors(p.centroidLists{channelIdx}.GroupCount, p.expressionColorPal{paletteIdx});
+        end
+        
+        function p = updateExpressionColors(p, paletteIdx)
+            for i = 1:numel(p.spotChannels)
+                p.centroidLists{i}.expression_color = d2utils.expressionToColors(p.centroidLists{i}.GroupCount, p.expressionColorPal{paletteIdx});
+            end
         end
         
         function outTable = centroidTableInRect(p, channelIdx, rect)
