@@ -46,7 +46,7 @@ classdef d2MainAxesController < handle
             p.scanObj = scanObj;
             p.maskObj = maskObj;
             p.nucleiObj = nucleiObj;
-            p.viewRect = [1, 1, min(p.scanObj.scanDim, [25000 25000])];
+            p.viewRect = [1, 1, min(p.scanObj.stitchDim, [25000 25000])];
             p.startup()
         end
         
@@ -94,7 +94,7 @@ classdef d2MainAxesController < handle
             if strcmp(get(p.viewObj.figHandle, 'SelectionType'), 'open') %Respond to double mouse click
                 cellIdx = get(p.viewObj.centroidList, 'Value');
                 cellPos = p.spotTable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
-                p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.scanDim);
+                p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.stitchDim);
                 set(p.viewObj.scatterCheckBox, 'Value', 0)
                 p.updateImageInView();
                 p.updateMainAxes();
@@ -162,12 +162,12 @@ classdef d2MainAxesController < handle
                             set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.panView});
                         end
                     case 'open'
-                        p.viewRect = [1, 1, min(p.scanObj.scanDim, [25000 25000])];
+                        p.viewRect = [1, 1, min(p.scanObj.stitchDim, [25000 25000])];
                         p.updateImageInView();
                         p.updateMainAxes();
                         p.thumbCntrlr.overlayThumbnailRect();
                     case 'alt'
-                        p.viewRect = d2utils.expandView2x(p.viewRect, p.scanObj.scanDim);
+                        p.viewRect = d2utils.expandView2x(p.viewRect, p.scanObj.stitchDim);
                         p.updateImageInView();
                         p.updateMainAxes();
                         p.thumbCntrlr.overlayThumbnailRect();
@@ -225,7 +225,7 @@ classdef d2MainAxesController < handle
         end
         
         function panViewPressed(p, ~, ~)
-            if any(p.viewRect(3:4) < p.scanObj.scanDim) %No need to pan if view is of entire scan
+            if any(p.viewRect(3:4) < p.scanObj.stitchDim) %No need to pan if view is of entire scan
                 p.zoomMode = false; 
                 %iptPointerManager(p.viewObj.figHandle, 'enable');
                 %iptSetPointerBehavior(p.viewObj.mainAxes, @(hfig, currentPoint) set(hfig, 'Pointer', 'hand'));

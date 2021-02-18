@@ -67,13 +67,11 @@ classdef d2ThresholdView2 < handle
             % Create UIFigure and components
             createComponents(p)
             
-            %registerApp(p, p.figHandle)
             startupFcn(p)
-            %runStartupFcn(app, @startupFcn)
 
-            if nargout == 0
-                clear app
-            end
+%             if nargout == 0
+%                 clear app
+%             end
         end
 
 %         % Code that executes before app deletion

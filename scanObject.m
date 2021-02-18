@@ -8,6 +8,7 @@ classdef scanObject < handle
         channels
         scanMatrix
         scanDim
+        stitchDim
         dapiStitch
         smallDapiStitch
         stitchedScans
@@ -102,7 +103,7 @@ classdef scanObject < handle
             end
             reader.close()
             p.dapiStitch = tmpStitch;
-            p.scanDim = size(tmpStitch);
+            p.stitchDim = size(tmpStitch);
         end
         
         function p = contrastDAPIstitch(p)

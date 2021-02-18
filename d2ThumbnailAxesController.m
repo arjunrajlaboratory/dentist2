@@ -34,12 +34,12 @@ classdef d2ThumbnailAxesController < handle
         end
         
         function plotThumbnail(p)
-            set(p.viewObj.thumbAxes, 'XLim', [1,  p.scanObj.scanDim(2)])
-            set(p.viewObj.thumbAxes, 'YLim', [1,  p.scanObj.scanDim(1)])
+            set(p.viewObj.thumbAxes, 'XLim', [1,  p.scanObj.stitchDim(2)])
+            set(p.viewObj.thumbAxes, 'YLim', [1,  p.scanObj.stitchDim(1)])
             hold(p.viewObj.thumbAxes, 'on')
             %Note binning about every 1000 pixels. Can change this with the
             %third argument to binscatter
-            p.thumbPlotH = binscatter(p.spotTable.centroidLists{p.mainAxesCntrlr.channelIdx}.y, p.spotTable.centroidLists{p.mainAxesCntrlr.channelIdx}.x, round(min(p.scanObj.scanDim/1000)),...
+            p.thumbPlotH = binscatter(p.spotTable.centroidLists{p.mainAxesCntrlr.channelIdx}.y, p.spotTable.centroidLists{p.mainAxesCntrlr.channelIdx}.x, round(min(p.scanObj.stitchDim/1000)),...
                 'Parent', p.viewObj.thumbAxes, 'HitTest','off');
             p.overlayThumbnailRect();
             hold(p.viewObj.thumbAxes, 'off')
@@ -47,7 +47,7 @@ classdef d2ThumbnailAxesController < handle
         end
         
         function overlayThumbnailRect(p)
-            if any(p.mainAxesCntrlr.viewRect(3:4) < p.scanObj.scanDim) && all(p.mainAxesCntrlr.viewRect(3:4) > 4) %No overlay if too zoomed out or in
+            if any(p.mainAxesCntrlr.viewRect(3:4) < p.scanObj.stitchDim) && all(p.mainAxesCntrlr.viewRect(3:4) > 4) %No overlay if too zoomed out or in
                 if isempty(p.thumbRectH) || ~isvalid(p.thumbRectH)
                     p.thumbRectH = rectangle(...
                     'Position', d2utils.rotateRectROI(p.mainAxesCntrlr.viewRect), ...
@@ -63,11 +63,11 @@ classdef d2ThumbnailAxesController < handle
         end
         
         function thumbAxesButtonDown(p, ~, ~)
-            if any(p.mainAxesCntrlr.viewRect(3:4) < p.scanObj.scanDim)
+            if any(p.mainAxesCntrlr.viewRect(3:4) < p.scanObj.stitchDim)
                 currentPoint = get(p.viewObj.thumbAxes, 'CurrentPoint');
                 switch(p.mainAxesCntrlr.getSelectionType)
                     case 'open'
-                        newRect = d2utils.getRectAroundPoint(currentPoint(1,2:-1:1), p.mainAxesCntrlr.viewRect(3), p.mainAxesCntrlr.viewRect(4), p.scanObj.scanDim);
+                        newRect = d2utils.getRectAroundPoint(currentPoint(1,2:-1:1), p.mainAxesCntrlr.viewRect(3), p.mainAxesCntrlr.viewRect(4), p.scanObj.stitchDim);
                         p.mainAxesCntrlr.viewRect = newRect;
                         p.mainAxesCntrlr.updateImageInView();
                         p.mainAxesCntrlr.updateMainAxes();
@@ -83,7 +83,7 @@ classdef d2ThumbnailAxesController < handle
         
         function dragThumb(p, ~, ~)
             currentPoint = get(p.viewObj.thumbAxes, 'CurrentPoint');
-            newRect = d2utils.getRectAroundPoint(currentPoint(1,2:-1:1), p.mainAxesCntrlr.viewRect(3), p.mainAxesCntrlr.viewRect(4), p.scanObj.scanDim);
+            newRect = d2utils.getRectAroundPoint(currentPoint(1,2:-1:1), p.mainAxesCntrlr.viewRect(3), p.mainAxesCntrlr.viewRect(4), p.scanObj.stitchDim);
             p.mainAxesCntrlr.viewRect = newRect;
             p.overlayThumbnailRect();
             p.mainAxesCntrlr.updateImageInView();
