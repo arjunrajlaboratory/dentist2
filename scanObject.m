@@ -7,6 +7,7 @@ classdef scanObject < handle
         tilesTable
         channels
         scanMatrix
+        scanDim
         dapiStitch
         smallDapiStitch
         stitchedScans
@@ -23,7 +24,8 @@ classdef scanObject < handle
             n = inputParser;
             n.addParameter('scanFile', '', @ischar); 
             n.addParameter('tilesTable', '', @ischar); 
-
+            n.addParameter('scanMatrix', '', @ischar);
+            
             n.parse(varargin{:});
             
             if isempty(n.Results.scanFile)
@@ -42,6 +44,14 @@ classdef scanObject < handle
             else
                 fprintf('Loading Table\n');
                 p.tilesTable = readtable(n.Results.tilesTable,'TextType','string');
+            end
+            
+            if isempty(n.Results.scanMatrix)
+                fprintf('New scan matrix\n');
+                p.scanMatrix = [];
+            else
+                fprintf('Loading scan matrix\n');
+                p.scanMatrix = readtable(n.Results.scanMatrix,'TextType','string');
             end
             
         end
@@ -92,6 +102,7 @@ classdef scanObject < handle
             end
             reader.close()
             p.dapiStitch = tmpStitch;
+            p.scanDim = size(tmpStitch);
         end
         
         function p = contrastDAPIstitch(p)

@@ -214,9 +214,9 @@ classdef nucleiTable < handle
             %rect. 
             [nucInRect, nucIdx] = p.getNucleiInRect(rect);
             maskIDsInRect = p.maskObj.getChannelMaskIDsInRect(rect, 'dapi');
-            
-            goodLabelIdx = ismember(nucInRect.maskID, [maskIDsInRect; 0]); %add zero in case maskTable is full
-            nucIdx(goodLabelIdx) = false;
+            maskIDsInRect(maskIDsInRect == 0) = [];
+            goodNucIdx = ~ismember(nucInRect.maskID, maskIDsInRect);
+            nucIdx(nucIdx) = goodNucIdx;
             p.nuclei.maskID(nucIdx) = single(0);
             p.nuclei.status(nucIdx) = true;
         end

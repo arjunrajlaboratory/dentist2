@@ -10,8 +10,10 @@ classdef spotTable < handle
         maxDistance = 100;  
         theFilter
         percentileToKeep = 98;
-        intensitiesToPlot
+        spotsIntensitiesWithMasked
+        spotsIntensitiesNoMasked
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
+        paletteIdx = 1;
         
         scanObj
         maskObj 
@@ -79,6 +81,7 @@ classdef spotTable < handle
             p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
             p.spots.distanceToNuc(spotIdx) = single(dist);
             p.spots.colors(spotIdx, :) = nucleiNearRect.colors(nucIdx, :);
+            p.makeIntensitiesToPlot(); %Because there could be new valid spots to count.
         end
         
         function [outSpots,idx] = getAllSpotsInRect(p,rect) %rect specified as [x y nrows ncols]
@@ -147,6 +150,7 @@ classdef spotTable < handle
                 end
                 p.spots.maskID(validSpotIdx) = spotTable.maskID;
                 p.spots.status(validSpotIdx) = spotTable.status;
+                %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
             end 
             
         end
@@ -164,6 +168,7 @@ classdef spotTable < handle
                 
             p.spots.maskID(spotIdx) = maxSpotMask;
             p.spots.status(spotIdx) = false;
+            %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
             
         end
         
@@ -189,12 +194,14 @@ classdef spotTable < handle
             
             p.spots.maskID(spotIdx) = tmpSpots.maskID;
             p.updateSpotStatus(channel);
+            %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
         end
         
         function p = removeMasks(p, channel) 
             masksToRemove = setdiff(p.spots.maskID, p.maskObj.masks.maskID(p.maskObj.masks{:,channel}));
             p.spots.maskID(ismember(p.spots.maskID, masksToRemove)) = single(0);
             p.updateSpotStatus(channel);
+            %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
         end
         
         function p = removeMasks2(p, channel, rect)
@@ -202,11 +209,12 @@ classdef spotTable < handle
             %rect. 
             [spotsInRect, spotIdx] = p.getSpotsInRect(channel, rect);
             maskIDsInRect = p.maskObj.getChannelMaskIDsInRect(rect, channel);
-            
-            goodLabelIdx = ismember(spotsInRect.maskID, [maskIDsInRect; 0]);  %add zero in case maskTable is full
-            spotIdx(goodLabelIdx) = false;
+            maskIDsInRect(maskIDsInRect == 0) = [];
+            goodSpotIdx = ~ismember(spotsInRect.maskID, maskIDsInRect);
+            spotIdx(spotIdx) = goodSpotIdx;
             p.spots.maskID(spotIdx) = single(0);
             p.updateSpotStatus(channel);
+            %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
         end
         
         function p = setThreshold(p, channel, value)
@@ -291,13 +299,24 @@ classdef spotTable < handle
         end
         
         function intensities = getIntensities(p, channel)
-            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance, {'intensity'}}; %May want to exclude spots not assigned to nuclei
+            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance, {'intensity'}}; 
         end
         
-        function p = makeIntensitiesToPlot(p)
-            p.intensitiesToPlot = cell(0, numel(p.spotChannels));
+        function intensities = getIntensitiesNoMasked(p, channel)
+            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance & p.spots.maskID == 0, {'intensity'}}; 
+        end
+        
+        function p = allIntensities(p)
+            p.spotsIntensitiesWithMasked = cell(0, numel(p.spotChannels));
             for i = 1:numel(p.spotChannels)
-                p.intensitiesToPlot{i} = sort(uint16(p.getIntensities(p.spotChannels{i})));
+                p.spotsIntensitiesWithMasked{i} = sort(uint16(p.getIntensities(p.spotChannels{i})));
+            end
+        end
+        
+        function p = allIntensitiesNoMasked(p)
+            p.spotsIntensitiesNoMasked = cell(0, numel(p.spotChannels));
+            for i = 1:numel(p.spotChannels)
+                p.spotsIntensitiesNoMasked{i} = sort(uint16(p.getIntensitiesNoMasked(p.spotChannels{i})));
             end
         end
         
@@ -309,24 +328,24 @@ classdef spotTable < handle
             p.makeCentroidList();
         end
         
-        function p = makeCentroidList(p, paletteIdx)
+        function p = makeCentroidList(p)
             p.centroidLists = cell(0, numel(p.spotChannels));
             for i = 1:numel(p.spotChannels)
                 p.centroidLists{i} = sortrows(p.tabulateChannel(p.spotChannels{i}), 'GroupCount', 'descend');
-                p.centroidLists{i}.expression_color = d2utils.expressionToColors(p.centroidLists{i}.GroupCount, p.expressionColorPal{paletteIdx});
+                p.centroidLists{i}.expression_color = d2utils.expressionToColors(p.centroidLists{i}.GroupCount, p.expressionColorPal{p.paletteIdx});
             end
         end
         
-        function p = updateCentroidList(p, channel, paletteIdx)
+        function p = updateCentroidList(p, channel)
             channelIdx = ismember(p.spotChannels, channel);
             p.centroidLists{channelIdx}...
                 = sortrows(p.tabulateChannel(channel), 'GroupCount', 'descend');
-            p.centroidLists{channelIdx}.expression_color = d2utils.expressionToColors(p.centroidLists{channelIdx}.GroupCount, p.expressionColorPal{paletteIdx});
+            p.centroidLists{channelIdx}.expression_color = d2utils.expressionToColors(p.centroidLists{channelIdx}.GroupCount, p.expressionColorPal{p.paletteIdx});
         end
         
-        function p = updateExpressionColors(p, paletteIdx)
+        function p = updateExpressionColors(p)
             for i = 1:numel(p.spotChannels)
-                p.centroidLists{i}.expression_color = d2utils.expressionToColors(p.centroidLists{i}.GroupCount, p.expressionColorPal{paletteIdx});
+                p.centroidLists{i}.expression_color = d2utils.expressionToColors(p.centroidLists{i}.GroupCount, p.expressionColorPal{p.paletteIdx});
             end
         end
         

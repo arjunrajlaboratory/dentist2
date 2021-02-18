@@ -45,8 +45,7 @@ classdef d2ThresholdView2 < handle
         
         zoomH
         zoomRect
-        histogramLineH
-        thresholdLineH
+        
         
         showSpots = true %Not sure if these handles are necessary. 
         showCentroids = true
@@ -137,13 +136,23 @@ classdef d2ThresholdView2 < handle
             p.mainAxesCntrlr = d2MainAxesController(p, p.scanObj, p.spotTable, p.maskObj, p.nucleiObj);  
             p.attatchMainAxesController(p.mainAxesCntrlr);        
             
-%             p.threshAxesCntrlr = d2ThresholdAxesController(p, p.scanObj, p.spotTable, p.maskObj, p.nucleiObj);
-%             p.attachThresholdController(p.threshAxesCntrlr)
-%             
-%             p.thumbAxesCntrlr = d2ThumbnailAxesController(p, p.scanObj, p.spotTable, p.maskObj, p.nucleiObj);  
-%             p.attachThumbnailController(p.thumbAxesCntrlr)
+            p.threshAxesCntrlr = d2ThresholdAxesController(p, p.scanObj, p.spotTable, p.maskObj, p.nucleiObj);
+            p.attachThresholdController(p.threshAxesCntrlr);
+             
+            p.thumbAxesCntrlr = d2ThumbnailAxesController(p, p.scanObj, p.spotTable, p.maskObj, p.nucleiObj);  
+            p.attachThumbnailController(p.thumbAxesCntrlr);
             
-            %Connect controllers;  
+            %Connect controllers
+            p.mainAxesCntrlr.threshCntrlr = p.threshAxesCntrlr;
+            p.mainAxesCntrlr.thumbCntrlr = p.thumbAxesCntrlr;
+            
+            p.threshAxesCntrlr.mainAxesCntrlr = p.mainAxesCntrlr;
+            p.threshAxesCntrlr.thumbCntrlr = p.thumbAxesCntrlr;
+            p.threshAxesCntrlr.startup();
+            
+            p.thumbAxesCntrlr.mainAxesCntrlr = p.mainAxesCntrlr;
+            p.thumbAxesCntrlr.threshCntrlr = p.threshAxesCntrlr;
+            p.thumbAxesCntrlr.startup();
         end
         
         function p = attatchMainAxesController(p, controller)
@@ -159,31 +168,28 @@ classdef d2ThresholdView2 < handle
             p.maskSpotsButton.Callback = {@controller.addSpotMask};
             p.maskCellButton.Callback = {@controller.addCellMask};
             p.deleteMaskButton.Callback = {@controller.deleteMask};
-            %p.zoomInAxes.Callback = {@contrsoller.};
-            %p.zoomOutAxes.Callback = {@controller.};
-            %p.saveButton.Callback = {@controller.};
-            %p.exportButton.Callback = {@controller.};
             p.zoomAxes.Callback = {@controller.zoomInPressed};
             p.panAxes.Callback = {@controller.panViewPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};
             p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
             %p.saveButton.Callback = {@controller.};
             %p.exportButton.Callback = {@controller.};
-            p.threshValue.Callback = {@controller.threshValueChange};
-            %p.threshValue.KeyPressFcn = {@controller.threshValueKey};
-            %p.mainAxes.ButtonDownFcn = {@controller.mainAxesButtonDown};
-            p.threshAxes.ButtonDownFcn = {@controller.thresholdButtonDown};
-            p.zoomThresh.Callback = {@controller.threshZoomButtonDown};
-            p.thumbAxes.ButtonDownFcn = {@controller.thumbAxesButtonDown};
+
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
             p.figHandle.KeyPressFcn = {@controller.keyPressFcns};
             p.figHandle.CloseRequestFcn = {@p.closeFigFcn};
         end
         
-        function p = attachThumbnailController(p, controller)
+        function p = attachThresholdController(p, controller)
+            p.threshValue.Callback = {@controller.threshValueChange};
+            p.threshAxes.ButtonDownFcn = {@controller.thresholdButtonDown};
+            p.zoomThresh.Callback = {@controller.threshZoomButtonDown};
+            p.filterMasksThresh.Callback = {@controller.filterMasksPushed};
+            %p.threshValue.KeyPressFcn = {@controller.threshValueKey};
         end
         
-        function p = attachThresholdController(p, controller)
+        function p = attachThumbnailController(p, controller)
+            p.thumbAxes.ButtonDownFcn = {@controller.thumbAxesButtonDown};
         end
         
         function closeFigFcn(p, ~, ~)
