@@ -21,21 +21,22 @@ classdef d2stitchingView < handle
         newPositionButton
         rowValue
         colValue
+        rowText
+        colText
         
         cpSelectRowButton
         cpSelectColButton
-        doneButton
+        previewStitchButton
     end
      
     methods
         
-        function p = d2stitchingView(scanFile, scanDim)
-            p.scanObj = scanObject('scanFile', scanFile);
-            p.scanObj.scanDim = scanDim;
+        function p = d2stitchingView(scanObject)
+            p.scanObj = scanObject;
             
             createComponents(p)
             
-%             startupFcn(p)
+            startupFcn(p)
         end
         
         function createComponents(p)
@@ -58,21 +59,41 @@ classdef d2stitchingView < handle
             p.directionButtons(1) = uicontrol(p.direction, 'Style','radiobutton', 'String', 'horizontal', 'Units', 'normalized', 'Position', [0.01 0.5 0.9 0.4]);
             p.directionButtons(2) = uicontrol(p.direction, 'Style','radiobutton', 'String', 'vertical' ,'Units', 'normalized', 'Position', [0.01 0.1 0.9 0.4]);
             
-%             p.newPositionButton = uicontrol('Style', 'pushbutton', 'String', 'new positions', 'Units', 'normalized', 'Position', [0.755 0.45 0.1111 0.0367]);
-%             p.rowValue = uicontrol('Style', 'edit', 'Units', 'normalized', 'Position', [0.6 0.6 0.0700 0.0333]);
-%             p.colValue = uicontrol('Style', 'edit', 'Units', 'normalized', 'Position', [0.65 0.65 0.0700 0.0333]);
-%             
-%             p.cpSelectRowButton = uicontrol('Style', 'pushbutton', 'String', 'select row control points', 'Units', 'normalized', 'Position', [0.755 0.45 0.1111 0.0367]);
-%             p.cpSelectColButton = uicontrol('Style', 'pushbutton', 'String', 'select col control points', 'Units', 'normalized', 'Position', [0.755 0.45 0.1111 0.0367]);
-%             p.doneButton = uicontrol('Style', 'pushbutton', 'String', 'done', 'Units', 'normalized', 'Position', [0.755 0.45 0.1111 0.0367]);
-
+            p.newPositionButton = uicontrol('Style', 'pushbutton', 'String', 'show new positions', 'Units', 'normalized', 'Position', [0.69 0.90 0.14 0.05]);
+            p.rowValue = uicontrol('Style', 'edit', 'Units', 'normalized', 'Position', [0.735 0.86 0.08 0.035]);
+            p.colValue = uicontrol('Style', 'edit', 'Units', 'normalized', 'Position', [0.735 0.81 0.08 0.035]);
+            p.rowText = uicontrol('Style', 'text', 'String', 'row', 'Units', 'normalized', 'Position', [0.69 0.85 0.04 0.035]);
+            p.colText = uicontrol('Style', 'text', 'String', 'col', 'Units', 'normalized', 'Position', [0.69 0.8 0.04 0.035]);
             
-%             function startupFcn(p)
-%             end
+            p.cpSelectRowButton = uicontrol('Style', 'pushbutton', 'String', ['<html><center>select row<br />control points</center><html>'], 'Units', 'normalized', 'Position', [0.84 0.90 0.14 0.05]);
+            p.cpSelectColButton = uicontrol('Style', 'pushbutton', 'String', ['<html><center>select col<br />control points</center><html>'], 'Units', 'normalized', 'Position', [0.84 0.85 0.14 0.05]);
+            p.previewStitchButton = uicontrol('Style', 'pushbutton', 'String', 'preview stitch', 'Units', 'normalized', 'Position', [0.84 0.8 0.14 0.05]);
 
             p.figHandle.Visible = 'on';
             
         end
-    end
+        
+        function startupFcn(p)
+            p.stichCntrlr = d2stitchController(p, p.scanObj);  
+            p.attachController(p.stichCntrlr);
+        end
+        
+        function attachController(p, controller)
+            p.startPos.SelectionChangedFcn = {@controller.startSelectionChanged};
+            p.snake.SelectionChangedFcn = {@controller.snakeSelectionChanged};
+            p.direction.SelectionChangedFcn = {@controller.directionSelectionChanged};
+            p.newPositionButton.Callback = {@controller.newPositionPushed};
+            p.rowValue.Callback = {@controller.updateImagesInView};
+            p.colValue.Callback = {@controller.updateImagesInView};
+            p.cpSelectRowButton.Callback = {@controller.cpSelectRowPushed};
+            p.cpSelectColButton.Callback = {@controller.cpSelectColPushed};
+            p.previewStitchButton.Callback = {@controller.previewStitchPushed};
+%             p.figHandle.CloseRequestFcn = {@p.closeFigFcn};
+        end
+        
+        function closeFigFcn(p, ~, ~)
+            delete(p.figHandle)
+        end
     
+    end
 end

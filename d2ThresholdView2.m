@@ -175,7 +175,7 @@ classdef d2ThresholdView2 < handle
 
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
             p.figHandle.KeyPressFcn = {@controller.keyPressFcns};
-            p.figHandle.CloseRequestFcn = {@p.closeFigFcn};
+%             p.figHandle.CloseRequestFcn = {@p.closeFigFcn}; 
         end
         
         function p = attachThresholdController(p, controller)

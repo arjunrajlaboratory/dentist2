@@ -29,7 +29,8 @@ classdef nucleiTable < handle
             tileTable = p.scanObj.tilesTable;
             tilesTmp = transpose(p.scanObj.scanMatrix);
             tiles = tilesTmp(:);
-            [height, width] = p.scanObj.tileSize();
+            height = p.scanObj.tileSize(1);
+            width = p.scanObj.tileSize(2);
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'logical');
             channel = find(ismember(p.scanObj.channels,'dapi'));
             reader = bfGetReader(p.scanObj.scanFile);

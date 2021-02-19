@@ -1,4 +1,4 @@
-function scanMatrix = makeScanMatrix(dimensions, varargin)
+    function scanMatrix = makeScanMatrix(dimensions, varargin)
 
     p = inputParser;
 
