@@ -20,6 +20,7 @@ classdef scanObject < handle
         resizeFactor = 4
         rowTransformCoords
         columnTransformCoords
+        imRotation = 0;
 %         dapiMask
 %         dapiMask2
         
@@ -63,7 +64,7 @@ classdef scanObject < handle
                 p.defaultScanParameters();
             else
                 fprintf('Loading scan summary\n');
-                p.parseScanSummary();
+                p.parseScanSummary(n.Results.scanSummary);
             end
             
         end
@@ -225,12 +226,12 @@ classdef scanObject < handle
             reader = bfGetReader(p.scanFile);
             iPlane = reader.getIndex(0, c - 1, 0) + 1;
             for i = 1:numel(tiles)
-                
+
                 reader.setSeries(tiles(i)-1);
                 tmpPlane  = bfGetPlane(reader, iPlane);
-                                
+
                 tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
-                tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = im2uint16(tmpPlane);
+                tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tmpPlane;
             end
             reader.close()
         end
@@ -265,47 +266,51 @@ classdef scanObject < handle
         end
         
         function outIm = stitchTiles(p, rows, cols, channel, varargin) %Option to specify transformCoords - used with stitchingGUI
-            if nargin == 3
-                rowTransform = p.rowTransformCoords
-                colTransform = p.columnTransformCoords
-            elseif nargin > 3
-                rowTransform = varargin{1}
-                colTransform = varargin{2}
+            if nargin == 4
+                rowTransform = p.rowTransformCoords;
+                colTransform = p.columnTransformCoords;
+            elseif nargin > 4
+                rowTransform = varargin{1};
+                colTransform = varargin{2};
             end
             
+            %Height and width may need to be switched for rotated images.
+            %I'm not sure how tilesize changes when the image from Elements is rotated.  
             height = p.tileSize(1);
             width = p.tileSize(2);
             localScanMatrix = p.scanMatrix(rows(1):rows(2), cols(1):cols(2));
             tiles = transpose(localScanMatrix);
             tiles = tiles(:);
-            topCoords = zeros(numel(localScanMatrix),1);
-            leftCoords = zeros(numel(localScanMatrix),1);
-            for i = 1:numel(tiles)
+            topCoords = zeros(numel(tiles),1);
+            leftCoords = zeros(numel(tiles),1);
+            for i = 1:numel(tiles) 
                 [r,c] = find(localScanMatrix == tiles(i));
                 topCoords(i)  = c*colTransform(1) + r*rowTransform(1);
                 leftCoords(i) = r*rowTransform(2) + c*colTransform(2);
             end
-            
             topCoords = topCoords - min(topCoords) + 1;
             leftCoords = leftCoords - min(leftCoords) + 1;
-            
             outIm = zeros(max(leftCoords)+height-1,max(topCoords)+width-1, 'uint16');
-             
-            
             reader = bfGetReader(p.scanFile);
             channelIdx = find(ismember(p.channels, channel));  
-             
             iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-
-            for ii = 1:numel(tiles)
+            
+            if logical(p.imRotation)
+                for ii = 1:numel(tiles)
+                    reader.setSeries(tiles(ii)-1);
+                    tmpPlane  = bfGetPlane(reader, iPlane);
                 
-                reader.setSeries(tiles(ii)-1);
-                tmpPlane  = bfGetPlane(reader, iPlane);
-                
-                outIm(leftCoords(ii):leftCoords(ii)+height-1, ...
-                    topCoords(ii):topCoords(ii)+width-1) = tmpPlane;
+                    outIm(leftCoords(ii):leftCoords(ii)+height-1, ...  
+                        topCoords(ii):topCoords(ii)+width-1) = rot90(tmpPlane, p.imRotation);
+                end
+            else
+                for ii = 1:numel(tiles)
+                    reader.setSeries(tiles(ii)-1);
+                    tmpPlane  = bfGetPlane(reader, iPlane);
+                    outIm(leftCoords(ii):leftCoords(ii)+height-1, ...
+                        topCoords(ii):topCoords(ii)+width-1) = tmpPlane;
+                end
             end
-
         end
         
         function outIm = getImageRect(p, channel, rect) %rect specified as [x y nrows ncols]
@@ -346,7 +351,7 @@ classdef scanObject < handle
         
         function parseScanSummary(p, varargin)
             if nargin == 1
-                inFileName = 'scanSummary.csv';
+                inFileName = 'scanSummary.txt';
             elseif nargin == 2
                 inFileName = varargin{1};
             end

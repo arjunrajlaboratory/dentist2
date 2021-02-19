@@ -348,14 +348,16 @@ classdef d2MainAxesController < handle
         %necessary at this point. 
         function addSpotMask(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'off')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskCellButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             channel = p.spotTable.spotChannels{p.channelIdx};
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             %addlistener(p.maskH, 'DrawingFinished', @p.maskSpots);
             if ~isempty(p.maskH.Position) %Allows 'escape' from ROI
                 p.maskSpots(p.maskH, channel)
             end
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskCellButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
@@ -373,12 +375,14 @@ classdef d2MainAxesController < handle
         
         function addCellMask(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'off')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             if ~isempty(p.maskH.Position) %Allows 'escape' from ROI
                 p.maskCells(p.maskH)
             end
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
@@ -389,6 +393,7 @@ classdef d2MainAxesController < handle
             p.maskObj.addMaskLocalCoords(roi.Position, 'dapi');
             delete(roi)
             p.nucleiObj.addNewMask();
+%             p.spotTable.assignSpotsInRect(p.viewRect); %Do we want to re-assign spots to good nuclei? 
             p.spotTable.updateSpotStatus(channel);
             p.spotTable.updateCentroidList(channel);
             p.updateCentroidListView();
@@ -397,7 +402,8 @@ classdef d2MainAxesController < handle
         
         function deleteMask(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'off')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
             channel = p.spotTable.spotChannels{p.channelIdx};
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
             if ~isempty(x)
@@ -412,13 +418,15 @@ classdef d2MainAxesController < handle
                 p.spotTable.updateCentroidList(channel);
                 p.updateCentroidListView();
                 p.updateMainAxes();
-                set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
             end
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'on')
         end
         
         function addCells(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'off')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
             if ~isempty(x)
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
@@ -428,13 +436,15 @@ classdef d2MainAxesController < handle
                 p.spotTable.makeCentroidList();
                 p.updateCentroidListView();
                 p.updateMainAxes();
-                set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
             end
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
         end
         
         function deleteCells(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'off')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.
             if ~isempty(x)
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
@@ -444,8 +454,9 @@ classdef d2MainAxesController < handle
                 p.spotTable.makeCentroidList();
                 p.updateCentroidListView();
                 p.updateMainAxes();
-                set([p.viewObj.zoomAxes, p.viewObj.panAxes], 'Enable', 'on')
             end
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
         end
         
         function type = getSelectionType(p)

@@ -22,7 +22,7 @@ classdef maskTable < handle
                 p.masksBB = table('Size', [p.heightMaskTableBB, numel(p.channels) + 2],...
                     'VariableNames', [{'maskID','BB'} , p.channels],...
                     'VariableTypes', [repmat({'single'}, 1, 2) , repmat({'logical'}, 1, numel(p.channels))]);
-                p.masksBB.BB = zeros(p.heightMaskTableBB, 4);
+                p.masksBB.BB = single(zeros(p.heightMaskTableBB, 4));
 %                 p.masks = table(false(0,numel(p.channels) + 3), 'VariableNames', [{'maskID','x','y'} , p.channels]);
 %                 p.masksBB = array2table(false(0,numel(p.channels) + 5), 'VariableNames', [{'maskID','x','y', 'h', 'w'} , p.channels]);
             elseif nargin == 2 % Otherwise, load the specified table
@@ -40,16 +40,16 @@ classdef maskTable < handle
             
              if sum(p.masks.maskID == 0) < height(maskPoly)
                 newRows = table('Size', [p.heightMaskTable, numel(p.channels) + 3],...
-                    'VariableNames', [{'maskID','x','y'} , p.channels],...
-                    'VariableTypes', [repmat({'single'}, 1, 3) , repmat({'logical'}, 1, numel(p.channels))]);
+                    'VariableNames', p.masks.Properties.VariableNames,...
+                    'VariableTypes', varfun(@class,p.masks,'output','cell'));
                 p.masks = [p.masks; newRows];                
             end
             
             if ~any(p.masksBB.maskID == 0)
                 newRows = table('Size', [p.heightMaskTableBB, numel(p.channels) + 2],...
-                    'VariableNames', [{'maskID','BB'} , p.channels],...
-                    'VariableTypes', [repmat({'single'}, 1, 2) , repmat({'logical'}, 1, numel(p.channels))]);
-                newRows.BB = zeros(p.heightMaskTableBB, 4);
+                    'VariableNames',  p.masksBB.Properties.VariableNames,...
+                    'VariableTypes', varfun(@class,p.masks,'output','cell'));
+                newRows.BB = single(zeros(p.heightMaskTableBB, 4));
                 p.masksBB = [p.masksBB; newRows];                
             end
             
@@ -76,15 +76,15 @@ classdef maskTable < handle
             
             if sum(p.masks.maskID == 0) < height(maskPoly)
                 newRows = table('Size', [p.heightMaskTable, numel(p.channels) + 3],...
-                    'VariableNames', [{'maskID','x','y'} , p.channels],...
-                    'VariableTypes', [repmat({'single'}, 1, 3) , repmat({'logical'}, 1, numel(p.channels))]);
+                    'VariableNames', p.masks.Properties.VariableNames,...
+                    'VariableTypes', varfun(@class,p.masks,'output','cell'));
                 p.masks = [p.masks; newRows];                
             end
             
             if ~any(p.masksBB.maskID == 0)
                 newRows = table('Size', [p.heightMaskTableBB, numel(p.channels) + 2],...
-                    'VariableNames', [{'maskID','BB'} , p.channels],...
-                    'VariableTypes', [repmat({'single'}, 1, 2) , repmat({'logical'}, 1, numel(p.channels))]);
+                    'VariableNames', p.masksBB.Properties.VariableNames,...
+                    'VariableTypes',  varfun(@class,p.masks,'output','cell'));
                 newRows.BB = zeros(p.heightMaskTableBB, 4);
                 p.masksBB = [p.masksBB; newRows];                
             end
@@ -174,12 +174,15 @@ classdef maskTable < handle
             end
         end
        
-        function [] = saveTables(p, varargin)
-           if nargin == 1
-               writetable(p.masks(~p.masks.maskID == 0,:), 'masks.csv');
-           elseif nargin == 2
-               writetable(p.masks(~p.masks.maskID == 0,:), varargin{1});
-               
+        function saveMasksTable(p, varargin)
+           if ~isempty(p.masks)
+               if nargin == 1
+                   writetable(p.masks(~(p.masks.maskID) == 0,:), 'masks.csv');
+               elseif nargin == 2
+                   writetable(p.masks(~(p.masks.maskID) == 0,:), varargin{1});
+               end
+           else
+               fprintf("Masks table is empty. Not saving masks.csv")
            end
         end
         

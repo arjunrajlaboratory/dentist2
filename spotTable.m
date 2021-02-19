@@ -62,13 +62,19 @@ classdef spotTable < handle
         
         
         function p = assignSpotsToNuclei(p)
-            validNucleiIdx = p.nucleiObj.nuclei.status;
+            %At the moment, assigning spots to nearest nucleus, even if that nucleus is masked (status = false)
+            %If we want to assign spots to only valid nucleu, then change
+            %below to validNuclei = p.nucleiObj.nuclei(p.nucleiObj.nuclei.status, :);
+
+            validNuclei = p.nucleiObj.nuclei(~p.nucleiObj.nuclei.nucID == 0,:); %There may be a more efficient way fo doing this using only index arrays and not creating a new table. 
             
-            [idx, dist] = knnsearch([p.nucleiObj.nuclei.x(validNucleiIdx), p.nucleiObj.nuclei.y(validNucleiIdx)], [p.spots.x, p.spots.y], 'K', 1, 'Distance', 'euclidean');
+%             validNucleiIdx = p.nucleiObj.nuclei.status;
             
-            p.spots.nearestNucID = p.nucleiObj.nuclei.nucID(idx);
+            [idx, dist] = knnsearch([validNuclei.x, validNuclei.y], [p.spots.x, p.spots.y], 'K', 1, 'Distance', 'euclidean');
+            
+            p.spots.nearestNucID = validNuclei.nucID(idx);
             p.spots.distanceToNuc = single(dist);
-            p.spots.colors = p.nucleiObj.nuclei.colors(idx, :);
+            p.spots.colors = validNuclei.colors(idx, :);
             
         end
         
@@ -81,7 +87,7 @@ classdef spotTable < handle
             p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
             p.spots.distanceToNuc(spotIdx) = single(dist);
             p.spots.colors(spotIdx, :) = nucleiNearRect.colors(nucIdx, :);
-            p.makeIntensitiesToPlot(); %Because there could be new valid spots to count.
+            p.allIntensities(); %Because there could be new valid spots to count.
         end
         
         function [outSpots,idx] = getAllSpotsInRect(p,rect) %rect specified as [x y nrows ncols]
@@ -131,13 +137,14 @@ classdef spotTable < handle
         function p = updateAllMasks(p)  %Note, this will overwrite previous maskIDs in spotTable. 
             
             for i = 1:numel(p.spotChannels)
-                channelIdx = p.maskObj.masks(:, p.spotChannels(i));
+                channel = p.spotChannels{i};
+                channelIdx = p.maskObj.masks{:, channel};
                 maskTable = p.maskObj.masks(channelIdx,:);
                 maskIDs = unique(maskTable.maskID);
                 maskIDs(maskIDs == 0) = [];
                 spotIdx = p.spots.channel == channel;
                 p.spots.maskID(spotIdx) =  single(0);
-                p.updateSpotStatus(p.spotChannels(i))
+                p.updateSpotStatus(p.spotChannels{i})
                 
                 validSpotIdx = p.spots.channel == channel & p.spots.status;
                 spotTable = p.spots(validSpotIdx,:);
@@ -229,7 +236,7 @@ classdef spotTable < handle
             channelIdx = ismember(p.spots.channel, channel);
             spotIdx = p.spots.intensity(channelIdx) >= threshold ...
                 & p.spots.distanceToNuc(channelIdx) <= p.maxDistance & p.spots.maskID(channelIdx) == 0 ...
-                & ismember(p.spots.nearestNucID(channelIdx), p.nucleiObj.nuclei.nucID(p.nucleiObj.nuclei.status));%spots near masked cells will be set to false. 
+                & ismember(p.spots.nearestNucID(channelIdx), p.nucleiObj.nuclei.nucID(p.nucleiObj.nuclei.status));%spots assigned to masked cells will be set to false. 
             
             p.spots.status(channelIdx) = spotIdx;
             %p.spots.status(~spotIdx) = false;
@@ -366,35 +373,72 @@ classdef spotTable < handle
         end
         
         function outTable = tabulateAllChannels(p)
-            tmpSpots = groupsummary(p.spots, {'channel', 'nearestNucID'});
+            tmpSpots = groupsummary(p.spots(p.spots.status,:), {'channel', 'nearestNucID'}, 'IncludeEmptyGroups', true);
+            spotLessCells = setdiff(p.nucleiObj.nuclei.nucID(p.nucleiObj.nuclei.status), tmpSpots.nearestNucID);
+            spotLessTable = table(repmat(p.spotChannels', numel(spotLessCells), 1), repelem(spotLessCells, 3), zeros(numel(spotLessCells)*3, 1),...
+                'VariableNames', tmpSpots.Properties.VariableNames);
+            tmpSpots = [tmpSpots; spotLessTable];
             outTable = outerjoin(p.nucleiObj.nuclei(p.nucleiObj.nuclei.status,{'nucID', 'x', 'y'}), tmpSpots, 'Type', 'left', 'LeftKeys', 'nucID', 'RightKeys', 'nearestNucID');
             outTable.nearestNucID = [];
-            outTable{isnan(outTable.GroupCount), 'GroupCount'} = single(0);
         end
         
-        %Set functions
-        function set.theFilter(p,filter)
-            p.theFilter = filter;
-        end
-        
-        function set.percentileToKeep(p,n)
-            p.percentileToKeep = n;
-        end
-        
-        function [] = saveTables(p, varargin)
-            n = inputParser;
-            n.addParameter('spotsFile', 'spots.csv', @(x) assert((ischar(x) & endsWith(x, '.csv')),...
-                'Specify .csv filename to save spots. e.g "spots.csv"')); 
-            n.addParameter('thresholdsFile', 'thresholds.csv', @(x) assert((ischar(x) & endsWith(x, '.csv')),...
-                'Specify .csv filename to save thresholds. e.g "thresholds.csv"'));
-
-            n.parse(varargin{:});
+        function updateScanSummary(p, varargin)
+            if nargin == 1
+                inFileName = 'scanSummary.txt';
+            elseif nargin == 2
+                inFileName = varargin{1};
+            end
             
-            writetable(p.spots, n.Results.spotsFile);
-           % writetable(p.thresholds, n.Results.thresholdsFile);
+            inFileObj = fopen(inFileName);
+            scanSummaryArray = textscan(inFileObj, '%s%q', 'Delimiter', '\t');
+            fclose(inFileObj);
+            
+            if any(ismember(scanSummaryArray{1}, 'spotChannels'))
+                idx = ismember(scanSummaryArray{1}, 'spotChannels');
+                scanSummaryArray{2}{idx} = strjoin(p.spotChannels);
+            else
+                newIdx = height(scanSummaryArray{1})+1;
+                scanSummaryArray{1}{newIdx} = 'spotChannels';
+                scanSummaryArray{2}{newIdx} = strjoin(p.spotChannels);
+            end
+            
+            if any(ismember(scanSummaryArray{1}, 'thresholds'))
+                idx = ismember(scanSummaryArray{1}, 'thresholds');
+                scanSummaryArray{2}{idx} = num2str([p.thresholds{:}]);
+            else
+                newIdx = height(scanSummaryArray{1})+1;
+                scanSummaryArray{1}{newIdx} = 'thresholds';
+                scanSummaryArray{2}{newIdx} = num2str([p.thresholds{:}]);
+            end
+            
+            scanSummaryTable = cell2table(scanSummaryArray{2}, 'RowNames', scanSummaryArray{1}');
+            writetable(scanSummaryTable, inFileName, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
         end
         
+        function saveSpotsTable(p, varargin)
+            if ~isempty(p.spots)
+                if nargin == 1
+                    writetable(p.spots(:,{'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'}), 'spots.csv');
+                elseif nargin == 2
+                    writetable(p.spots(:, {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'}), varargin{1});
+                end
+            else
+                fprintf("spots table is empty. Run findSpots and try again")
+            end
+        end
         
+        function exportSpotsSummary(p, varargin)
+            if isempty(p.spots(p.spots.status,:)) || all(p.spots.nearestNucID == 0)
+                fprintf("There are no valid spots or spots are not assigned to cells. Try running findSpots and assignSpotsToNuclei")
+            else
+                outTable = p.tabulateAllChannels;
+                if nargin == 1
+                    writetable(outTable, 'spotsSummary.csv');
+                elseif nargin == 2
+                    writetable(outTable, varargin{1});
+                end
+            end
+        end
     end
     
 end 

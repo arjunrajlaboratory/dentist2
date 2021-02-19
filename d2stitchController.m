@@ -16,7 +16,13 @@ classdef d2stitchController < handle
         function p = d2stitchController(view, scanObject)
             p.viewObj = view;
             p.scanObj = scanObject;
+            if ~isempty(p.scanObj.rowTransformCoords)
+                p.rowTransform = p.scanObj.rowTransformCoords;
+            end
             
+            if ~isempty(p.scanObj.columnTransformCoords)
+                p.colTransform = p.scanObj.columnTransformCoords;
+            end
             p.startup()
    
         end
@@ -105,7 +111,7 @@ classdef d2stitchController < handle
         function previewStitchPushed(p, ~, ~)
             row =  str2double(get(p.viewObj.rowValue, 'String'));
             col = str2double(get(p.viewObj.colValue, 'String'));
-            tmpStitch = p.scanObj.stitchTiles(row-1:row, col:col+1, 'dapi', round(median(p.rowTransform, 1)), round(median(p.colTransform, 1)));
+            tmpStitch = p.scanObj.stitchTiles([row-1,row], [col,col+1], 'dapi', round(median(p.rowTransform, 1)), round(median(p.colTransform, 1)));
             figure
             imshow(scale(tmpStitch));
         end

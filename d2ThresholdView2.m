@@ -59,6 +59,8 @@ classdef d2ThresholdView2 < handle
 
         % Construct app
         function p = d2ThresholdView2(scanObject, spotTable, maskObject, nucleiObject)
+            %Should update with varargin - if default spotTable, maskTable and
+            %nucleiTable exist, just load those. 
             p.scanObj = scanObject;
             p.spotTable = spotTable;
             p.maskObj = maskObject;
@@ -131,6 +133,13 @@ classdef d2ThresholdView2 < handle
         
         %attach controller
         function startupFcn(p)
+            %Do we want to reassign spots to cells and update all masks
+            %when relaunching GUI? Helpful if tables aren't saved when shutting down. 
+            %Otherwise, probably unnecessary. 
+%             p.nucleiObj.updateAllMasks;
+%             p.spotTable.assignSpotsToNuclei;
+%             p.spotTable.updateAllMasks;
+            
             p.mainAxesCntrlr = d2MainAxesController(p, p.scanObj, p.spotTable, p.maskObj, p.nucleiObj);  
             p.attatchMainAxesController(p.mainAxesCntrlr);        
             
@@ -170,12 +179,12 @@ classdef d2ThresholdView2 < handle
             p.panAxes.Callback = {@controller.panViewPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};
             p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
-            %p.saveButton.Callback = {@controller.};
-            %p.exportButton.Callback = {@controller.};
+            p.saveButton.Callback = {@p.saveButtonPressed};
+            p.exportButton.Callback = {@p.exportButtonPressed};
 
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
             p.figHandle.KeyPressFcn = {@controller.keyPressFcns};
-%             p.figHandle.CloseRequestFcn = {@p.closeFigFcn}; 
+            p.figHandle.CloseRequestFcn = {@p.closeFigFcn}; 
         end
         
         function p = attachThresholdController(p, controller)
@@ -190,8 +199,19 @@ classdef d2ThresholdView2 < handle
             p.thumbAxes.ButtonDownFcn = {@controller.thumbAxesButtonDown};
         end
         
+        function saveButtonPressed(p, ~, ~)
+            p.nucleiObj.saveNucleiTable;
+            p.spotTable.saveSpotsTable;
+            p.maskObj.saveMasksTable;
+        end
+        
+        function exportButtonPressed(p, ~, ~)
+            p.spotTable.exportSpotsSummary
+        end
+        
         function closeFigFcn(p, ~, ~)
             delete(p.figHandle)
+            p.saveButtonPressed;
         end
         
     end

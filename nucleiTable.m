@@ -18,7 +18,9 @@ classdef nucleiTable < handle
             p.maskObj = maskObj;
             if nargin == 2
                 fprintf('New Table\n');
-                p.nuclei = cell2table(cell(0,7), 'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'}); 
+                p.nuclei = table('size', [0,7],... %Possibly unnecessary since new table created with p.findNuclei. 
+                    'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'},...
+                    'VariableTypes', [repmat({'single'}, 1, 3), {'logical'}, repmat({'single'}, 1, 3)]);
             elseif nargin == 3
                 fprintf('Loading Table\n');
                 p.nuclei = readtable(varargin{1},'TextType','string');
@@ -75,6 +77,16 @@ classdef nucleiTable < handle
 
             p.nuclei = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
                 'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
+            p.addEmptyRows(1000);
+        end
+        
+        function p = addEmptyRows(p, n)
+            newRows = table('Size', [n, width(p.nuclei)],...
+                'VariableNames', p.nuclei.Properties.VariableNames,...
+                'VariableTypes', varfun(@class,p.nuclei,'output','cell'));
+            newRows.status = false(n, 1);
+            newRows.colors = single(zeros(n,3));
+            p.nuclei = [p.nuclei; newRows];
         end
         
         function [outNuclei, idx] = getNucleiInRect(p,rect) %rect specified as [x y nrows ncols]
@@ -121,19 +133,22 @@ classdef nucleiTable < handle
         function p = addColors(p)
             randomColors  = single(d2utils.distinguishable_colors(50));
             %randomColors = randomColors(randperm(50), :);
-            p.nuclei.colors = [repmat(randomColors, floor(height(p.nuclei)/height(randomColors)), 1);...
-                randomColors(1:mod(height(p.nuclei), height(randomColors)), :)];
+            p.nuclei.colors(p.nuclei.status, :) = [repmat(randomColors, floor(sum(p.nuclei.status)/height(randomColors)), 1);...
+                randomColors(1:mod(sum(p.nuclei.status), height(randomColors)), :)];
         end
         
         function p = addCell(p, x, y)
-            if isempty(p.nuclei)
-                maxID = 1;
-            else
-                maxID = max(p.nuclei.nucID);
+            
+            if ~any(p.nuclei.nucID == 0)
+                p.addEmptyRows(1000);
             end
-            newNuc = table(single(maxID+1:maxID+numel(x))', single(x), single(y), true(numel(x), 1), single(zeros(numel(x), 1)), single(zeros(numel(x), 1)), single(rand(numel(x), 3)),...
-                'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'}); %Should area be NaN?
-            p.nuclei = [p.nuclei; newNuc];
+            
+            tempMaskID = max(p.nuclei.nucID)+1;
+
+            newNuc = table(single(tempMaskID:tempMaskID+numel(x)-1)', single(x), single(y), true(numel(x), 1), single(zeros(numel(x), 1)), single(zeros(numel(x), 1)), single(rand(numel(x), 3)),...
+                'VariableNames', p.nuclei.Properties.VariableNames); %Should area be NaN?
+            startIdx = find(p.nuclei.nucID == 0, 1, 'first');
+            p.nuclei(startIdx:startIdx+numel(x)-1,:) = newNuc;
         end
         
         function p = removeCell(p, x, y)
@@ -223,12 +238,12 @@ classdef nucleiTable < handle
         end
         
         
-        function [] = saveNucleiTable(p, varargin)
+        function saveNucleiTable(p, varargin)
             if ~isempty(p.nuclei)
                 if nargin == 1
-                    writetable(p.nuclei(:,{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), 'nuclei.csv') %Not saving nuclei.colors
+                    writetable(p.nuclei(~(p.nuclei.nucID == 0),{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), 'nuclei.csv') %Not saving nuclei.colors
                 elseif nargin ==2 
-                    writetable(p.nuclei(:,{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), varargin{1})
+                    writetable(p.nuclei(~(p.nuclei.nucID == 0),{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), varargin{1})
                 end
             else
                 fprintf("nuclei is empty. Run findNuclei and try again")
