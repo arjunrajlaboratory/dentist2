@@ -84,6 +84,7 @@ classdef d2MainAxesController < handle
                 p.overlayNuclei();
                 p.overlayMasks();
             end
+            figure(p.viewObj.figHandle);
         end
         
         function updateCentroidListView(p)
@@ -99,6 +100,7 @@ classdef d2MainAxesController < handle
                 p.updateImageInView();
                 p.updateMainAxes();
                 p.thumbCntrlr.overlayThumbnailRect();
+                figure(p.viewObj.figHandle); %Return focus to figure for callbacks. 
             end
         end
         
@@ -244,7 +246,7 @@ classdef d2MainAxesController < handle
         function panView(p, ~, ~)
             currentPoint = get(p.viewObj.mainAxes, 'CurrentPoint');
             displacement = p.panStart(1,1:2) - currentPoint(1,1:2);
-            p.viewRect = d2utils.updateViewPanning(p.viewRect, displacement, p.scanObj.scanDim);
+            p.viewRect = d2utils.updateViewPanning(p.viewRect, displacement, p.scanObj.stitchDim);
             p.updateImageInView;
             p.updateMainAxes;
             p.thumbCntrlr.overlayThumbnailRect();
@@ -341,6 +343,28 @@ classdef d2MainAxesController < handle
             p.updateMainAxes();
         end
         
+        function shuffleColorsInView(p, ~, ~)
+            if ~logical(p.viewObj.scatterCheckBox.Value)
+                outTableTmp = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
+                randomColors  = single(d2utils.distinguishable_colors(50));
+                outTableTmp.colors = randomColors(randi(50, height(outTableTmp), 1),:);
+                
+                %Update centroid list with new colors
+                idx = ismember(p.spotTable.centroidLists{p.channelIdx}.nucID, outTableTmp.nucID);
+                p.spotTable.centroidLists{p.channelIdx}.colors(idx, :) = outTableTmp.colors;
+                %Update nuclei table wtih new colors
+                [idxA, idxB] = ismember(p.nucleiObj.nuclei.nucID, outTableTmp.nucID);
+                idxB(idxB == 0) = [];
+                p.nucleiObj.nuclei.colors(idxA, :) = outTableTmp.colors(idxB,:);
+                %Update spots table with new colors
+                [idxA, idxB] = ismember(p.spotTable.spots.nearestNucID, outTableTmp.nucID);
+                idxB(idxB == 0) = [];
+                p.spotTable.spots.colors(idxA, :) = outTableTmp.colors(idxB,:);
+                %Update plots
+                p.overlayNuclei;
+                p.overlaySpots;
+            end
+        end
         %Note that when masking/adding/deleting spots and cells using the
         %functions below, the threshold histogram is not automatically
         %updated. It will update once the 'filter masked spots' button is
@@ -462,8 +486,8 @@ classdef d2MainAxesController < handle
         function type = getSelectionType(p)
             type = get(p.viewObj.figHandle, 'SelectionType');
         end
-                
-        function keyPressFcns(p, ~, evt) %Maybe move this to the View
+        
+        function keyPressFunctions(p, ~, evt)
             keyPressed = evt.Key;
             modifierPressed = evt.Modifier;
             if isempty(modifierPressed)

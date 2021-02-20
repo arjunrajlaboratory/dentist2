@@ -144,7 +144,7 @@ classdef spotTable < handle
                 maskIDs(maskIDs == 0) = [];
                 spotIdx = p.spots.channel == channel;
                 p.spots.maskID(spotIdx) =  single(0);
-                p.updateSpotStatus(p.spotChannels{i})
+                p.updateSpotStatus(p.spotChannels{i});
                 
                 validSpotIdx = p.spots.channel == channel & p.spots.status;
                 spotTable = p.spots(validSpotIdx,:);
@@ -300,9 +300,47 @@ classdef spotTable < handle
         end
         
         function p = findSpots2(p) 
-            %Consider method that first stitches the filtered images then
-            %finds regional maxima to avoid artifacts of spots in tile
-            %overlap. c
+            %Try using aTrous function for finding spots
+            tilesTable = p.scanObj.tilesTable;
+            scanMatrix = p.scanObj.scanMatrix;
+            tilesTmp = transpose(scanMatrix);
+            tiles = tilesTmp(:);
+            
+            x = [];
+            y = [];
+            intensity = [];
+            channel = [];
+            reader = bfGetReader(p.scanObj.scanFile);
+            
+            for i = 1:numel(p.spotChannels)
+                currChannel = p.spotChannels{i};
+                fprintf('Finding %s spots\n',currChannel);
+                iPlane = reader.getIndex(0, i - 1, 0) + 1;
+                channelCount = 0;
+                for ii = 1:numel(tiles)
+                    reader.setSeries(tiles(ii)-1);
+                    tmpPlane  = bfGetPlane(reader, iPlane);
+                    [tempX, tempY, tempIntensity] = d2utils.findSpotsaTrous(tmpPlane);
+                    %Adjust local to global coordinates
+                    tempX = tempX + tilesTable.left(tiles(ii));
+                    tempY = tempY + tilesTable.top(tiles(ii)); 
+                    
+                    x = [x ; tempX];
+                    y = [y ; tempY];
+                    intensity = [intensity ; tempIntensity];
+                    channelCount = channelCount + length(tempX);
+                end
+                channel = [channel ; repmat(string(currChannel),channelCount,1)]; %somewhat less memory with string array vs cell array
+            end
+            reader.close()
+            
+            spotID = single((1:length(x)))';
+            nearestNucID = single(zeros(length(x),1));
+            maskID = single(zeros(length(x),1));
+            status = true(length(x),1);
+            dist =  single(zeros(length(x),1));
+            p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
+                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
         function intensities = getIntensities(p, channel)

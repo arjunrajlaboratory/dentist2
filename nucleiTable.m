@@ -168,6 +168,7 @@ classdef nucleiTable < handle
             maskTable = p.maskObj.masks(p.maskObj.masks.dapi, :);
             maskIDs = unique(maskTable.maskID);
             maskIDs(maskIDs == 0) = [];
+            p.nuclei = p.nuclei(~(p.nuclei.nucID == 0),:);
             p.nuclei.maskID(:) = single(0);
             p.nuclei.status(:) = true;
             for i = 1:numel(maskIDs)
@@ -176,7 +177,7 @@ classdef nucleiTable < handle
                 p.nuclei.maskID(idx) = maskIDs(i);
                 p.nuclei.status(idx) = false;
             end
-            
+            p.addEmptyRows(1000);
         end
         
         function p = addNewMask(p)
@@ -206,6 +207,7 @@ classdef nucleiTable < handle
             %Resest status for nuclei
             tmpNuclei.maskID(:) = single(0);
             tmpNuclei.status(:) = true;
+            tmpNuclei.status(tmpNuclei.nucID == 0) = false;
             for i = 1:numel(maskIDsinRect)
                 idx = inpolygon(tmpNuclei.x, tmpNuclei.y,...
                     masksInRect{masksInRect.maskID == maskIDsinRect(i), 'x'}, masksInRect{masksInRect.maskID == maskIDsinRect(i), 'y'}) & tmpNuclei.status;
@@ -221,6 +223,7 @@ classdef nucleiTable < handle
         function p = removeMasks(p) 
             
             masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masksBB.maskID(p.maskObj.masksBB.dapi));
+            masksToRemove(masksToRemove == 0) = [];
             p.nuclei.maskID(ismember(p.nuclei.maskID, masksToRemove)) = single(0);
             p.nuclei.status(ismember(p.nuclei.maskID, masksToRemove)) = true;
         end

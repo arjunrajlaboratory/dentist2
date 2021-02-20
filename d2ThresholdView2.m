@@ -28,6 +28,7 @@ classdef d2ThresholdView2 < handle
         exportButton %Push button
         zoomAxes %Push button
         panAxes %Push button
+        shuffleColors %Push button
         
         zoomThresh %Push button
         filterMasksThresh %Push button
@@ -91,7 +92,6 @@ classdef d2ThresholdView2 < handle
         function createComponents(p)
 
             p.figHandle = figure('Visible', 'off', 'Position', [100 100 1550 900]);
-            %iptPointerManager(p.figHandle);
             p.mainAxes = axes('Parent', p.figHandle, 'Position', [0.025 0.025 0.60 0.95], 'Ydir','reverse', 'XAxisLocation', 'bottom', 'YAxisLocation', 'left', 'Interactions',[]);
             set(p.mainAxes.Toolbar, 'Visible','off');
             p.thumbAxes = axes('Parent', p.figHandle, 'XTickLabel', '', 'YTickLabel', '', 'Ydir', 'reverse', 'Position', [0.64 0.645 0.21 0.33], 'Interactions', []);
@@ -100,8 +100,8 @@ classdef d2ThresholdView2 < handle
             p.threshAxes = axes('Parent', p.figHandle, 'Position', [0.64 0.025 0.34 0.34], 'Interactions', []);
             set(p.threshAxes.Toolbar, 'Visible', 'off')
             
-            p.channelPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.spotChannels, 'Units', 'normalized', 'Position', [0.64 0.5067 0.1111 0.0367]);
-            p.colormapPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.expressionColorPal, 'Units', 'normalized', 'Position', [0.755 0.5067 0.1111 0.0367]);
+            p.channelPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.spotChannels, 'Units', 'normalized', 'Position', [0.64 0.49 0.1111 0.0367]);
+            p.colormapPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.expressionColorPal, 'Units', 'normalized', 'Position', [0.755 0.49 0.1111 0.0367]);
             p.centroidList = uicontrol('Style', 'listbox', 'String', string(p.spotTable.centroidLists{1}.GroupCount),'Units', 'normalized', 'Position', [0.86 0.645 0.12 0.33]);
             p.spotsCheckBox = uicontrol('Style', 'checkbox', 'String', 'spots (s)', 'Value', p.showSpots,'Units', 'normalized', 'Position', [0.65 0.585 0.0722 0.0333]);
             p.centroidsCheckBox = uicontrol('Style', 'checkbox', 'String', 'nuclei (n)', 'Value', p.showCentroids, 'Units', 'normalized', 'Position', [0.695 0.585 0.0722 0.0333]);
@@ -119,7 +119,8 @@ classdef d2ThresholdView2 < handle
             p.panAxes = uicontrol('Style', 'pushbutton', 'String', 'pan view (p)', 'Units', 'normalized', 'Position', [0.64 0.41 0.1111 0.0367]);
             p.saveButton = uicontrol('Style', 'pushbutton', 'String', 'save (S)', 'Units', 'normalized', 'Position', [0.87 0.45 0.1111 0.0367]);
             p.exportButton = uicontrol('Style', 'pushbutton', 'String', 'export (E)', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
-
+            p.shuffleColors = uicontrol('Style', 'pushbutton', 'String', 'shuffle colors', 'Units', 'normalized', 'Position', [0.87 0.49 0.1111 0.0367]);
+            
             p.zoomThresh = uicontrol('Style', 'pushbutton', 'String', 'zoom', 'Units', 'normalized', 'Position', [0.91 0.32 0.0700 0.0333]);
             p.filterMasksThresh = uicontrol('Style', 'pushbutton', 'String', 'filter masked spots', 'Units', 'normalized', 'Position', [0.91 0.28 0.0700 0.0333]);
             p.threshValue = uicontrol('Style', 'edit', 'Units', 'normalized', 'Position', [0.835 0.32 0.0700 0.0333]);
@@ -181,10 +182,15 @@ classdef d2ThresholdView2 < handle
             p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
             p.saveButton.Callback = {@p.saveButtonPressed};
             p.exportButton.Callback = {@p.exportButtonPressed};
-
+            p.shuffleColors.Callback = {@controller.shuffleColorsInView};
+            
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
-            p.figHandle.KeyPressFcn = {@controller.keyPressFcns};
+            p.figHandle.KeyPressFcn = {@controller.keyPressFunctions};
             p.figHandle.CloseRequestFcn = {@p.closeFigFcn}; 
+            
+            %Set KeyPressFcn for all uicontrols. Change this if you want
+            %some uicontrols to have unique KeyPressFcn (e.g. arrow keys) 
+            set(findobj(p.figHandle, 'Type', 'UIControl'), 'KeyPressFcn', {@controller.keyPressFunctions})
         end
         
         function p = attachThresholdController(p, controller)
@@ -211,7 +217,7 @@ classdef d2ThresholdView2 < handle
         
         function closeFigFcn(p, ~, ~)
             delete(p.figHandle)
-            p.saveButtonPressed;
+            %p.saveButtonPressed;
         end
         
     end
