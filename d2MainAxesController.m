@@ -252,16 +252,14 @@ classdef d2MainAxesController < handle
             p.thumbCntrlr.overlayThumbnailRect();
         end
         
-        
-        
         function p = updateImageInView(p)
             p.imagesInView = cell(0, numel(p.spotTable.spotChannels));
-            if p.viewRect(3) * p.viewRect(4) < 4000001
+            if prod(p.viewRect(3:4)) < 4000001
                 for i = 1:numel(p.spotTable.spotChannels)
                     p.imagesInView{i} = p.scanObj.getImageRect(p.spotTable.spotChannels{i}, p.viewRect);
                 end
                 p.dapiInView = p.scanObj.getDapiImage(p.viewRect);
-            elseif p.viewRect(3) * p.viewRect(4) < 64000001
+            elseif prod(p.viewRect(3:4)) < 64000001
                 for i = 1:numel(p.spotTable.spotChannels)
                     p.imagesInView{i} = p.scanObj.getSmallImageRect(p.spotTable.spotChannels{i}, p.viewRect);
                 end
