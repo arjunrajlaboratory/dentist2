@@ -375,7 +375,7 @@ classdef d2MainAxesController < handle
             channel = p.spotTable.spotChannels{p.channelIdx};
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             %addlistener(p.maskH, 'DrawingFinished', @p.maskSpots);
-            if ~isempty(p.maskH.Position) %Allows 'escape' from ROI
+            if ~isempty(p.maskH.Position) && isvalid(p.maskH) %Allows 'escape' from ROI
                 p.maskSpots(p.maskH, channel)
             end
             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
