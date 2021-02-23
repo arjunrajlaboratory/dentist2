@@ -213,6 +213,11 @@ classdef d2ThresholdView2 < handle
             p.spotTable.exportSpotsSummary
         end
         
+        function relaunchGUI(p)
+            createComponents(p)
+            startupFcn(p)
+        end
+        
         function closeFigFcn(p, ~, ~)
             delete(p.figHandle)
             fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')

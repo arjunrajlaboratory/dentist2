@@ -72,7 +72,7 @@ classdef d2ThresholdAxesController < handle
                 delete(p.thresholdLineH)
             end
             
-            threshold = p.spotTable.thresholds{p.mainAxesCntrlr.channelIdx};
+            threshold = p.spotTable.thresholds(p.mainAxesCntrlr.channelIdx);
             yaxis = get(p.viewObj.threshAxes, 'Ylim');
             p.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis,...
                 'Color', 'b', 'HitTest', 'off');

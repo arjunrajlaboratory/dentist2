@@ -7,7 +7,7 @@ classdef spotTable < handle
         
         thresholds
         spotChannels
-        maxDistance = 100;  
+        maxDistance = 200;  
         theFilter
         percentileToKeep = 98;
         spotsIntensitiesWithMasked
@@ -41,6 +41,9 @@ classdef spotTable < handle
                 opts = setvartype(opts, {'intensity', 'status'}, 'uint16'); %For some reason, when I set 'status' to 'logical' they all go to false. So doing this instead
                 p.spots = readtable(varargin{1}, opts);
                 p.spots.status = logical(p.spots.status);
+                [spotIdx, nucIdx] = ismember(p.spots.nearestNucID, p.nucleiObj.nuclei.nucID);
+                nucIdx(nucIdx == 0) = [];
+                p.spots{spotIdx, 'colors'} = p.nucleiObj.nuclei.colors(nucIdx,:);
             end
         end
         
