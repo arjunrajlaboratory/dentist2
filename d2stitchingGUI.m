@@ -31,22 +31,17 @@ classdef d2stitchingGUI < handle
      
     methods
         
-        function p = d2stitchingGUI(scanDim, scanFile) %Will update this with argument parser and default filename. 
-            if validateattributes(scanDim, {'numeric'}, {'size', [1,2]}) && isfile(scanFile)
+        function p = d2stitchingGUI(scanDim, scanFile) %Consider updating this with argument parser and default filename.
+            validateattributes(scanDim, {'numeric'}, {'size', [1,2]})
+            if isfile(scanFile)
                 p.scanObj = scanObject('scanDim', scanDim, 'scanFile', scanFile);
             
                 createComponents(p)
             
                 startupFcn(p)
             else
-                if ~validateattributes(scanDim, {'numeric'}, {'size', [1,2]})
-                    disp('Invalid input. Please input scan dimensions as [1,2] numeric array (e.g. [25 25])')
-                    return
-                end
-                if ~isfile(scanFile)
-                    fprintf('Unable to find %s. Please input valid scan filename', scanFile)
-                    return
-                end
+                fprintf('Unable to find %s. Please input valid scan filename\n', scanFile)
+                return
             end
         end
         
@@ -105,17 +100,19 @@ classdef d2stitchingGUI < handle
         function closeFigFcn(p, ~, ~)
             delete(p.figHandle)
             if isempty(p.stitchCntrlr.rowTransform)
-                p.scanObj.rowTransformCoords = [0, 0.1 * p.scanObj.tileSize(1)]; %Set default overlap to 10%
+                p.scanObj.rowTransformCoords = [0, 0.9 * p.scanObj.tileSize(1)]; %Set default overlap to 10%
             else
                 p.scanObj.rowTransformCoords = round(median(p.stitchCntrlr.rowTransform, 1));
             end
             
             if isempty(p.stitchCntrlr.colTransform)
-                p.scanObj.columnTransformCoords = [0.1 * p.scanObj.tileSize(2), 0]; %Set default overlap to 10%
+                p.scanObj.columnTransformCoords = [0.9 * p.scanObj.tileSize(2), 0]; %Set default overlap to 10%
             else
                 p.scanObj.columnTransformCoords = round(median(p.stitchCntrlr.colTransform, 1));
             end
-            
+            p.scanObj.snake = p.stitchCntrlr.snakeValue;
+            p.scanObj.startPos = p.stitchCntrlr.startPosValue;
+            p.scanObj.direction = p.stitchCntrlr.directionValue;
             p.scanObj.loadTiles();
             disp('saving tilesTable.csv')
             p.scanObj.saveTilesTable();
