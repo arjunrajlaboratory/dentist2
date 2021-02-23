@@ -109,6 +109,7 @@ classdef scanObject < handle
             leftCoords = leftCoords - min(leftCoords) + 1;
             p.tilesTable = table((1:nTiles)', topCoords, leftCoords, repmat(height, nTiles,1), repmat(width, nTiles,1), ...
                 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'});
+            p.stitchDim = [max(leftCoords)+p.tileSize(1)-1, max(topCoords)+p.tileSize(2)-1];
         end
           
          function p = getTileSize(p)
@@ -148,7 +149,7 @@ classdef scanObject < handle
             end
             reader.close()
             p.dapiStitch = tmpStitch;
-            p.stitchDim = size(tmpStitch);
+%             p.stitchDim = size(tmpStitch);
         end
         
         function p = contrastDAPIstitch(p)
@@ -422,7 +423,7 @@ classdef scanObject < handle
                 'startPosition', 'scanDirection', 'snake', 'channels', 'rowTransform', 'columnTransform'});
             writetable(outTable, outFileName, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
         end
-        
+                
         function saveStitches(p, varargin) 
             %For the time being, saving to .mat files. 
             %At some point it may be worth modifying this method to save

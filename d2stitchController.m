@@ -111,6 +111,14 @@ classdef d2stitchController < handle
         function previewStitchPushed(p, ~, ~)
             row =  str2double(get(p.viewObj.rowValue, 'String'));
             col = str2double(get(p.viewObj.colValue, 'String'));
+            if isempty(p.rowTransform)
+                p.rowTransform = [0, 0.1 * p.scanObj.tileSize(1)]; %Set default overlap to 10%
+            end
+            
+            if isempty(p.colTransform)
+                p.colTransform = [0.1 * p.scanObj.tileSize(2), 0]; %Set default overlap to 10%
+            end
+            
             tmpStitch = p.scanObj.stitchTiles([row-1,row], [col,col+1], 'dapi', round(median(p.rowTransform, 1)), round(median(p.colTransform, 1)));
             figure
             imshow(scale(tmpStitch));
