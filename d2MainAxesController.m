@@ -415,7 +415,7 @@ classdef d2MainAxesController < handle
             p.maskObj.addMaskLocalCoords(roi.Position, 'dapi');
             delete(roi)
             p.nucleiObj.addNewMask();
-%             p.spotTable.assignSpotsInRect(p.viewRect); %Do we want to re-assign spots to good nuclei? 
+            p.spotTable.assignSpotsInRect(p.viewRect); 
             p.spotTable.updateSpotStatus(channel);
             p.spotTable.updateCentroidList(channel);
             p.updateCentroidListView();
@@ -432,11 +432,7 @@ classdef d2MainAxesController < handle
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
                 p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
                 p.nucleiObj.removeMasks();
-                %p.nucleiObj.updateMasksInRect(p.viewRect);
-                tic
                 p.spotTable.removeMasks2(channel, p.viewRect);
-                toc
-                %p.spotTable.updateMasksInRect(channel, p.viewRect);
                 p.spotTable.updateCentroidList(channel);
                 p.updateCentroidListView();
                 p.updateMainAxes();

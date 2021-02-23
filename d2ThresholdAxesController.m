@@ -71,9 +71,7 @@ classdef d2ThresholdAxesController < handle
             if ~isempty(p.thresholdLineH) && ishandle(p.thresholdLineH)
                 delete(p.thresholdLineH)
             end
-            if isempty(p.spotTable.thresholds)
-                p.spotTable.defaultThresholds();
-            end
+            
             threshold = p.spotTable.thresholds{p.mainAxesCntrlr.channelIdx};
             yaxis = get(p.viewObj.threshAxes, 'Ylim');
             p.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis,...

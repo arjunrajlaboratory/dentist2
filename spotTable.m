@@ -23,52 +23,35 @@ classdef spotTable < handle
     
     methods
         
-        function p = spotTable(scanObject, maskObject, nucleiObject, varargin)
-            n = inputParser;
-            n.addRequired('scanObject');
-            n.addRequired('maskObject');
-            n.addRequired('nucleiObject');
-            n.addParameter('spotsFile', '', @ischar); 
-            n.addParameter('thresholdsFile', '', @ischar);
-
-            n.parse(scanObject, maskObject, nucleiObject, varargin{:});
-            
-            channels = n.Results.scanObject.channels;
-            p.spotChannels = channels(~ismember(channels,{'dapi','trans'}));
+        function p = spotTable(scanObject, maskObject, nucleiObject, scanSummaryFile, varargin)
             p.scanObj = scanObject;
-            p.maskObj = n.Results.maskObject;
-            p.nucleiObj = n.Results.nucleiObject;
-            
-            if isempty(n.Results.spotsFile)
+            p.maskObj = maskObject;
+            p.nucleiObj = nucleiObject;
+            p.parseScanSummary(scanSummaryFile);
+
+            if nargin == 4
                 fprintf('New spots table\n');
                 p.spots = cell2table(cell(0,9),...
                     'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
-            else
+            elseif nargin == 5
                 fprintf('Loading spot table\n');
-                tmpSpots = readtable(n.Results.spotsFile,'TextType','string');
-                p.spots = convertvars(tmpSpots, {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'maskID', 'distanceToNuc'}, 'single');
+                opts = detectImportOptions(varargin{1});
+                opts = setvartype(opts, {'spotID', 'x', 'y', 'nearestNucID', 'maskID', 'distanceToNuc'}, 'single');
+                opts = setvartype(opts, 'channel', 'string');
+                opts = setvartype(opts, {'intensity', 'status'}, 'uint16'); %For some reason, when I set 'status' to 'logical' they all go to false. So doing this instead
+                p.spots = readtable(varargin{1}, opts);
                 p.spots.status = logical(p.spots.status);
-            end
-                        
-            if isempty(n.Results.thresholdsFile)
-                fprintf('New thresholds table\n');
-                p.thresholds = cell(0,numel(p.spotChannels));
-            else
-                fprintf('Loading thresholds table\n'); %Need to check this
-                tmpThreshold = readtable(n.Results.thresholdsFile,'TextType','string');
-                p.thresholds = table2cell(tmpThreshold);
             end
         end
         
-        
         function p = assignSpotsToNuclei(p)
-            %At the moment, assigning spots to nearest nucleus, even if that nucleus is masked (status = false)
-            %If we want to assign spots to only valid nucleu, then change
+            %At the moment, assigning spots to nearest valid nucleus (i.e. not masked). 
+            %If we want to assign spots to nearest ncleus even if that
+            %nucleus is masked (status = false). Then change below to 
+            %validNuclei = p.nucleiObj.nuclei(~p.nucleiObj.nuclei.nucID == 0,:)
             %below to validNuclei = p.nucleiObj.nuclei(p.nucleiObj.nuclei.status, :);
 
-            validNuclei = p.nucleiObj.nuclei(~p.nucleiObj.nuclei.nucID == 0,:); %There may be a more efficient way fo doing this using only index arrays and not creating a new table. 
-            
-%             validNucleiIdx = p.nucleiObj.nuclei.status;
+            validNuclei = p.nucleiObj.nuclei(p.nucleiObj.nuclei.status, :); %There may be a more efficient way fo doing this using only index arrays and not creating a new table. 
             
             [idx, dist] = knnsearch([validNuclei.x, validNuclei.y], [p.spots.x, p.spots.y], 'K', 1, 'Distance', 'euclidean');
             
@@ -225,14 +208,14 @@ classdef spotTable < handle
         end
         
         function p = setThreshold(p, channel, value)
-            p.thresholds{ismember(p.spotChannels, channel)} = value;
+            p.thresholds(ismember(p.spotChannels, channel)) = value;
             %Update spot status
             p.updateSpotStatus(channel);
             p.updateCentroidList(channel);
         end
        
         function p = updateSpotStatus(p,channel)
-            threshold = p.thresholds{ismember(p.spotChannels, channel)};
+            threshold = p.thresholds(ismember(p.spotChannels, channel));
             channelIdx = ismember(p.spots.channel, channel);
             spotIdx = p.spots.intensity(channelIdx) >= threshold ...
                 & p.spots.distanceToNuc(channelIdx) <= p.maxDistance & p.spots.maskID(channelIdx) == 0 ...
@@ -240,7 +223,6 @@ classdef spotTable < handle
             
             p.spots.status(channelIdx) = spotIdx;
             %p.spots.status(~spotIdx) = false;
-                    
         end
         
         function p = updateAllSpotStatus(p)
@@ -366,11 +348,10 @@ classdef spotTable < handle
         end
         
         function p = defaultThresholds(p) %Need to update this with some better heuristic
+            p.thresholds = zeros(0,numel(p.spotChannels));
             for i = 1:numel(p.spotChannels)
-                p.thresholds{i} = round(mean(p.getIntensities(p.spotChannels{i})));
+                p.thresholds(i) = round(mean(p.getIntensities(p.spotChannels{i})));
             end
-            p.updateAllSpotStatus();
-            p.makeCentroidList();
         end
         
         function p = makeCentroidList(p)
@@ -427,32 +408,33 @@ classdef spotTable < handle
                 inFileName = varargin{1};
             end
             
-            inFileObj = fopen(inFileName);
-            scanSummaryArray = textscan(inFileObj, '%s%q', 'Delimiter', '\t');
-            fclose(inFileObj);
-            
-            if any(ismember(scanSummaryArray{1}, 'spotChannels'))
-                idx = ismember(scanSummaryArray{1}, 'spotChannels');
-                scanSummaryArray{2}{idx} = strjoin(p.spotChannels);
-            else
-                newIdx = height(scanSummaryArray{1})+1;
-                scanSummaryArray{1}{newIdx} = 'spotChannels';
-                scanSummaryArray{2}{newIdx} = strjoin(p.spotChannels);
-            end
-            
-            if any(ismember(scanSummaryArray{1}, 'thresholds'))
-                idx = ismember(scanSummaryArray{1}, 'thresholds');
-                scanSummaryArray{2}{idx} = num2str([p.thresholds{:}]);
-            else
-                newIdx = height(scanSummaryArray{1})+1;
-                scanSummaryArray{1}{newIdx} = 'thresholds';
-                scanSummaryArray{2}{newIdx} = num2str([p.thresholds{:}]);
-            end
-            
-            scanSummaryTable = cell2table(scanSummaryArray{2}, 'RowNames', scanSummaryArray{1}');
+            scanSummaryTable = d2utils.parseScanSummary(inFileName);
+            scanSummaryTable{'spotChannels',:} = {strjoin(p.spotChannels)};
+            scanSummaryTable{'thresholds',:} = {num2str(p.thresholds)};
             writetable(scanSummaryTable, inFileName, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
         end
         
+        function p = parseScanSummary(p, inFileName)
+            if isfile(inFileName)
+                scanSummaryTable = d2utils.parseScanSummary(inFileName);
+                if ismember('spotChannels', scanSummaryTable.Row)
+                    p.spotChannels = split(scanSummaryTable{'spotChannels',1}{:})';
+                    fprintf('Setting %s as spot channels.\n', scanSummaryTable{'spotChannels',1}{:});
+                else
+                    p.spotChannels = p.scanObj.channels(~ismember(p.scanObj.channels,{'dapi','trans'}));
+                    fprintf('Setting %s as spot channels.\n', strjoin(p.spotChannels));
+                end
+
+                if ismember('thresholds', scanSummaryTable.Row)
+                    p.thresholds = str2double(split(scanSummaryTable{'thresholds',1})');
+                end
+            else
+                fprintf('Unable to find %s in your current directory.\n', n.Results.spotsFile)
+                p.spotChannels = p.scanObj.channels(~ismember(p.scanObj.channels,{'dapi','trans'}));
+                fprintf('Setting %s as spot channels.\n', strjoin(p.spotChannels));
+            end
+        end
+
         function saveSpotsTable(p, varargin)
             if ~isempty(p.spots)
                 if nargin == 1

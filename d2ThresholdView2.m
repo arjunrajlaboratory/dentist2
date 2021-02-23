@@ -59,22 +59,20 @@ classdef d2ThresholdView2 < handle
     methods (Access = public)
 
         % Construct app
-        function p = d2ThresholdView2(scanObject, spotTable, maskObject, nucleiObject)
-            %Should update with varargin - if default spotTable, maskTable and
-            %nucleiTable exist, just load those. 
+        function p = d2ThresholdView2(scanObject, maskObject, nucleiObject, spotTable)
             p.scanObj = scanObject;
-            p.spotTable = spotTable;
             p.maskObj = maskObject;
             p.nucleiObj = nucleiObject;
+            p.spotTable = spotTable;
 
             % Create UIFigure and components
             createComponents(p)
             
             startupFcn(p)
 
-%             if nargout == 0
-%                 clear app
-%             end
+            if nargout == 0
+                clear p
+            end
         end
 
 %         % Code that executes before app deletion
@@ -217,7 +215,8 @@ classdef d2ThresholdView2 < handle
         
         function closeFigFcn(p, ~, ~)
             delete(p.figHandle)
-            %p.saveButtonPressed;
+            fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
+            p.saveButtonPressed;
         end
         
     end

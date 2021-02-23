@@ -3,6 +3,7 @@ classdef scanObject < handle
     properties (Access = public)
         
         scanFile
+        tilesTableName
 
         tilesTable
         tileSize
@@ -21,51 +22,63 @@ classdef scanObject < handle
         rowTransformCoords
         columnTransformCoords
         imRotation = 0;
-%         dapiMask
-%         dapiMask2
+
         
     end
     
     methods
         
-        function p = scanObject(scanDim, varargin) % 
+        function p = scanObject(varargin) % 
             n = inputParser;
-            n.addRequired('scanDim', @(x)validateattributes(x,{'numeric'},{'size',[1 2]}));
-            n.addParameter('scanFile', '', @ischar); 
-            n.addParameter('tilesTable', '', @ischar); 
             n.addParameter('scanSummary', '', @ischar);
+            n.addParameter('scanFile', '', @ischar); 
+            n.addParameter('scanDim', [0,0], @(x)validateattributes(x,{'numeric'},{'size',[1 2]}));
             
-            n.parse(scanDim, varargin{:});
-            
-            p.scanDim = n.Results.scanDim;
-            
-            if isempty(n.Results.scanFile)
-                files = dir('*.nd2');
-                files = {files.name};
-                p.scanFile = files{1};
-                p.channels = d2utils.readND2Channels(p.scanFile);
+            n.parse(varargin{:});
+
+            if ~isempty(n.Results.scanSummary)
+                    fprintf('Loading %s\n', n.Results.scanSummary);
+                    p.loadScanSummary(n.Results.scanSummary);
             else
-                p.scanFile = n.Results.scanFile;
-                p.channels = d2utils.readND2Channels(p.scanFile);
+                if ~isempty(n.Results.scanFile) && all(n.Results.scanDim)
+                    fprintf('Loading file %s\n', n.Results.scanFile)
+                    p.scanFile = n.Results.scanFile;
+                    p.channels = d2utils.readND2Channels(p.scanFile);
+                    p.scanDim = n.Results.scanDim;
+                    p.defaultScanParameters()
+                else
+                    fprintf('Unable to create the scan object.\nPlease specify a scan summary file (e.g. scanSummary.txt) or the scan file name and scan dimensions.\n')
+                    return
+                    
+                end
             end
-            
-            if isempty(n.Results.tilesTable)
-                fprintf('New Table\n');
-                p.tilesTable = cell2table(cell(0,5), 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'}); %Unncecessary? loadTiles creates a new table 
-            else
-                fprintf('Loading Table\n');
-                opts = detectImportOptions(n.Results.tilesTable);
-                opts = setvartype(opts, 'single'); %Probably unnecessary given the typical scan size. 
-                p.tilesTable = readtable(n.Results.tilesTable, opts);
-            end
-            
-            if isempty(n.Results.scanSummary)
-                fprintf('New scan matrix\n');
-                p.defaultScanParameters();
-            else
-                fprintf('Loading scan summary\n');
-                p.parseScanSummary(n.Results.scanSummary);
-            end
+%             if isempty(n.Results.scanFile)
+%                 files = dir('*.nd2');
+%                 files = {files.name};
+%                 p.scanFile = files{1};
+%                 p.channels = d2utils.readND2Channels(p.scanFile);
+%             else
+%                 p.scanFile = n.Results.scanFile;
+%                 p.channels = d2utils.readND2Channels(p.scanFile);
+%             end
+%             
+%             if isempty(n.Results.tilesTable)
+%                 fprintf('New Table\n');
+%                 p.tilesTable = cell2table(cell(0,5), 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'}); %Unncecessary? loadTiles creates a new table 
+%             else
+%                 fprintf('Loading Table\n');
+%                 opts = detectImportOptions(n.Results.tilesTable);
+%                 opts = setvartype(opts, 'single'); %Probably unnecessary given the typical scan size. 
+%                 p.tilesTable = readtable(n.Results.tilesTable, opts);
+%             end
+%             
+%             if isempty(n.Results.scanSummary)
+%                 fprintf('New scan matrix\n');
+%                 p.defaultScanParameters();
+%             else
+%                 fprintf('Loading scan summary\n');
+%                 p.loadScanSummary(n.Results.scanSummary);
+%             end
             
         end
         
@@ -75,18 +88,18 @@ classdef scanObject < handle
             p.direction = 'horizontal';
             p.startPos = 'top left';
             p.scanMatrix = d2utils.makeScanMatrix(p.scanDim);
-            p.rowTransformCoords = [0 round(0.1*p.tileSize(1))]; %set default overlap to 10%
-            p.columnTransformCoords = [round(0.1*p.tileSize(2)), 0];
+%             p.rowTransformCoords = [0 round(0.1*p.tileSize(1))]; %set default overlap to 10%
+%             p.columnTransformCoords = [round(0.1*p.tileSize(2)), 0];
         end
         
-        function p = loadTiles(p) %should remove scanMatrix and TransformCoords arguments and leave them as properties that need to be set.    
+        function p = loadTiles(p)  
             
             height = p.tileSize(1);
             width = p.tileSize(2);
             nTiles = numel(p.scanMatrix);
             topCoords = zeros(nTiles,1);
             leftCoords = zeros(nTiles,1);
-            for i = 1:numel(nTiles)
+            for i = 1:nTiles
                 [row,col] = find(p.scanMatrix == i);
                 topCoords(i)  = col*p.columnTransformCoords(1) + row*p.rowTransformCoords(1);
                 leftCoords(i) = row*p.rowTransformCoords(2) + col*p.columnTransformCoords(2);
@@ -94,10 +107,8 @@ classdef scanObject < handle
             
             topCoords = topCoords - min(topCoords) + 1;
             leftCoords = leftCoords - min(leftCoords) + 1;
-            
-            p.tilesTable = table((1:nTiles)', topCoords', leftCoords', repmat(height, nTiles,1), repmat(width, nTiles,1), ...
+            p.tilesTable = table((1:nTiles)', topCoords, leftCoords, repmat(height, nTiles,1), repmat(width, nTiles,1), ...
                 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'});
-            
         end
           
          function p = getTileSize(p)
@@ -215,7 +226,7 @@ classdef scanObject < handle
 %             p.dapiMask2 = tmpStitch;
 %         end
                 
-        function tmpStitch = stitchChannel(p, channel)  
+        function tmpStitch = stitchChannel(p, channel) %Maybe unnecessary given stitchChannels method below 
             tileTable = p.tilesTable;
             tilesTmp = transpose(p.scanMatrix);
             tiles = tilesTmp(:);
@@ -237,16 +248,21 @@ classdef scanObject < handle
         end
         
 
-        function p = stitchChannels(p, channels)
+        function p = stitchChannels(p, varargin)
+            if nargin == 1
+                channelsToStitch = p.channels(~ismember(p.channels,{'dapi','trans'}));
+            elseif nargin == 2
+                channelsToStitch = varargin{1};
+            end
             tileTable = p.tilesTable;
             tilesTmp = transpose(p.scanMatrix);
             tiles = tilesTmp(:);
             height = p.tileSize(1);
             width = p.tileSize(2);
-            stitches = cell(1,numel(channels));
-            channelIdx = find(ismember(p.channels, channels));
+            stitches = cell(1,numel(channelsToStitch));
+            channelIdx = find(ismember(p.channels, channelsToStitch));
             reader = bfGetReader(p.scanFile);
-            for i = 1:numel(channels)
+            for i = 1:numel(channelsToStitch)
                 tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
                 
                 iPlane = reader.getIndex(0, channelIdx(i) - 1, 0) + 1;
@@ -255,13 +271,13 @@ classdef scanObject < handle
                     tmpPlane  = bfGetPlane(reader, iPlane);
                     
                     tmpStitch(tileTable{tiles(ii),'left'}:tileTable{tiles(ii),'left'}+height-1, ...
-                        tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = im2uint16(tmpPlane);
+                        tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = tmpPlane;
                 end
                 stitches{i} = tmpStitch;
             
             end
             reader.close()
-            p.stitchedScans.labels = channels;
+            p.stitchedScans.labels = channelsToStitch;
             p.stitchedScans.stitches = stitches;
         end
         
@@ -337,68 +353,105 @@ classdef scanObject < handle
             outIm = p.smallDapiStitch(smallRect(1):smallRect(1)+smallRect(3), smallRect(2):smallRect(2)+smallRect(4));
         end
         
-        function savetilesTable(p, varargin)
-            if ~isempty(p.tilesTable)
+        function saveTilesTable(p, varargin)
+            if ~isempty(p.tilesTable) %Not sure we need the option to specify alternative filename
                 if nargin == 1
-                    writetable(p.tilesTable, 'tilesTable.csv')
+                    p.tilesTableName = 'tilesTable.csv';
                 elseif nargin ==2 
-                    writetable(p.tilesTable, varargin{1})
+                    p.tilesTableName = varargin{1};
                 end
+                writetable(p.tilesTable, p.tilesTableName)
             else
                 fprintf("tilesTable is empty. Run loadTiles and try again")
             end
         end
         
-        function parseScanSummary(p, varargin)
+        function loadTilesTable(p, varargin)
+            if nargin == 1
+                inFileName = 'tilesTable.csv';
+            elseif nargin == 2
+                inFileName = varargin{1};
+            end
+            fprintf('Loading %s\n', inFileName);
+            opts = detectImportOptions(inFileName);
+            opts = setvartype(opts, 'single'); %Probably unnecessary given the typical scan size.
+            p.tilesTable = readtable(inFileName, opts);
+        end
+        
+        function loadScanSummary(p, varargin)
             if nargin == 1
                 inFileName = 'scanSummary.txt';
             elseif nargin == 2
                 inFileName = varargin{1};
             end
             
-            inFileObj = fopen(inFileName);
-            scanSummaryArray = textscan(inFileObj, '%s%q', 'Delimiter', '\t');
-            fclose(inFileObj);
-            scanSummaryTable = cell2table(scanSummaryArray{2}, 'RowNames', scanSummaryArray{1}');
-            %scanSummaryTable = convertvars(scanSummaryTable, 'Variable', 'string');
-            p.tileSize = str2num(cell2mat(scanSummaryTable{'imageSize',1}));
+            scanSummaryTable = d2utils.parseScanSummary(inFileName);
+            p.scanFile = scanSummaryTable{'scanFileName',1}{:};%Could possibly check that the scanFile tilesTable exist
+            p.tilesTableName = scanSummaryTable{'tilesTableName',1}{:};
+            p.scanDim = str2double(split(scanSummaryTable{'scanDimensions',1})');
+            p.tileSize = str2double(split(scanSummaryTable{'imageSize',1})');
+            p.stitchDim = str2double(split(scanSummaryTable{'stitchDimensions',1})');
             p.snake = strcmp(scanSummaryTable{'snake',1}{:}, 'true');
             p.direction = scanSummaryTable{'scanDirection',1}{:};
             p.startPos = scanSummaryTable{'startPosition',1}{:};
-            p.rowTransformCoords = str2num(cell2mat(scanSummaryTable{'rowTransform',1}));
-            p.columnTransformCoords = str2num(cell2mat(scanSummaryTable{'columnTransform',1}));
+            p.rowTransformCoords = str2double(split(scanSummaryTable{'rowTransform',1})');
+            p.columnTransformCoords = str2double(split(scanSummaryTable{'columnTransform',1})');
+            
             p.scanMatrix = d2utils.makeScanMatrix(p.scanDim, 'start', p.startPos, 'snake', p.snake,'direction', p.direction); 
+            p.channels = d2utils.readND2Channels(p.scanFile);
+            %Load tiles table.
+            if isfile(p.tilesTableName)
+                p.loadTilesTable(p.tilesTableName);
+            end 
         end
         
-        function saveScanSummary(p, varargin)
+        function saveScanSummary(p, varargin) 
             %NOTE! Avoid tabs ('\t') in your file name. Commas are OK. 
-            if nargin == 1
+            %Should maybe check that all the necessary properties are not
+            %empty. 
+            if nargin == 1 %Not sure we need the option to specify alternative filename
                 outFileName = 'scanSummary.txt';
             elseif nargin == 2
                 outFileName = varargin{1};
             end
             
-            outTableArray = {p.scanFile; num2str(p.scanDim); num2str(p.tileSize);...
+            outTableArray = {p.scanFile; p.tilesTableName; num2str(p.scanDim); num2str(p.tileSize); num2str(p.stitchDim);...
                 p.startPos; p.direction; string(p.snake); strjoin(p.channels);...
                 num2str(p.rowTransformCoords); num2str(p.columnTransformCoords)};
-            outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'scanDimensions', 'imageSize',...
+            outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'tilesTableName', 'scanDimensions', 'imageSize', 'stitchDimensions',...
                 'startPosition', 'scanDirection', 'snake', 'channels', 'rowTransform', 'columnTransform'});
             writetable(outTable, outFileName, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
         end
         
-        function saveStitches(p)
-            if ~isempty(p.stitchedScans)
-                temp = {p.stitchedScans};
-                save('stitchedScans.mat', 'temp', '-v7.3')
+        function saveStitches(p, varargin) 
+            %For the time being, saving to .mat files. 
+            %At some point it may be worth modifying this method to save
+            %bigTiff files for compatibility with other software. 
+            %Will need to update loadStitches as well. 
+            if nargin == 1 %Not sure we need the option to specify alternative filename
+                outFileName = 'stitchedScans.mat';
+            elseif nargin == 2
+                outFileName = sprintf('%s.mat', varargin{1});
+            end
+            
+            if ~isempty(p.dapiStitch) && ~isempty(p.stitchedScans) 
+                d2StitchedScans = {p.dapiStitch, p.stitchedScans};
+                save(outFileName, 'd2StitchedScans', '-v7.3')
             else
-                fprintf("stitchedScans is empty. Run stitchChannels and try again")
+                if isempty(p.dapiStitch)
+                    fprintf("dapiStitch is empty. Run stitchDAPI and try again\n")
+                end
+                if isempty(p.stitchedScans)
+                    fprintf("stitchedScans is empty. Run stitchChannels and try again\n")
+                end
             end
        end
        
        function p = loadStitches(p)
-           tempStitches = load('stitchedScans.mat');
-           p.stitchedScans.labels = tempStitches.temp{1}.labels;
-           p.stitchedScans.stitches = tempStitches.temp{1}.stitches;
+           load('stitchedScans.mat', 'd2StitchedScans');
+           p.dapiStitch = d2StitchedScans{1};
+           p.stitchedScans = d2StitchedScans{2};
+%            clear d2StitchedScans
        end
         
     end

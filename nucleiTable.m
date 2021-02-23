@@ -23,7 +23,10 @@ classdef nucleiTable < handle
                     'VariableTypes', [repmat({'single'}, 1, 3), {'logical'}, repmat({'single'}, 1, 3)]);
             elseif nargin == 3
                 fprintf('Loading Table\n');
-                p.nuclei = readtable(varargin{1},'TextType','string');
+                opts = detectImportOptions(varargin{1});
+                opts = setvartype(opts, 'single');
+                p.nuclei = readtable(varargin{1},opts);
+                p.nuclei.status = logical(p.nuclei.status); %For some reason, when I set 'status' to 'logical' they all go to false. So doing this instead
             end
         end
         

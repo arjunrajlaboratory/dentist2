@@ -4,7 +4,7 @@ classdef d2stitchingView < handle
         %Model objects
         scanObj
         
-        stichCntrlr
+        stitchCntrlr
         
         figHandle
         imageAxesTopL
@@ -74,8 +74,8 @@ classdef d2stitchingView < handle
         end
         
         function startupFcn(p)
-            p.stichCntrlr = d2stitchController(p, p.scanObj);  
-            p.attachController(p.stichCntrlr);
+            p.stitchCntrlr = d2stitchController(p, p.scanObj);  
+            p.attachController(p.stitchCntrlr);
         end
         
         function attachController(p, controller)
