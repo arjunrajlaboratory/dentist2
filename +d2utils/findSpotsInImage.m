@@ -6,6 +6,7 @@ function [X, Y, intensities] = findSpotsInImage(img, percentileToKeep, varargin)
     p.addParameter('sigma', 2, @(x)validateattributes(x,{'numeric'}, {'scaler', '>',0})); 
     p.addParameter('filter', [], @(x)validateattributes(x,{'double'}, {'2d'})); 
     p.addParameter('shift', [0, 0], @(x)validateattributes(x,{'numeric'}, {'size', [1,2]}))
+    p.addParameter('connectivity', 8, @(x)validateattributes(x,{'numeric'}))
     p.parse(img, percentileToKeep, varargin{:});
     
     img = p.Results.img;
@@ -13,6 +14,7 @@ function [X, Y, intensities] = findSpotsInImage(img, percentileToKeep, varargin)
     filterSize = p.Results.filterSize;
     sigma = p.Results.sigma;
     shift = p.Results.shift;
+    conn = p.Results.connectivity;
     
     if isempty(p.Results.filter)
         theFilter = -fspecial('log',filterSize,sigma);
@@ -21,7 +23,7 @@ function [X, Y, intensities] = findSpotsInImage(img, percentileToKeep, varargin)
     end
     
     filt = imfilter(im2single(img),theFilter,'replicate');
-    irm = imregionalmax(filt);
+    irm = imregionalmax(filt, conn);
     tempSpots = filt(irm)';
     thresh = prctile(tempSpots,percentileToKeep); %I wonder if we should put this on log scale
     filt = filt.*single(irm);

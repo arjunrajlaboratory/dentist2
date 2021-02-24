@@ -330,7 +330,7 @@ classdef spotTable < handle
         end
         
         function p = findSpots3(p) 
-            %Find spots on stitchd image. D
+            %Find spots on stitched image.
             %Do not run on auto-contrasted stitches. 
             %Only run on non-contrasted stitches. 
             if isempty(p.theFilter) == 2
@@ -360,6 +360,7 @@ classdef spotTable < handle
                 tempIntensity = cell(numel(splitMat), 1);
                 %parpool('threads')
                 parfor ii = 1:numel(splitMat)
+                    %Consider changing connectivity to 4 to find more spots in dense areas. 
                     [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsInImage(splitMat{ii}, threshPercentile, 'filter', filt, 'shift', startCoords(ii,:));
                 end
                 x = [x ; cell2mat(tempX)];
