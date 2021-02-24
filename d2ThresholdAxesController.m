@@ -84,25 +84,32 @@ classdef d2ThresholdAxesController < handle
         end
         
         function thresholdButtonDown(p, ~, ~)
-            switch(p.mainAxesCntrlr.getSelectionType)
-                case 'normal'
-                    currentPoint = get(p.viewObj.threshAxes, 'CurrentPoint');
-                    if ~logical(p.threshZoom)
-                        if abs(currentPoint(1,1) - p.thresholdLineH.XData(1)) < 150
-                            set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopThreshDrag});
-                            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.dragThresh});
-                        end
-                    else
+            if logical(p.threshZoom)
+                switch(p.mainAxesCntrlr.getSelectionType)
+                    case 'normal'
+                        currentPoint = get(p.viewObj.threshAxes, 'CurrentPoint');
                         yaxis = get(p.viewObj.threshAxes, 'Ylim');
                         p.zoomThreshRectH = patch('YData', [yaxis, fliplr(yaxis)], 'XData', [currentPoint(1:2,1)', currentPoint(1:2,1)'],...
                             'FaceColor', 'red', 'FaceAlpha', 0.2,...
                             'Parent', p.viewObj.threshAxes, 'Hittest', 'off');
                         set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopzoomThresh});
                         set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.zoomThresh});
-                    end
-                case 'open'
-                    set(p.viewObj.threshAxes, 'XLim', [p.ThreshAxisMin p.ThreshAxisMax]);
-                    p.threshZoom = false;
+                    case 'open'
+                        p.threshZoom = false;
+                        set(p.viewObj.threshAxes, 'XLim', [p.ThreshAxisMin p.ThreshAxisMax]);
+                end
+            else
+                switch(p.mainAxesCntrlr.getSelectionType)
+                    case 'normal'
+                        currentPoint = get(p.viewObj.threshAxes, 'CurrentPoint');
+                         if abs(currentPoint(1,1) - p.thresholdLineH.XData(1)) < 150
+                            set(p.viewObj.figHandle, 'WindowButtonUpFcn', {@p.stopThreshDrag});
+                            set(p.viewObj.figHandle, 'WindowButtonMotionFcn', {@p.dragThresh});
+                        end
+                    case 'open'
+                        p.threshZoom = false;
+                        set(p.viewObj.threshAxes, 'XLim', [p.ThreshAxisMin p.ThreshAxisMax]);
+                end
             end
         end
         
@@ -133,7 +140,9 @@ classdef d2ThresholdAxesController < handle
         
         function stopzoomThresh(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonMotionFcn', '');
-            set(p.viewObj.threshAxes, 'XLim', [min(p.zoomThreshRectH.XData) max(p.zoomThreshRectH.XData)]);
+            if range(p.zoomThreshRectH.XData) > 4 %Set min zoom.
+                set(p.viewObj.threshAxes, 'XLim', [min(p.zoomThreshRectH.XData) max(p.zoomThreshRectH.XData)]);
+            end
             delete(p.zoomThreshRectH)
             p.threshZoom = false;
             %Should notify threshold change

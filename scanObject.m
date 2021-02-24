@@ -21,9 +21,11 @@ classdef scanObject < handle
         resizeFactor = 4
         rowTransformCoords
         columnTransformCoords
-        imRotation = 0;
-
-        
+        %Including imRotation in case the image acquired by Elements is flipped or somehow
+        %rotated. Consider deleting. Also, height and width 
+        %may need to be switched for rotated images. I'm not sure if 
+        %tilesize changes when the image from Elements is rotated.
+        imRotation = 0;  
     end
     
     methods
@@ -52,34 +54,6 @@ classdef scanObject < handle
                     
                 end
             end
-%             if isempty(n.Results.scanFile)
-%                 files = dir('*.nd2');
-%                 files = {files.name};
-%                 p.scanFile = files{1};
-%                 p.channels = d2utils.readND2Channels(p.scanFile);
-%             else
-%                 p.scanFile = n.Results.scanFile;
-%                 p.channels = d2utils.readND2Channels(p.scanFile);
-%             end
-%             
-%             if isempty(n.Results.tilesTable)
-%                 fprintf('New Table\n');
-%                 p.tilesTable = cell2table(cell(0,5), 'VariableNames', {'tileID', 'top', 'left', 'height', 'width'}); %Unncecessary? loadTiles creates a new table 
-%             else
-%                 fprintf('Loading Table\n');
-%                 opts = detectImportOptions(n.Results.tilesTable);
-%                 opts = setvartype(opts, 'single'); %Probably unnecessary given the typical scan size. 
-%                 p.tilesTable = readtable(n.Results.tilesTable, opts);
-%             end
-%             
-%             if isempty(n.Results.scanSummary)
-%                 fprintf('New scan matrix\n');
-%                 p.defaultScanParameters();
-%             else
-%                 fprintf('Loading scan summary\n');
-%                 p.loadScanSummary(n.Results.scanSummary);
-%             end
-            
         end
         
         function defaultScanParameters(p)
@@ -116,8 +90,6 @@ classdef scanObject < handle
              reader = bfGetReader(p.scanFile);
              omeMeta = reader.getMetadataStore();
              p.tileSize = [omeMeta.getPixelsSizeY(0).getValue(), omeMeta.getPixelsSizeX(0).getValue()];
-%              width = omeMeta.getPixelsSizeX(0).getValue();
-%              height = omeMeta.getPixelsSizeY(0).getValue();
          end
          
          function outIm = getTileFromScan(p, tile, channel)
@@ -139,14 +111,23 @@ classdef scanObject < handle
             channel = find(ismember(p.channels, 'dapi'));
             reader = bfGetReader(p.scanFile);
             iPlane = reader.getIndex(0, channel - 1, 0) + 1;
-            for i = 1:numel(tiles)
-                
-                reader.setSeries(tiles(i)-1);
-                tmpPlane  = bfGetPlane(reader, iPlane);
-                                
-                tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
-                tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = im2uint16(tmpPlane);
+            
+            if logical(p.imRotation) %In case the image acquired by Elements is flipped or somehow rotated. Consider deleting. 
+                for i = 1:numel(tiles)
+                    reader.setSeries(tiles(i)-1);
+                    tmpPlane  = bfGetPlane(reader, iPlane);
+                    tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
+                        tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = rot90(tmpPlane, p.imRotation);
+                end
+            else
+                for i = 1:numel(tiles)
+                    reader.setSeries(tiles(i)-1);
+                    tmpPlane  = bfGetPlane(reader, iPlane);
+                    tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
+                        tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tmpPlane;
+                end
             end
+            
             reader.close()
             p.dapiStitch = tmpStitch;
 %             p.stitchDim = size(tmpStitch);
@@ -155,13 +136,13 @@ classdef scanObject < handle
         function p = contrastDAPIstitch(p)
             function_scale =  @(block_struct) im2uint16(scale(block_struct.data));
             
-            p.dapiStitch = blockproc(p.dapiStitch, [5000 5000], function_scale, 'BorderSize', [0 0]);
+            p.dapiStitch = blockproc(p.dapiStitch, [5000 5000], function_scale, 'BorderSize', [0 0], 'UseParallel', true);
         end
         
         function p = contrastStitchedScans(p, percentiles, scaleFactor)  %Can modify this function for different default contrast
             function_contrast =  @(block_struct) im2uint16(d2utils.percentileScaleImage(block_struct.data, percentiles, scaleFactor));
             for i = 1:numel(p.stitchedScans.stitches)
-                p.stitchedScans.stitches{i} = blockproc(p.stitchedScans.stitches{i}, [5000 5000], function_contrast, 'BorderSize', [0 0]);
+                p.stitchedScans.stitches{i} = blockproc(p.stitchedScans.stitches{i}, [5000 5000], function_contrast, 'BorderSize', [0 0], 'UseParallel', true);
             end
         end
         
@@ -178,56 +159,7 @@ classdef scanObject < handle
 %             p.smallDapiStitch = blockproc(p.dapiStitch, [5000 5000], function_resize, 'BorderSize', [0 0]);
         end
         
-%         function p = maskDAPI(p, varargin) %vargargin option to specify sensitivity value (between 0 and 1) for adaptthresh.
-%             if ~isempty(p.dapiStitch)
-%                 if nargin == 1
-%                     function_binarize = @(block_struct)...
-%                         imbinarize(scale(block_struct.data), adaptthresh(scale(block_struct.data), 0.05, 'ForegroundPolarity','bright'));
-%                     binary = blockproc(p.dapiStitch, [5000 5000], function_binarize, 'BorderSize', [200 200]);
-%                     p.dapiMask = binary;
-%                 elseif nargin == 2
-%                     function_binarize = @(block_struct)...
-%                         imbinarize(scale(block_struct.data), adaptthresh(scale(block_struct.data), varargin{1}, 'ForegroundPolarity','bright'));
-%                     binary = blockproc(p.dapiStitch, [5000 5000], function_binarize, 'BorderSize', [200 200]);
-%                     p.dapiMask = binary;
-%                 end
-%             else
-%                 disp("dapiStitch is empty. Run stitchDAPI method and try again.")
-%             end
-%         end
-        
-%         function p = stitchDAPImask(p, scanMatrix, varargin)  
-%             tileTable = p.tilesTable;
-%             tilesTmp = transpose(scanMatrix);
-%             tiles = tilesTmp(:);
-%             [height, width] = p.tileSize();
-%             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'logical');
-%             channel = find(p.channels == 'dapi');
-%             reader = bfGetReader(p.scanFile);
-%             iPlane = reader.getIndex(0, channel - 1, 0) + 1;
-%             
-%             if nargin == 2
-%                 s = 0.1;
-%             elseif nargin == 3
-%                 s = varargin{1};
-%             end
-%                 
-%             for i = 1:numel(tiles)
-%                 
-%                 reader.setSeries(tiles(i)-1);
-%                 tmpPlane  = bfGetPlane(reader, iPlane);
-%                 
-%                 tileMask = d2utils.makeDAPImask(scale(tmpPlane), 'sensitivity', s);
-%                 
-%                 tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
-%                 tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tileMask;
-%             end
-%             reader.close()
-%             
-%             p.dapiMask2 = tmpStitch;
-%         end
-                
-        function tmpStitch = stitchChannel(p, channel) %Maybe unnecessary given stitchChannels method below 
+        function tmpStitch = stitchChannel(p, channel) %Maybe unnecessary
             tileTable = p.tilesTable;
             tilesTmp = transpose(p.scanMatrix);
             tiles = tilesTmp(:);
@@ -237,17 +169,25 @@ classdef scanObject < handle
             c = find(ismember(p.channels,channel));
             reader = bfGetReader(p.scanFile);
             iPlane = reader.getIndex(0, c - 1, 0) + 1;
-            for i = 1:numel(tiles)
+            if logical(p.imRotation) %In case the image acquired by Elements is flipped or somehow rotated. Consider deleting. 
+                for i = 1:numel(tiles)
+                    reader.setSeries(tiles(i)-1);
+                    tmpPlane  = bfGetPlane(reader, iPlane);
 
-                reader.setSeries(tiles(i)-1);
-                tmpPlane  = bfGetPlane(reader, iPlane);
+                    tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
+                    tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = rot90(tmpPlane, p.imRotation);
+                end
+            else
+                for i = 1:numel(tiles)
+                    reader.setSeries(tiles(i)-1);
+                    tmpPlane  = bfGetPlane(reader, iPlane);
 
-                tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
-                tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tmpPlane;
+                    tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
+                    tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tmpPlane;
+                end
             end
             reader.close()
         end
-        
 
         function p = stitchChannels(p, varargin)
             if nargin == 1
@@ -265,17 +205,26 @@ classdef scanObject < handle
             reader = bfGetReader(p.scanFile);
             for i = 1:numel(channelsToStitch)
                 tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
-                
                 iPlane = reader.getIndex(0, channelIdx(i) - 1, 0) + 1;
-                for ii = 1:numel(tiles)
-                    reader.setSeries(tiles(ii)-1);
-                    tmpPlane  = bfGetPlane(reader, iPlane);
+                if logical(p.imRotation) %In case the image acquired by Elements is flipped or somehow rotated. Consider deleting.
+                    for ii = 1:numel(tiles)
+                        reader.setSeries(tiles(ii)-1);
+                        tmpPlane  = bfGetPlane(reader, iPlane);
                     
-                    tmpStitch(tileTable{tiles(ii),'left'}:tileTable{tiles(ii),'left'}+height-1, ...
-                        tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = tmpPlane;
+                        tmpStitch(tileTable{tiles(ii),'left'}:tileTable{tiles(ii),'left'}+height-1, ...
+                            tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = rot90(tmpPlane, p.imRotation);
+                    end
+                    stitches{i} = tmpStitch;
+                else
+                    for ii = 1:numel(tiles)
+                        reader.setSeries(tiles(ii)-1);
+                        tmpPlane  = bfGetPlane(reader, iPlane);
+                    
+                        tmpStitch(tileTable{tiles(ii),'left'}:tileTable{tiles(ii),'left'}+height-1, ...
+                            tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = tmpPlane;
+                    end
+                    stitches{i} = tmpStitch;
                 end
-                stitches{i} = tmpStitch;
-            
             end
             reader.close()
             p.stitchedScans.labels = channelsToStitch;
