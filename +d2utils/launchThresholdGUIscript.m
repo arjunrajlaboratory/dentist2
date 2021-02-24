@@ -1,7 +1,7 @@
 scanSummaryFile = 'scanSummary.txt';
 masksFile = 'masks.csv';
 nucleiFile = 'nuclei.csv';
-spotsFile = 'spots.csv';
+spotsFile = 'spots2.csv';
 stitchedScansFile = 'stitchedScans.mat';
 %----------------------------------------------------------------
 %
@@ -31,12 +31,7 @@ else
     disp('Saving stitched scans. This may take several minutes.')
     scanObj.saveStitches();
 end
-    
-disp('Auto-contrasting stitched scans. This may take several minutes.')
-scanObj.contrastDAPIstitch();
-scanObj.contrastStitchedScans([1 99], [0.9 3]);
-disp('Resizing stitched scans')
-scanObj.resizeStitchedScans();
+   
 %----------------------------------------------------------------
 %   
 if isfile(masksFile)
@@ -65,12 +60,12 @@ end
 %----------------------------------------------------------------
 % 
 if isfile(spotsFile)
-    spotsObj = spotTable(scanObj, maskObj, nucleiObj, scanSummaryFile, spotsFile);
+    spotsObj = spotTable(scanObj, maskObj, nucleiObj, scanSummaryFile, 'spots2.csv');
 else
     fprintf('Unable to find %s in your current directory. Creating a new spots object\n', spotsFile)
     spotsObj = spotTable(scanObj, maskObj, nucleiObj, scanSummaryFile);
     disp('Finding spots. This may take several minutes.')
-    spotsObj.findSpots();
+    spotsObj.findSpots3();
     disp('Finished finding spots')
     spotsObj.assignSpotsToNuclei();
 end
@@ -83,4 +78,12 @@ spotsObj.updateScanSummary();
 spotsObj.updateAllSpotStatus();
 spotsObj.makeCentroidList();
 
-guiHandle = d2ThresholdView2(scanObj, maskObj, nucleiObj, spotsObj);
+disp('Auto-contrasting stitched scans. This may take several minutes.')
+scanObj.contrastDAPIstitch();
+scanObj.contrastStitchedScans([1 99], [0.9 3]);
+disp('Resizing stitched scans')
+scanObj.resizeStitchedScans();
+
+
+
+guiHandle2 = d2ThresholdView2(scanObj, maskObj, nucleiObj, spotsObj);

@@ -14,6 +14,7 @@ classdef spotTable < handle
         spotsIntensitiesNoMasked
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
         paletteIdx = 1;
+        borderSpotIdx;
         
         scanObj
         maskObj 
@@ -211,7 +212,7 @@ classdef spotTable < handle
         end
         
         function p = setThreshold(p, channel, value)
-            p.thresholds(ismember(p.spotChannels, channel)) = value;
+            p.thresholds(ismember(p.spotChannels, channel)) = max(1, value); %Threshold >= 1. 
             %Update spot status
             p.updateSpotStatus(channel);
             p.updateCentroidList(channel);
@@ -315,7 +316,7 @@ classdef spotTable < handle
                     intensity = [intensity ; tempIntensity];
                     channelCount = channelCount + length(tempX);
                 end
-                channel = [channel ; repmat(string(currChannel),channelCount,1)]; %somewhat less memory with string array vs cell array
+                channel = [channel ; repmat(string(currChannel),channelCount,1)]; %somewhat less memory with string array vs cell array. 
             end
             reader.close()
             
@@ -328,12 +329,73 @@ classdef spotTable < handle
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
+        function p = findSpots3(p) 
+            %Find spots on stitchd image. D
+            %Do not run on auto-contrasted stitches. 
+            %Only run on non-contrasted stitches. 
+            if isempty(p.theFilter) == 2
+                filt = -fspecial('log',20,2);
+                p.theFilter = filt;
+            else
+                filt = p.theFilter;
+            end
+            
+            x = [];
+            y = [];
+            intensity = [];
+            channel = [];
+            threshPercentile = p.percentileToKeep;
+            for i = 1:numel(p.spotChannels)
+                
+                channelIdx = ismember(p.scanObj.stitchedScans.labels, p.spotChannels{i});
+                fprintf('Finding %s spots\n',p.spotChannels{i});
+                rowSplit = [repmat(2000,1, floor(p.scanObj.stitchDim(1)/2000)), mod(p.scanObj.stitchDim(1),2000)]; %Can change this process larger or smaller tiles. Just beware of number of bits.
+                colSplit = [repmat(2000,1, floor(p.scanObj.stitchDim(2)/2000)), mod(p.scanObj.stitchDim(2),2000)];
+                splitMat = mat2cell(p.scanObj.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
+                nRowSplit = size(splitMat, 1);
+                nColSplit = size(splitMat, 2);
+                startCoords = combvec(linspace(0, (nColSplit-1)*2000, nColSplit), linspace(0, (nColSplit-1)*2000, nRowSplit))';
+                tempX = cell(numel(splitMat), 1);
+                tempY = cell(numel(splitMat), 1);
+                tempIntensity = cell(numel(splitMat), 1);
+                %parpool('threads')
+                parfor ii = 1:numel(splitMat)
+                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsInImage(splitMat{ii}, threshPercentile, 'filter', filt, 'shift', startCoords(ii,:));
+                end
+                x = [x ; cell2mat(tempX)];
+                y = [y ; cell2mat(tempY)];
+                intensity = [intensity ; cell2mat(tempIntensity)];
+                channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
+            end 
+            
+            spotID = single((1:length(x)))';
+            nearestNucID = single(zeros(length(x),1));
+            maskID = single(zeros(length(x),1));
+            status = true(length(x),1);
+            dist =  single(zeros(length(x),1));
+            p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
+                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
+        end
+        
+        function maskBorderSpots(p)
+            %Only run this after findSpots3 and with stitchedScans available
+            mask = p.scanObj.stitchedScans.stitches{1} == 0;	
+            clearBorder = imclearborder(mask);
+            mask = xor(mask, clearBorder);
+            maskDilated = imdilate(mask, true(7)); %Adding 3 pixels to borderMask.
+            [maskXidx, maskYidx] = find(maskDilated);
+            p.borderSpotIdx = ismember(p.spots{:,{'x', 'y'}},[maskXidx, maskYidx], 'rows'); 
+            
+            p.spots.status(p.borderSpotIdx) = false;
+            p.spots.intensity(p.borderSpotIdx) = single(0); %So that the spots aren't unmasked on update            
+        end
+        
         function intensities = getIntensities(p, channel)
-            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance, {'intensity'}}; 
+            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance & ~p.borderSpotIdx, {'intensity'}}; 
         end
         
         function intensities = getIntensitiesNoMasked(p, channel)
-            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance & p.spots.maskID == 0, {'intensity'}}; 
+            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance & p.spots.maskID == 0 & ~p.borderSpotIdx, {'intensity'}}; 
         end
         
         function p = allIntensities(p)
@@ -353,7 +415,7 @@ classdef spotTable < handle
         function p = defaultThresholds(p) %Need to update this with some better heuristic
             p.thresholds = zeros(0,numel(p.spotChannels));
             for i = 1:numel(p.spotChannels)
-                p.thresholds(i) = round(mean(p.getIntensities(p.spotChannels{i})));
+                p.thresholds(i) = max(1, round(mean(p.getIntensities(p.spotChannels{i}))));
             end
         end
         

@@ -35,11 +35,6 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         scanObj.saveStitches();
     end
     
-    disp('Auto-contrasting stitched scans. This may take several minutes.')
-    scanObj.contrastDAPIstitch();
-    scanObj.contrastStitchedScans([1 99], [0.9 3]);
-    disp('Resizing stitched scans')
-    scanObj.resizeStitchedScans();
 %----------------------------------------------------------------
 %   
     if isfile(n.Results.masksFile)
@@ -73,7 +68,8 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
         spotsObj = spotTable(scanObj, maskObj, nucleiObj, n.Results.scanSummary);
         disp('Finding spots. This may take several minutes.')
-        spotsObj.findSpots();
+        spotsObj.findSpots3(); %Only run findSpots3 on non-contrasted stitched scans!
+        spotsObj.maskBorderSpots();
         disp('Finished finding spots')
         spotsObj.assignSpotsToNuclei();
     end
@@ -85,7 +81,14 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     spotsObj.updateScanSummary();
     spotsObj.updateAllSpotStatus();
     spotsObj.makeCentroidList();
+
+%----------------------------------------------------------------
+% 
+    disp('Auto-contrasting stitched scans. This may take several minutes.')
+    scanObj.contrastDAPIstitch();
+    scanObj.contrastStitchedScans([1 99], [0.9 3]);
+    disp('Resizing stitched scans')
+    scanObj.resizeStitchedScans();
     
     guiHandle = d2ThresholdView2(scanObj, maskObj, nucleiObj, spotsObj);
-
 end
