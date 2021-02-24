@@ -73,8 +73,8 @@ classdef d2stitchController < handle
         end
         
         function newPositionPushed(p, ~, ~)
-            set(p.viewObj.rowValue, 'String', int2str(randi(p.scanObj.scanDim(1))))
-            set(p.viewObj.colValue, 'String', int2str(randi(p.scanObj.scanDim(2))))
+            set(p.viewObj.rowValue, 'String', int2str(randi([2, p.scanObj.scanDim(1)])))
+            set(p.viewObj.colValue, 'String', int2str(randi(p.scanObj.scanDim(2)-1)))
             p.updateImagesInView();
         end
         
@@ -85,7 +85,7 @@ classdef d2stitchController < handle
             tileUL = p.scanObj.scanMatrix(row-1, col);
             imgLL = p.scanObj.getTileFromScan(tileLL, 'dapi');
             imgUL = p.scanObj.getTileFromScan(tileUL, 'dapi');
-            [moving_out,fixed_out] = cpselect(imgLL,imgUL,'Wait',true);
+            [moving_out,fixed_out] = cpselect(scale(imgLL),scale(imgUL),'Wait',true);
             if ~isempty(moving_out)
                 %Not sure if it's worth using cpcorr here to try improving
                 %control points. 
@@ -100,7 +100,7 @@ classdef d2stitchController < handle
             tileLR = p.scanObj.scanMatrix(row, col+1);
             imgLL = p.scanObj.getTileFromScan(tileLL, 'dapi');
             imgLR =  p.scanObj.getTileFromScan(tileLR, 'dapi');
-            [moving_out,fixed_out] = cpselect(imgLL,imgLR,'Wait',true);
+            [moving_out,fixed_out] = cpselect(scale(imgLL),scale(imgLR),'Wait',true);
             if ~isempty(moving_out)
                 %Not sure if it's worth using cpcorr here to try improving
                 %control points. 
