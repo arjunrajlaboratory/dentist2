@@ -37,6 +37,7 @@ classdef d2MainAxesController < handle
         resizedImg %Not sure if we want to save these or regenerate
         resizedDapi
         
+        numCells
     end
     
     methods
@@ -54,6 +55,7 @@ classdef d2MainAxesController < handle
             p.channelIdx = p.viewObj.channelPopup.Value;
             p.plotScatterMain();
             p.updateImageInView();
+            p.numCells = height(p.spotTable.centroidLists{p.channelIdx});
             %p.updateMainAxes()
         end
         
@@ -89,6 +91,7 @@ classdef d2MainAxesController < handle
         
         function updateCentroidListView(p)
             p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.channelIdx}.GroupCount);
+            p.numCells = height(p.spotTable.centroidLists{p.channelIdx}); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
         end
         
         function p = centroidSelected(p, ~, ~)
@@ -100,7 +103,7 @@ classdef d2MainAxesController < handle
                 p.updateImageInView();
                 p.updateMainAxes();
                 p.thumbCntrlr.overlayThumbnailRect();
-                figure(p.viewObj.figHandle); %Return focus to figure for callbacks. 
+                figure(p.viewObj.figHandle); %Return focus to figure for callbacks.- BE not sure this is necessary 
             end
         end
         
@@ -410,14 +413,13 @@ classdef d2MainAxesController < handle
         
         function maskCells(p, roi)
             %tmpPoly = roi.Position;
-            channel = p.spotTable.spotChannels{p.channelIdx};
             set(p.viewObj.masksCheckBox, 'Value', true)
             p.maskObj.addMaskLocalCoords(roi.Position, 'dapi');
             delete(roi)
             p.nucleiObj.addNewMask();
             p.spotTable.assignSpotsInRect(p.viewRect); 
-            p.spotTable.updateSpotStatus(channel);
-            p.spotTable.updateCentroidList(channel);
+            p.spotTable.updateAllSpotStatus();
+            p.spotTable.makeCentroidList();
             p.updateCentroidListView();
             p.updateMainAxes();
         end
@@ -428,12 +430,20 @@ classdef d2MainAxesController < handle
                 p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
             channel = p.spotTable.spotChannels{p.channelIdx};
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
-            if ~isempty(x)
+            if ~isempty(x)  
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
                 p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
                 p.nucleiObj.removeMasks();
                 p.spotTable.removeMasks2(channel, p.viewRect);
-                p.spotTable.updateCentroidList(channel);
+                if p.nucleiObj.nucleiChanged %Kinda ugly. Should write something better. Could make separate buttons for cell masks and spot masks
+                    p.spotTable.assignSpotsInRect(p.viewRect);
+                    p.spotTable.updateAllSpotStatus();
+                    p.spotTable.makeCentroidList();
+                else
+                    p.spotTable.updateSpotStatus(channel);
+                    p.spotTable.updateCentroidList(channel);
+                end
+                p.nucleiObj.nucleiChanged = false;
                 p.updateCentroidListView();
                 p.updateMainAxes();
             end
@@ -505,6 +515,22 @@ classdef d2MainAxesController < handle
                         p.fixedZoom = true;
                     case 'x'
                         set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+                    case 'uparrow'
+                        cellIdx = max(1, get(p.viewObj.centroidList, 'Value')-1);
+                        cellPos = p.spotTable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
+                        p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.stitchDim);
+                        set(p.viewObj.scatterCheckBox, 'Value', 0)
+                        p.updateImageInView();
+                        p.updateMainAxes();
+                        p.thumbCntrlr.overlayThumbnailRect();
+                    case 'downarrow'
+                        cellIdx = min(get(p.viewObj.centroidList, 'Value')+1, p.numCells);
+                        cellPos = p.spotTable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
+                        p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.stitchDim);
+                        set(p.viewObj.scatterCheckBox, 'Value', 0)
+                        p.updateImageInView();
+                        p.updateMainAxes();
+                        p.thumbCntrlr.overlayThumbnailRect();
                 end
             elseif strcmp(modifierPressed{1}, 'shift')
                 switch(keyPressed)

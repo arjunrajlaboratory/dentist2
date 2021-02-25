@@ -8,7 +8,7 @@ classdef nucleiTable < handle
         
         scanObj
         maskObj  
-       
+        nucleiChanged = false %effectively serving as an event
     end
     
     methods
@@ -227,8 +227,10 @@ classdef nucleiTable < handle
             
             masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masksBB.maskID(p.maskObj.masksBB.dapi));
             masksToRemove(masksToRemove == 0) = [];
-            p.nuclei.maskID(ismember(p.nuclei.maskID, masksToRemove)) = single(0);
-            p.nuclei.status(ismember(p.nuclei.maskID, masksToRemove)) = true;
+            nucIdx = ismember(p.nuclei.maskID, masksToRemove);
+            p.nuclei.maskID(nucIdx) = single(0);
+            p.nuclei.status(nucIdx) = true;
+            p.nucleiChanged = true;
         end
         
         function p = removeMasks2(p, rect)
@@ -241,6 +243,7 @@ classdef nucleiTable < handle
             nucIdx(nucIdx) = goodNucIdx;
             p.nuclei.maskID(nucIdx) = single(0);
             p.nuclei.status(nucIdx) = true;
+            p.nucleiChanged = true;
         end
         
         

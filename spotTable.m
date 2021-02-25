@@ -194,7 +194,7 @@ classdef spotTable < handle
         function p = removeMasks(p, channel) 
             masksToRemove = setdiff(p.spots.maskID, p.maskObj.masks.maskID(p.maskObj.masks{:,channel}));
             p.spots.maskID(ismember(p.spots.maskID, masksToRemove)) = single(0);
-            p.updateSpotStatus(channel);
+            %p.updateSpotStatus(channel);
             %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
         end
         
@@ -207,7 +207,7 @@ classdef spotTable < handle
             goodSpotIdx = ~ismember(spotsInRect.maskID, maskIDsInRect);
             spotIdx(spotIdx) = goodSpotIdx;
             p.spots.maskID(spotIdx) = single(0);
-            p.updateSpotStatus(channel);
+            %p.updateSpotStatus(channel); %For now, done by controller.
             %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
         end
         
