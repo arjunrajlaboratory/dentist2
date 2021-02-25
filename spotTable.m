@@ -388,15 +388,17 @@ classdef spotTable < handle
             p.borderSpotIdx = ismember(p.spots{:,{'x', 'y'}},[maskXidx, maskYidx], 'rows'); 
             
             p.spots.status(p.borderSpotIdx) = false;
-            p.spots.intensity(p.borderSpotIdx) = single(0); %So that the spots aren't unmasked on update            
+            p.spots.intensity(p.borderSpotIdx) = single(0);%So that the spots aren't unmasked on update. May want an additional flag like maskID = NaN.    
         end
         
         function intensities = getIntensities(p, channel)
-            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance & ~p.borderSpotIdx, {'intensity'}}; 
+            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance, {'intensity'}};
+            intensities(intensities == 0) = []; %Removes border spots. 
         end
         
         function intensities = getIntensitiesNoMasked(p, channel)
-            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance & p.spots.maskID == 0 & ~p.borderSpotIdx, {'intensity'}}; 
+            intensities = p.spots{p.spots.channel == channel & p.spots.distanceToNuc <= p.maxDistance & p.spots.maskID == 0, {'intensity'}};
+            intensities(intensities == 0) = []; %Removes border spots. 
         end
         
         function p = allIntensities(p)

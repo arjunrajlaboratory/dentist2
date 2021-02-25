@@ -8,7 +8,12 @@ classdef nucleiTable < handle
         
         scanObj
         maskObj  
-        nucleiChanged = false %effectively serving as an event
+        nucleiChanged = false %kinda serving as an event
+    end
+    
+    events
+        %Might be worth making events for when cell table changes
+        %(add/mask/remove cells), and then add listeners in mainAxesCntrlr.
     end
     
     methods
@@ -184,7 +189,6 @@ classdef nucleiTable < handle
         end
         
         function p = addNewMask(p)
-            
             maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
             maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,{'BB'}}; %Only query nuclei within mask bouding box
             %polyRect = d2utils.boundingCorners2Rect(maskBB);
@@ -194,7 +198,6 @@ classdef nucleiTable < handle
                 p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'y'});
             
             nucIdx(nucIdx) = polyIdx; %Only nuclei in polygon remain true
-                
             p.nuclei.maskID(nucIdx) = maxCellMask;
             p.nuclei.status(nucIdx) = false;
             

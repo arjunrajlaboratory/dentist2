@@ -59,7 +59,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         disp('Saving nuclei file.')
         nucleiObj.saveNucleiTable();
     end
-    
+    nucleiObj.updateAllMasks();
 %----------------------------------------------------------------
 % 
     if isfile(n.Results.spotsFile)
@@ -79,6 +79,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     end
 
     spotsObj.updateScanSummary();
+    spotsObj.updateAllMasks();
     spotsObj.updateAllSpotStatus();
     spotsObj.makeCentroidList();
 

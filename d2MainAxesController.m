@@ -86,7 +86,6 @@ classdef d2MainAxesController < handle
                 p.overlayNuclei();
                 p.overlayMasks();
             end
-            figure(p.viewObj.figHandle);
         end
         
         function updateCentroidListView(p)
@@ -103,7 +102,6 @@ classdef d2MainAxesController < handle
                 p.updateImageInView();
                 p.updateMainAxes();
                 p.thumbCntrlr.overlayThumbnailRect();
-                figure(p.viewObj.figHandle); %Return focus to figure for callbacks.- BE not sure this is necessary 
             end
         end
         
@@ -413,7 +411,6 @@ classdef d2MainAxesController < handle
         
         function maskCells(p, roi)
             %tmpPoly = roi.Position;
-            set(p.viewObj.masksCheckBox, 'Value', true)
             p.maskObj.addMaskLocalCoords(roi.Position, 'dapi');
             delete(roi)
             p.nucleiObj.addNewMask();
@@ -421,6 +418,7 @@ classdef d2MainAxesController < handle
             p.spotTable.updateAllSpotStatus();
             p.spotTable.makeCentroidList();
             p.updateCentroidListView();
+            set(p.viewObj.masksCheckBox, 'Value', true)
             p.updateMainAxes();
         end
         

@@ -84,7 +84,7 @@ classdef maskTable < handle
             if ~any(p.masksBB.maskID == 0)
                 newRows = table('Size', [p.heightMaskTableBB, numel(p.channels) + 2],...
                     'VariableNames', p.masksBB.Properties.VariableNames,...
-                    'VariableTypes',  varfun(@class,p.masks,'output','cell'));
+                    'VariableTypes',  varfun(@class,p.masksBB,'output','cell'));
                 newRows.BB = zeros(p.heightMaskTableBB, 4);
                 p.masksBB = [p.masksBB; newRows];                
             end
