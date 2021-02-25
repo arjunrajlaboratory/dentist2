@@ -1,10 +1,10 @@
-dentist2
+Dentist2
 ========
 blah blah blah
 
 Table of contents
 =================
-* [dentist2](#dentist2)
+* [Dentist2](#dentist2)
 * [Dependencies](#dependencies)
 * [Expected input](#expected-input)
 * [Quick start](#quick-start)
