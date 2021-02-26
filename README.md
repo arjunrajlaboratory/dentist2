@@ -15,7 +15,7 @@ Table of contents
 
 Dependencies
 =============
-Dentist2 uses the Bio-Formats MATLAB toolbox (bfmatlab) to read .nd2 files. This software can be downloaded from the [Open Microscopy Consortium](https://www.openmicroscopy.org/)[here](https://docs.openmicroscopy.org/bio-formats/6.3.1/users/matlab/). For auto-contrating DAPI images, Dentist2 uses the scale.m function available in the [rajlabimagetools repository](https://github.com/arjunrajlaboratory/rajlabimagetools). 
+Dentist2 uses the Bio-Formats MATLAB toolbox (bfmatlab) to read .nd2 files. This software can be downloaded from the [Open Microscopy Consortium](https://www.openmicroscopy.org/) [here](https://docs.openmicroscopy.org/bio-formats/6.3.1/users/matlab/). For auto-contrating DAPI images, Dentist2 uses the scale.m function available in the [rajlabimagetools repository](https://github.com/arjunrajlaboratory/rajlabimagetools). 
 
 Before running Dentist2, please download bfmatlab and rajlabimagetools (or just scale.m) and add them to your path by typing the following in your MATLAB console. 
 
