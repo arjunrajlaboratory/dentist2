@@ -16,6 +16,10 @@ function outColors = expressionToColors(expressionVector, palette)
                 0.96 0.43 0.26; 0.84 0.19 0.15; 0.65 0 0.15];
     end
     
-    outColors = interp1(round(linspace(0, max(expressionVector), height(sampleColors))), sampleColors, expressionVector);
+    if max(expressionVector) < height(sampleColors)
+        outColors = interp1(0:max(expressionVector), sampleColors(1:max(expressionVector)+1), expressionVector);
+    else
+        outColors = interp1(round(linspace(0, max(expressionVector), height(sampleColors))), sampleColors, expressionVector);
+    end
     outColors = single(outColors);
 end

@@ -67,6 +67,22 @@ classdef nucleiTable < handle
             p.dapiMask = tmpStitch;
         end
         
+        function p = stitchDAPImask2(p, varargin) %For pre-stitched scans
+            
+            n = inputParser;
+            n.addParameter('sensitivity', 0.1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>=',0,'<=',1.0}));    
+            n.addParameter('blockSize', [1500 1500], @(x)validateattributes(x,{'numeric'}, {'size', [1 2]}));    
+            n.parse(varargin{:});
+            %Should maybe check that the block size is >[1 1] and < scanDim.
+            s = n.Results.sensitivity;
+            block = n.Results.blockSize;
+            
+            function_mask = @(block_struct) imbinarize(scale(block_struct.data),...
+                adaptthresh(scale(block_struct.data), s, 'ForegroundPolarity','bright'));
+            
+            p.dapiMask = blockproc(p.scanObj.dapiStitch, block, function_mask, 'BorderSize', [0 0], 'UseParallel', true);
+        end
+        
         function p = findNuclei(p)
             
             CC = bwconncomp(p.dapiMask);

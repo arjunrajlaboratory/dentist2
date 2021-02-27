@@ -31,6 +31,8 @@ classdef maskTable < handle
                 tmpMasks = convertvars(tmpMasks,{'maskID', 'x', 'y'},'single');
                 p.masks = convertvars(tmpMasks,4:width(tmpMasks),'logical');
                 p.allMasks2BB();
+                p.addEmptyMasks();
+                p.addEmptyMasksBB();
             end
         end
         
@@ -39,18 +41,11 @@ classdef maskTable < handle
             tempMaskID = single(max(p.masks.maskID)+1);
             
              if sum(p.masks.maskID == 0) < height(maskPoly)
-                newRows = table('Size', [p.heightMaskTable, numel(p.channels) + 3],...
-                    'VariableNames', p.masks.Properties.VariableNames,...
-                    'VariableTypes', varfun(@class,p.masks,'output','cell'));
-                p.masks = [p.masks; newRows];                
+                p.addEmptyMasks();               
             end
             
             if ~any(p.masksBB.maskID == 0)
-                newRows = table('Size', [p.heightMaskTableBB, numel(p.channels) + 2],...
-                    'VariableNames',  p.masksBB.Properties.VariableNames,...
-                    'VariableTypes', varfun(@class,p.masks,'output','cell'));
-                newRows.BB = single(zeros(p.heightMaskTableBB, 4));
-                p.masksBB = [p.masksBB; newRows];                
+                p.addEmptyMasksBB();                
             end
             
             [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
@@ -75,18 +70,11 @@ classdef maskTable < handle
             tempMaskID = single(max(p.masks.maskID)+1);
             
             if sum(p.masks.maskID == 0) < height(maskPoly)
-                newRows = table('Size', [p.heightMaskTable, numel(p.channels) + 3],...
-                    'VariableNames', p.masks.Properties.VariableNames,...
-                    'VariableTypes', varfun(@class,p.masks,'output','cell'));
-                p.masks = [p.masks; newRows];                
+                p.addEmptyMasks();                
             end
             
             if ~any(p.masksBB.maskID == 0)
-                newRows = table('Size', [p.heightMaskTableBB, numel(p.channels) + 2],...
-                    'VariableNames', p.masksBB.Properties.VariableNames,...
-                    'VariableTypes',  varfun(@class,p.masksBB,'output','cell'));
-                newRows.BB = zeros(p.heightMaskTableBB, 4);
-                p.masksBB = [p.masksBB; newRows];                
+                p.addEmptyMasksBB();                
             end
             
 %             [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
@@ -103,6 +91,21 @@ classdef maskTable < handle
             startIdx = find(p.masksBB.maskID == 0, 1, 'first');
             p.masksBB(startIdx,:) = [tmpCoords, tmpChannelTable(1,:)];
 
+        end
+        
+        function p = addEmptyMasks(p)
+            newRows = table('Size', [p.heightMaskTable, numel(p.channels) + 3],...
+                'VariableNames', p.masks.Properties.VariableNames,...
+                'VariableTypes', varfun(@class,p.masks,'output','cell'));
+            p.masks = [p.masks; newRows]; 
+        end
+        
+        function p = addEmptyMasksBB(p)
+            newRows = table('Size', [p.heightMaskTableBB, numel(p.channels) + 2],...
+                'VariableNames', p.masksBB.Properties.VariableNames,...
+                'VariableTypes',  varfun(@class,p.masksBB,'output','cell'));
+            newRows.BB = zeros(p.heightMaskTableBB, 4);
+            p.masksBB = [p.masksBB; newRows]; 
         end
         
         function p = removeMasks(p,maskIDs)

@@ -48,6 +48,11 @@ classdef scanObject < handle
                     p.channels = d2utils.readND2Channels(p.scanFile);
                     p.scanDim = n.Results.scanDim;
                     p.defaultScanParameters()
+                elseif ~isempty(n.Results.scanFile) %If loading pre-stitched scan. 
+                    fprintf('Loading pre-stiched scan file: %s\n', n.Results.scanFile)
+                    p.scanFile = n.Results.scanFile;
+                    p.channels = d2utils.readND2Channels(p.scanFile);
+                    p.loadPrestitchedScans();
                 else
                     fprintf('Unable to create the scan object.\nPlease specify a scan summary file (e.g. scanSummary.txt) or the scan file name and scan dimensions.\n')
                     return
@@ -98,6 +103,26 @@ classdef scanObject < handle
              channelIdx = find(ismember(p.channels, channel));  
              iPlane = reader.getIndex(0, channelIdx-1, 0) + 1;
              outIm  = bfGetPlane(reader, iPlane);
+         end
+         
+         function p = loadPrestitchedScans(p)
+             channelsFISH =  p.channels(~ismember(p.channels,{'dapi','trans'}));
+             reader = bfGetReader(p.scanFile);
+             reader.setSeries(0); %Will only load the first scan 
+             %first load dapi
+             channelIdx = find(ismember(p.channels, 'dapi'));
+             iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+             p.dapiStitch = bfGetPlane(reader, iPlane);
+             %load FISH channels
+             p.stitchedScans.labels = channelsFISH;
+             p.stitchedScans.stitches = cell(1,numel(channelsFISH));
+             for i = 1:numel(channelsFISH)
+                 channelIdx = find(ismember(p.channels, channelsFISH{i}));
+                 iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+                 p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
+             end
+             reader.close()
+             p.stitchDim = size(p.dapiStitch);
          end
          
         %Stitch DAPI
@@ -287,10 +312,10 @@ classdef scanObject < handle
         
         function outIm = getSmallImageRect(p, channel, rect) %rect specified as [x y nrows ncols]
             channelIdx = ismember(p.smallStitchedScans.labels, channel);
-            smallRect = round(rect/p.resizeFactor);
-            smallRect(1:2) = max([1, 1], smallRect(1:2));
+            smallRect = ceil(rect/p.resizeFactor);
+            %smallRect(1:2) = max([1, 1], smallRect(1:2));
             outIm = p.smallStitchedScans.stitches{channelIdx};
-            outIm = outIm(smallRect(1):smallRect(1)+smallRect(3), smallRect(2):smallRect(2)+smallRect(4)); %Kinda ugly, would prefer using imcrop
+            outIm = outIm(smallRect(1):smallRect(1)+smallRect(3)-1, smallRect(2):smallRect(2)+smallRect(4)-1); %Kinda ugly, would prefer using imcrop
         end
         
         function outIm = getDapiImage(p, rect) %rect specified as [x y nrows ncols]
@@ -298,9 +323,9 @@ classdef scanObject < handle
         end
         
         function outIm = getSmallDapiImage(p, rect) %rect specified as [x y nrows ncols]
-            smallRect = round(rect/p.resizeFactor);
-            smallRect(1:2) = max([1, 1], smallRect(1:2));
-            outIm = p.smallDapiStitch(smallRect(1):smallRect(1)+smallRect(3), smallRect(2):smallRect(2)+smallRect(4));
+            smallRect = ceil(rect/p.resizeFactor);
+            %smallRect(1:2) = max([1, 1], smallRect(1:2));
+            outIm = p.smallDapiStitch(smallRect(1):smallRect(1)+smallRect(3)-1, smallRect(2):smallRect(2)+smallRect(4)-1);
         end
         
         function saveTilesTable(p, varargin)
@@ -365,11 +390,17 @@ classdef scanObject < handle
                 outFileName = varargin{1};
             end
             
-            outTableArray = {p.scanFile; p.tilesTableName; num2str(p.scanDim); num2str(p.tileSize); num2str(p.stitchDim);...
-                p.startPos; p.direction; string(p.snake); strjoin(p.channels);...
-                num2str(p.rowTransformCoords); num2str(p.columnTransformCoords)};
-            outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'tilesTableName', 'scanDimensions', 'imageSize', 'stitchDimensions',...
-                'startPosition', 'scanDirection', 'snake', 'channels', 'rowTransform', 'columnTransform'});
+            if all(p.scanDim) %Using this as indicator for whether the scan is tiled or pre-stitched
+                outTableArray = {p.scanFile; p.tilesTableName; num2str(p.scanDim); num2str(p.tileSize); num2str(p.stitchDim);...
+                    p.startPos; p.direction; string(p.snake); strjoin(p.channels);...
+                    num2str(p.rowTransformCoords); num2str(p.columnTransformCoords)};
+                outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'tilesTableName', 'scanDimensions', 'imageSize', 'stitchDimensions',...
+                    'startPosition', 'scanDirection', 'snake', 'channels', 'rowTransform', 'columnTransform'});
+            else
+                outTableArray = {p.scanFile; num2str(p.stitchDim); strjoin(p.channels)};
+                outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'stitchDimensions', 'channels'});
+            end
+           
             writetable(outTable, outFileName, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
         end
                 
