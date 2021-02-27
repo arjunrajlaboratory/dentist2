@@ -205,6 +205,7 @@ classdef d2ThresholdView2 < handle
         
         function saveButtonPressed(p, ~, ~)
             p.nucleiObj.saveNucleiTable;
+            p.spotTable.updateScanSummary;
             p.spotTable.saveSpotsTable;
             p.maskObj.saveMasksTable;
         end

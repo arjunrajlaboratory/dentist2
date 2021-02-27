@@ -104,6 +104,58 @@ classdef nucleiTable < handle
             p.addEmptyRows(1000);
         end
         
+        function p = loadCellPoseMasks(p, inFileName, scaleFactor)
+            warning('off', 'MATLAB:polyshape:repairedBySimplify') 
+            polyArray = d2utils.parseCellposeOutlines(inFileName);
+            warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            polyArray = scale(polyArray, scaleFactor);
+            [polyX, polyY] = centroid(polyArray);
+            polyArea = single(area(polyArray));
+            
+            status = true(numel(polyX), 1);
+            maskID = single(zeros(numel(polyX), 1));
+            colors = single(zeros(numel(polyX),3));
+
+            p.nuclei = table((1:numel(polyX))',single(polyY)',single(polyX)', status, maskID, polyArea', colors,...
+                'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
+            p.addEmptyRows(1000);
+        end
+        
+        function p = stitchCellPoseMasks(p, cpTilePositionsFile, inDir, scaleFactor)
+            cpTilePositions = readtable(cpTilePositionsFile);
+            polyArray = polyshape();
+            warning('off', 'MATLAB:polyshape:repairedBySimplify') 
+            for i = 1:height(cpTilePositions)
+                tilePolys = d2utils.parseCellposeOutlines(fullfile(inDir,sprintf('%s_cp_outlines.txt', cpTilePositions.tile{i})), 'position', cpTilePositions{i,{'colStart', 'rowStart'}}, 'scaleFactor', scaleFactor);
+                if ~isempty(tilePolys)
+                    for ii = 1:length(tilePolys)
+                        overlapIdx = overlaps(tilePolys(ii), polyArray);
+                        if sum(overlapIdx) == 0
+                             polyArray = [polyArray; tilePolys(ii)];
+                        elseif sum(overlapIdx) == 1
+                            polyArray(overlapIdx) = union(tilePolys(ii), polyArray(overlapIdx));
+                        elseif sum(overlapIdx) > 1 %Reset the first overlaping poly and delete the rest. 
+                           idx = find(overlapIdx, 1);
+                           polyArray(idx) = union([tilePolys(ii); polyArray(overlapIdx)]);
+                           overlapIdx(idx) = 0;
+                           polyArray(overlapIdx) = [];
+                        end
+                    end
+                end
+            end
+            warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            polyArray = scale(polyArray, scaleFactor); %I think we can just scale at the end but we may need to scale within the loop
+            [polyX, polyY] = centroid(polyArray);
+            polyArea = single(area(polyArray));
+            status = true(numel(polyX), 1);
+            maskID = single(zeros(numel(polyX), 1));
+            colors = single(zeros(numel(polyX),3));
+
+            p.nuclei = table((1:numel(polyX))',single(polyY),single(polyX), status, maskID, polyArea, colors,...
+                'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
+            p.addEmptyRows(1000);
+        end
+        
         function p = addEmptyRows(p, n)
             newRows = table('Size', [n, width(p.nuclei)],...
                 'VariableNames', p.nuclei.Properties.VariableNames,...
@@ -264,7 +316,6 @@ classdef nucleiTable < handle
             p.nuclei.status(nucIdx) = true;
             p.nucleiChanged = true;
         end
-        
         
         function saveNucleiTable(p, varargin)
             if ~isempty(p.nuclei)

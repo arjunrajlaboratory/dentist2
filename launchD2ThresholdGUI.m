@@ -4,7 +4,10 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('masksFile', 'masks.csv', @ischar); 
     n.addParameter('nucleiFile', 'nuclei.csv', @ischar); 
     n.addParameter('spotsFile', 'spots.csv', @ischar); 
-    n.addParameter('preStitchedScan', '', @ischar)
+    n.addParameter('preStitchedScan', '', @ischar);
+    n.addParameter('cellPose', '', @ischar);
+    n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
+    n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
     
     n.parse(varargin{:});
 %----------------------------------------------------------------
@@ -36,66 +39,60 @@ function guiHandle = launchD2ThresholdGUI(varargin)
             disp('Saving stitched scans. This may take several minutes.')
             scanObj.saveStitches();
         end
-        
-%----------------------------------------------------------------
-%   
-        if isfile(n.Results.masksFile)
-            maskObj = maskTable(scanObj, n.Results.masksFile);
-        else
-            fprintf('Unable to detect %s in your current directory. Creating a new masks object\n', n.Results.masksFile)
-            maskObj = maskTable(scanObj);
-        end
-    %----------------------------------------------------------------
-    %   
-        if isfile(n.Results.nucleiFile)
-            disp('Loading nuclei file.')
-            nucleiObj = nucleiTable(scanObj, maskObj, n.Results.nucleiFile);
-            nucleiObj.addColors();
-        else
-            fprintf('Unable to detect %s in your current directory. Creating a new nuclei object\n', n.Results.nucleiFile)
-            nucleiObj = nucleiTable(scanObj, maskObj);
-            disp('Finding nuclei. This may take a few minutes.')
-            nucleiObj.stitchDAPImask();
-            nucleiObj.findNuclei();
-            nucleiObj.addColors();
-            disp('Saving nuclei file.')
-            nucleiObj.saveNucleiTable();
-        end
-        nucleiObj.updateAllMasks();
     else
         fprintf('Loading pre-stitched scans.\nThis may take several minutes.\n')
         scanObj = scanObject('scanFile', n.Results.preStitchedScan);
         scanObj.saveScanSummary();
-        
-%----------------------------------------------------------------
-%   
-        if isfile(n.Results.masksFile)
-            maskObj = maskTable(scanObj, n.Results.masksFile);
-        else
-            fprintf('Unable to detect %s in your current directory. Creating a new masks object\n', n.Results.masksFile)
-            maskObj = maskTable(scanObj);
-        end
-%----------------------------------------------------------------
-%   
-        if isfile(n.Results.nucleiFile)
-            disp('Loading nuclei file.')
-            nucleiObj = nucleiTable(scanObj, maskObj, n.Results.nucleiFile);
-            nucleiObj.addColors();
-        else
-            fprintf('Unable to detect %s in your current directory. Creating a new nuclei object\n', n.Results.nucleiFile)
-            nucleiObj = nucleiTable(scanObj, maskObj);
-            disp('Finding nuclei. This may take a few minutes.')
-            nucleiObj.stitchDAPImask2();
-            nucleiObj.findNuclei();
-            nucleiObj.addColors();
-            disp('Saving nuclei file.')
-            nucleiObj.saveNucleiTable();
-        end
-        nucleiObj.updateAllMasks();
     end
-    
 %----------------------------------------------------------------
-% 
+%
+    if isfile(n.Results.masksFile)
+        maskObj = maskTable(scanObj, n.Results.masksFile);
+    else
+        fprintf('Unable to detect %s in your current directory. Creating a new masks object\n', n.Results.masksFile)
+        maskObj = maskTable(scanObj);
+    end
+%----------------------------------------------------------------
+%
+    if isfile(n.Results.nucleiFile)
+        disp('Loading nuclei file.')
+        nucleiObj = nucleiTable(scanObj, maskObj, n.Results.nucleiFile);
+    else
+         fprintf('Unable to detect %s in your current directory. Creating a new nuclei object\n', n.Results.nucleiFile)
+         nucleiObj = nucleiTable(scanObj, maskObj);
+         if isempty(n.Results.cellPose) %No cellpose
+            disp('Finding nuclei. This may take a few minutes.')
+            if isempty(n.Results.preStitchedScan)
+                nucleiObj.stitchDAPImask();
+            else
+                nucleiObj.stitchDAPImask2();
+            end
+            nucleiObj.findNuclei();
+%             disp('Saving nuclei file.') Table will be automatically saved when closing GUI.
+%             nucleiObj.saveNucleiTable(); 
+        elseif isfile(n.Results.cellPose) %Load pre-stitched cellpose mask
+            fprintf('Loading pre-stitched cellpose mask:%s.\nResize factor is %d.\n', n.Results.cellPose, n.Results.maskResizeFactor)
+            nucleiObj.loadCellPoseMasks(n.Results.cellPose, n.Results.maskResizeFactor);
+%           disp('Saving nuclei file.') 
+%           nucleiObj.saveNucleiTable();
+        elseif isfolder(n.Results.cellPose) %Load & stitch cellpose masks
+            if isfile(n.Results.cellPoseTileTable)
+                fprintf('Stitching cellpose masks in directory:%s.\nResize factor is %d.\n', n.Results.cellPose, n.Results.maskResizeFactor)
+                nucleiObj.stitchCellPoseMasks(n.Results.cellPoseTileTable, n.Results.cellPose, n.Results.maskResizeFactor);
+%               nucleiObj.saveNucleiTable();
+            else
+                fprintf('Unable to find cellpose file table: %s.\nThe file is need for stitching maks in %s\n', n.Results.cellPoseTileTable, n.Results.cellPose)
+                disp('If you intended to input a pre-stitched mask, please specify the full filename rather than the name of a directory.')
+            end
+         else
+            fprintf('Unable to find file or folder %s', n.Results.cellPose)
+            return
+         end
+    end
+    nucleiObj.addColors();
+    nucleiObj.updateAllMasks();
+%----------------------------------------------------------------
+%   
     if isfile(n.Results.spotsFile)
         spotsObj = spotTable(scanObj, maskObj, nucleiObj, n.Results.scanSummary, n.Results.spotsFile);
     else
