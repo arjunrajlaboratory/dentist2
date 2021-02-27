@@ -390,7 +390,7 @@ classdef scanObject < handle
                 outFileName = varargin{1};
             end
             
-            if all(p.scanDim) %Using this as indicator for whether the scan is tiled or pre-stitched
+            if ~isempty(p.scanDim) && all(p.scanDim) %Using this as indicator for whether the scan is tiled or pre-stitched
                 outTableArray = {p.scanFile; p.tilesTableName; num2str(p.scanDim); num2str(p.tileSize); num2str(p.stitchDim);...
                     p.startPos; p.direction; string(p.snake); strjoin(p.channels);...
                     num2str(p.rowTransformCoords); num2str(p.columnTransformCoords)};

@@ -99,7 +99,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
         spotsObj = spotTable(scanObj, maskObj, nucleiObj, n.Results.scanSummary);
         disp('Finding spots. This may take several minutes.')
-        spotsObj.findSpots3(); %Only run findSpots3 on non-contrasted stitched scans!
+        spotsObj.findSpots4(); %Only run findSpots4 on non-contrasted stitched scans!
         spotsObj.maskBorderSpots();
         disp('Finished finding spots')
         spotsObj.assignSpotsToNuclei();

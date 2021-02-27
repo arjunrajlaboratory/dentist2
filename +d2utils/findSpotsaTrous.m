@@ -2,13 +2,15 @@ function [X, Y, spotInt] = findSpotsaTrous(img, varargin)
     p = inputParser;
     p.addRequired('img', @(x)validateattributes(x,{'numeric'}, {'2d'}));
     p.addParameter('numLevels', 3, @(x)validateattributes(x,{'numeric'}, {'scaler', '>',0})); 
-    p.addParameter('sigma', 2, @(x)validateattributes(x,{'numeric'}, {'scaler', '>',0})); 
+    p.addParameter('sigma', 2, @(x)validateattributes(x,{'numeric'}, {'scaler', '>',0}));
+    p.addParameter('shift', [0, 0], @(x)validateattributes(x,{'numeric'}, {'size', [1,2]}))
     
     p.parse(img, varargin{:});
     
     img = p.Results.img;
     numLevels = p.Results.numLevels;
     sigma = p.Results.sigma;
+    shift = p.Results.shift;
     
     [aTrous, ~] = aTrousWaveletTransform(img,'numLevels',numLevels,'sigma',sigma);
     imgAT = sum(aTrous,3);
@@ -29,4 +31,8 @@ function [X, Y, spotInt] = findSpotsaTrous(img, varargin)
     spotInt = regionalMaxValues(regionalMaxValues>(threshold/2));
 
     [X, Y] = ind2sub(size(bw),spotInds);  % convert 1D to 2D
+    if any(shift)
+        X = X + shift(1);
+        Y = Y + shift(2);
+    end
 end
