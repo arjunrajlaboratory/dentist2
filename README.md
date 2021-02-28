@@ -61,7 +61,9 @@ D2ThresholdGUI
 
 Main axes
 ---------
+### Scatter
 
+### Image overlay
 Thumbnail axes
 ---------------
 
