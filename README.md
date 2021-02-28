@@ -10,7 +10,7 @@ Table of contents
 * [Quick start](#quick-start)
 * [Stitching](#stitching)
 * [D2ThresholdGUI](#d2ThresholdGUI)
-** [Masks](#masks)
+  * [Masks](#masks)
 * [Importing CellPose masks](#importing-cellpose-masks)
 * [Description of objects and default parameters](#description-of-objects-and-default-parameters)
 * [Troubleshooting](#troubleshooting)
