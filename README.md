@@ -26,7 +26,7 @@ Before running Dentist2, please download bfmatlab and rajlabimagetools (or just 
 >>addpath('~/path/to/rajlabimagetools/')
 >>savepath
 ```
-Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not tested Dentists using versions prior to 2018b.  
+Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not tested Dentist2 using versions prior to 2018b.  
 
 Expected input
 ==============
@@ -34,7 +34,7 @@ Dentist2 expects images from a **tiled rectangular scan** in a **single z-plane*
 
 Quick start
 ============
-Change your working directory to the folder containing your scan file (`>>cd('~/path/to/scan/'`). If you have multiple scans you wish to analyze with Dentist2, we recommend moving each scan file into separate folders. Launch the stitching GUI by typing the following into your console. 
+Change your working directory to the folder containing your scan file (`>>cd('~/path/to/scan/'`). If you have multiple scans you wish to analyze with Dentist2, we recommend moving each scan file into separate folders. If your scan needs to be stitched, launch the stitching GUI by typing the following into your console. 
 ```matlab
 >>h = d2stitchingGUI(scanDimensions, 'scanFileName');
 ```
@@ -44,7 +44,11 @@ Next, launch the thresholding GUI by typing the following:
 ```matlab
 >>h = launchD2ThresholdGUI();
 ```
-When first launching the threshold GUI, it may take several minutes for the software to stitch the scan, segment and identify nuclei, and identify RNA FISH spots.  The processed data are automatically saved to your working directory and can be reloaded more quickly if you need to close MATLAB and restart the GUI. In addition, if the GUI handle (h) is still in your workspace, you can relaunch the GUI by typing `>>h.relaunchGUI;` without having to reload the data.
+or if you're loading a pre-stitched scan:
+```matlab
+>>h = launchD2ThresholdGUI('preStitchedScan', 'path/to/scanFile.nd2');
+```
+When first launching the threshold GUI, it may take several minutes for the software to stitch the scan, segment and identify nuclei, and identify RNA FISH spots.  The processed data are automatically saved to your working directory and can be loaded more quickly if you need to close MATLAB and restart the GUI. In addition, if the GUI handle (h) is still in your workspace, you can relaunch the GUI by typing `>>h.relaunchGUI;` without having to reload the data.
 
 As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot intensity threshold and mask, add, or delete erroneous spots and cells. When you are finished, you can export the data into a summarized table of spots per cell ('spotsSummary.csv') by clicking on the export button. When you close the GUI window, data for all spot calls, nuclei and masks will be saved to 'spots.csv', 'nuclei.csv' and 'masks.csv', respectively.
 
