@@ -10,6 +10,7 @@ Table of contents
 * [Quick start](#quick-start)
 * [Stitching](#stitching)
 * [D2ThresholdGUI](#d2ThresholdGUI)
+* [Importing CellPose masks](#importing-cellpose-masks)
 * [Description of objects and default parameters](#description-of-objects-and-default-parameters)
 * [Troubleshooting](#troubleshooting)
 
@@ -52,6 +53,27 @@ Stitching
 
 D2ThresholdGUI
 ==============
+
+Importing CellPose masks
+========================
+If you use CellPose to segment nuclei, Dentist2 can use these outlines instead of it's default algorithm to identify cells. If you have a single CellPose outlines file (i.e. you ran cellpose on the pre-stitched scan), include the file name when running launchD2ThresholdGUI() as below:
+```matlab
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_outlines.txt');
+```
+Alternatively, if you ran CellPose on multiple image tiles that need to be stitched, specify the path to the folder containing the CellPose outlines as well as the name of a file that lists the position of each tile. For example: 
+```matlab
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv');
+```
+An example of the cellPoseTilePositions.csv file can be found [here](). In addition, you may use +d2utils/splitStitchedScan.m to generate both the overlapping image tiles from a pre-stitched scan and the cellPoseTilePositions.csv file. 
+
+Note that if you ran CellPose on a resized image (to save on memory), you will want to specify the resize factor when running launchD2ThresholdGUI() as below:
+```matlab
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_outlines.txt', 'maskResizeFactor', 4); %Indicates a resize factor of 4. 
+```
+or 
+```matlab
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv', 'maskResizeFactor', 4);
+```
 
 Description of objects and default parameters
 =============================================
