@@ -70,7 +70,7 @@ When starting the threshold GUI, the main axes will display a scatter plot of th
 
 If your scans is larger than 20,000 pixels in any dimension, the main axes will open with a zoomed-in view of your scan. The position of this zoomed-in view will be indicated in the thumbnail axes. You may zoom-out by 2X by right-clicking (or control-clicking on a Mac) the main axes. Note that the more zoomed-out view may slow down the GUI.
 
-You can toggle between the scatterplot and image overlay by selecting the scatter checkbox ( above). However, if your current view is >64,000,000 pixels (e.g. >8,000 x 8,0000), Dentist2 will not show the image overlay.  
+You can toggle between the scatterplot and image overlay by selecting the scatter checkbox ( above). However, if your current view is >64,000,000 pixels (e.g. >8,000 x 8,000), Dentist2 will not show the image overlay.  
 ### Image overlay
 When toggling off the scatterplot, the main axes will show an overlay of DAPI and the current FISH channel cropped to your current view (note the exception above for very large views).  
 
