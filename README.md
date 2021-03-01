@@ -58,6 +58,7 @@ As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot 
 
 Stitching
 ==========
+![example layouts](/diagrams/scanPatternDiagram.jpg)
 
 D2ThresholdGUI
 ==============
