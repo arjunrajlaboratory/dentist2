@@ -10,6 +10,11 @@ Table of contents
 * [Quick start](#quick-start)
 * [Stitching](#stitching)
 * [D2ThresholdGUI](#d2ThresholdGUI)
+  * [Main axes](#main-axes)
+  * [Thumbnail axes](#thumbnail-axes)
+  * [Threshold axes](#threshold-axes)
+  * [Masks](#masks)
+* [Importing CellPose masks](#importing-cellpose-masks)
 * [Description of objects and default parameters](#description-of-objects-and-default-parameters)
 * [Troubleshooting](#troubleshooting)
 
@@ -25,7 +30,7 @@ Before running Dentist2, please download bfmatlab and rajlabimagetools (or just 
 >>addpath('~/path/to/rajlabimagetools/')
 >>savepath
 ```
-Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not tested Dentists using versions prior to 2018b.  
+Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not tested Dentist2 using versions prior to 2018b.  
 
 Expected input
 ==============
@@ -33,7 +38,7 @@ Dentist2 expects images from a **tiled rectangular scan** in a **single z-plane*
 
 Quick start
 ============
-Change your working directory to the folder containing your scan file (`>>cd('~/path/to/scan/'`). If you have multiple scans you wish to analyze with Dentist2, we recommend moving each scan file into separate folders. Launch the stitching GUI by typing the following into your console. 
+Change your working directory to the folder containing your scan file (`>>cd('~/path/to/scan/'`). If you have multiple scans you wish to analyze with Dentist2, we recommend moving each scan file into separate folders. If your scan needs to be stitched, launch the stitching GUI by typing the following into your console. 
 ```matlab
 >>h = d2stitchingGUI(scanDimensions, 'scanFileName');
 ```
@@ -43,7 +48,11 @@ Next, launch the thresholding GUI by typing the following:
 ```matlab
 >>h = launchD2ThresholdGUI();
 ```
-When first launching the threshold GUI, it may take several minutes for the software to stitch the scan, segment and identify nuclei, and identify RNA FISH spots.  The processed data are automatically saved to your working directory and can be reloaded more quickly if you need to close MATLAB and restart the GUI. In addition, if the GUI handle (h) is still in your workspace, you can relaunch the GUI by typing `>>h.relaunchGUI;` without having to reload the data.
+or if you're loading a pre-stitched scan:
+```matlab
+>>h = launchD2ThresholdGUI('preStitchedScan', 'path/to/scanFile.nd2');
+```
+When first launching the threshold GUI, it may take several minutes for the software to stitch the scan, segment and identify nuclei, and identify RNA FISH spots.  The processed data are automatically saved to your working directory and can be loaded more quickly if you need to close MATLAB and restart the GUI. In addition, if the GUI handle (h) is still in your workspace, you can relaunch the GUI by typing `>>h.relaunchGUI;` without having to reload the data.
 
 As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot intensity threshold and mask, add, or delete erroneous spots and cells. When you are finished, you can export the data into a summarized table of spots per cell ('spotsSummary.csv') by clicking on the export button. When you close the GUI window, data for all spot calls, nuclei and masks will be saved to 'spots.csv', 'nuclei.csv' and 'masks.csv', respectively.
 
@@ -52,6 +61,48 @@ Stitching
 
 D2ThresholdGUI
 ==============
+
+Main axes
+---------
+### Scatter
+When starting the threshold GUI, the main axes will display a scatter plot of the spatial coordinates of all identified nuclei. Each nucleus (i.e. point) will be colored according to the number of spots assigned to it. You can change the color scheme by selecting a different colormap in the colormap drop-down menu ( above).  The nuclei colors will automatically adjust as you change the FISH channel, modify the spot intensity threshold or create/delete masks. 
+
+If your scans is larger than 20,000 pixels in any dimension, the main axes will open with a zoomed-in view of your scan. The position of this zoomed-in view will be indicated in the thumbnail axes. You may zoom-out by 2X by right-clicking (or control-clicking on a Mac) the main axes. Note that the more zoomed-out view may slow down the GUI.
+
+You can toggle between the scatterplot and image overlay by selecting the scatter checkbox ( above). However, if your current view is >64,000,000 pixels (e.g. >8,000 x 8,0000), Dentist2 will not show the image overlay.  
+### Image overlay
+When toggling off the scatterplot, the main axes will show an overlay of DAPI and the current FISH channel cropped to your current view (note the exception above for very large views).  
+
+
+Thumbnail axes
+---------------
+
+Threshold axes
+--------------
+
+Masks
+-----
+
+Importing CellPose masks
+========================
+If you use CellPose to segment nuclei, Dentist2 can use these outlines instead of it's default algorithm to identify cells. If you have a single CellPose outlines file (i.e. you ran cellpose on the pre-stitched scan), include the file name when running launchD2ThresholdGUI() as below:
+```matlab
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_outlines.txt');
+```
+Alternatively, if you ran CellPose on multiple image tiles that need to be stitched, specify the path to the folder containing the CellPose outlines as well as the name of a file that lists the position of each tile. For example: 
+```matlab
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv');
+```
+An example of the cellPoseTilePositions.csv file can be found [here](). In addition, you may use +d2utils/splitStitchedScan.m to generate both the overlapping image tiles from a pre-stitched scan and the cellPoseTilePositions.csv file. For each outline in tile i, Dentist2 will determine if the outline overlaps any outlines from previous neighboring tiles, and if so, the overlapping outlines will be merged. This is to avoid duplicating nuclei that fall on tile boundaries. If your scan has a lot of nuclei, this step may take a very long time. You may be better off just running CellPose on a larger (stitched) image.  
+
+Note that if you ran CellPose on a resized image (to save on memory), you will want to specify the resize factor when running launchD2ThresholdGUI() as below:
+```matlab
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_outlines.txt', 'maskResizeFactor', 4); %Indicates a resize factor of 4. 
+```
+or 
+```matlab
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv', 'maskResizeFactor', 4);
+```
 
 Description of objects and default parameters
 =============================================
