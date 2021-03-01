@@ -77,7 +77,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
 %           nucleiObj.saveNucleiTable();
         elseif isfolder(n.Results.cellPose) %Load & stitch cellpose masks
             if isfile(n.Results.cellPoseTileTable)
-                fprintf('Stitching cellpose masks in directory:%s.\nResize factor is %d.\n', n.Results.cellPose, n.Results.maskResizeFactor)
+                fprintf('Stitching cellpose masks in directory: %s.\nResize factor is %d.\n', n.Results.cellPose, n.Results.maskResizeFactor)
                 nucleiObj.stitchCellPoseMasks(n.Results.cellPoseTileTable, n.Results.cellPose, n.Results.maskResizeFactor);
 %               nucleiObj.saveNucleiTable();
             else

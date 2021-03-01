@@ -122,31 +122,56 @@ classdef nucleiTable < handle
         end
         
         function p = stitchCellPoseMasks(p, cpTilePositionsFile, inDir, scaleFactor)
-            cpTilePositions = readtable(cpTilePositionsFile);
-            polyArray = polyshape();
-            warning('off', 'MATLAB:polyshape:repairedBySimplify') 
-            for i = 1:height(cpTilePositions)
-                tilePolys = d2utils.parseCellposeOutlines(fullfile(inDir,sprintf('%s_cp_outlines.txt', cpTilePositions.tile{i})), 'position', cpTilePositions{i,{'colStart', 'rowStart'}}, 'scaleFactor', scaleFactor);
-                if ~isempty(tilePolys)
-                    for ii = 1:length(tilePolys)
-                        overlapIdx = overlaps(tilePolys(ii), polyArray);
-                        if sum(overlapIdx) == 0
-                             polyArray = [polyArray; tilePolys(ii)];
-                        elseif sum(overlapIdx) == 1
-                            polyArray(overlapIdx) = union(tilePolys(ii), polyArray(overlapIdx));
-                        elseif sum(overlapIdx) > 1 %Reset the first overlaping poly and delete the rest. 
-                           idx = find(overlapIdx, 1);
-                           polyArray(idx) = union([tilePolys(ii); polyArray(overlapIdx)]);
-                           overlapIdx(idx) = 0;
-                           polyArray(overlapIdx) = [];
+            %May want to update this to avoid joining certain overlapping
+            %outlines. Should also try speeding up. 
+            cpTilePositions = readtable(cpTilePositionsFile, 'ReadRowNames', true);
+            rows = regexp(cpTilePositions.tile, '\d+(?=_)', 'Match');
+            rows = unique(cellfun(@str2num, [rows{:}]));
+            cols = regexp(cpTilePositions.tile, '(?<=_)\d+', 'Match');
+            cols = unique(cellfun(@str2num, [cols{:}]));
+            tileChannel= regexp(cpTilePositions.tile{1}, '[a-zA-Z]+(?=\d)', 'Match');
+            tileChannel = tileChannel{1};
+            polyTable = table('Size', [1,4],...
+                'VariableTypes', {'single', 'single', 'single', 'polyshape'},...
+                'VariableNames', {'polyID', 'row', 'col', 'poly'});
+            warning('off', 'MATLAB:polyshape:repairedBySimplify')
+            nRows = max(rows);
+            nCols = max(cols);
+            for i = 1:nRows
+                fprintf('Processing row %d of %d\n', i, nRows)
+                for ii = 1:nCols
+                    if ~mod(ii, 4)
+                        fprintf('Processing column %d of %d\n', ii, nCols)
+                    end
+                    tileName = sprintf('%s%d_%d', tileChannel, rows(i), cols(ii));
+                    tilePolys = d2utils.parseCellposeOutlines(fullfile(inDir,sprintf('%s_cp_outlines.txt', tileName)), 'position', cpTilePositions{tileName,{'colStart', 'rowStart'}}, 'scaleFactor', scaleFactor);
+                    if ~isempty(tilePolys)
+                        polyNeighborIdx = polyTable.row >= i-1 & polyTable.row <= i+1 ... %We may be able to shrink this neighborhood
+                            & polyTable.col >= ii-1 & polyTable.col <= ii+1;
+                        polyNeighborTable = polyTable(polyNeighborIdx, :);
+                        polyOverlapMat = overlaps(polyNeighborTable.poly, tilePolys);
+                        if any(polyOverlapMat, 'all')
+                            overlapNeighbors = any(polyOverlapMat, 2);
+                            tilePolys = regions(union([polyNeighborTable.poly(overlapNeighbors); tilePolys']));
+                            tilePolys = tilePolys';
+                            polyNeighborIdx(polyNeighborIdx) = overlapNeighbors;
+                            polyTable.poly(polyNeighborIdx) = polyshape;
                         end
+                        startID = max(polyTable.polyID)+1;
+                        tileTable = table((startID:startID+numel(tilePolys)-1)', repmat(i, numel(tilePolys), 1), repmat(ii, numel(tilePolys), 1), tilePolys',...
+                            'VariableNames', {'polyID', 'row', 'col', 'poly'});
+                        polyTable = [polyTable; tileTable];
                     end
                 end
             end
-            warning('on', 'MATLAB:polyshape:repairedBySimplify')
-            polyArray = scale(polyArray, scaleFactor); %I think we can just scale at the end but we may need to scale within the loop
+            polyArray = scale(polyTable.poly, scaleFactor);
             [polyX, polyY] = centroid(polyArray);
             polyArea = single(area(polyArray));
+            %Remove empty polys
+            polyX(polyArea==0) = [];
+            polyY(polyArea==0) = [];
+            polyArea(polyArea==0) = [];
+            
             status = true(numel(polyX), 1);
             maskID = single(zeros(numel(polyX), 1));
             colors = single(zeros(numel(polyX),3));
@@ -156,6 +181,11 @@ classdef nucleiTable < handle
             p.addEmptyRows(1000);
         end
         
+        function p = stitchCellPoseMasks2(p, cpTilePositionsFile, inDir, scaleFactor)
+            %Plan of attack. Create empty stitch. Load label matrices in
+            %parallel. Cut the perimiter from each mask. Insert tile into stitch matrix. 
+            %Find connected components (centroids and area). Add boundary to area if desired. 
+        end
         function p = addEmptyRows(p, n)
             newRows = table('Size', [n, width(p.nuclei)],...
                 'VariableNames', p.nuclei.Properties.VariableNames,...
