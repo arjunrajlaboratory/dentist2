@@ -58,7 +58,7 @@ As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot 
 
 Stitching
 ==========
-<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/stitchGUIeg.png" width="100">
+<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/stitchGUIeg.png" width="500">
 
 D2ThresholdGUI
 ==============
