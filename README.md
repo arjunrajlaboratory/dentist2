@@ -46,7 +46,6 @@ The scanDimensions should be formatted as \[number of rows, numbers of columns\]
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/d2StitchingGUI.png" width="1100">
 
 **Example scan patterns**
-
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/stitchGUIeg.png" width="500">
 
 Next, launch the thresholding GUI by typing the following:
