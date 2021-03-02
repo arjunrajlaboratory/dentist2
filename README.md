@@ -43,6 +43,8 @@ Change your working directory to the folder containing your scan file (`>>cd('~/
 >>h = d2stitchingGUI(scanDimensions, 'scanFileName');
 ```
 The scanDimensions should be formatted as \[number of rows, numbers of columns\]. Use the stitching GUI to select the scan layout and control points as described [below](#stitching). When you close the GUI window, two files will be written to your working directory: 'scanSummary.txt' and 'tilesTable.csv' (see description below).
+**Annotated screenshot of stitching GUI**
+
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/d2StitchingGUI.png" width="1100">
 
 **Example scan patterns**
@@ -61,6 +63,7 @@ When first launching the threshold GUI, it may take several minutes for the soft
 
 As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot intensity threshold and mask, add, or delete erroneous spots and cells. When you are finished, you can export the data into a summarized table of spots per cell ('spotsSummary.csv') by clicking on the export button. When you close the GUI window, data for all spot calls, nuclei and masks will be saved to 'spots.csv', 'nuclei.csv' and 'masks.csv', respectively.
 
+**Annotated screenshot of threshold GUI**
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/D2threshGUI.png" width="1200">
 
 Stitching
@@ -72,13 +75,13 @@ D2ThresholdGUI
 Main axes
 ---------
 ### Scatter
-When starting the threshold GUI, the main axes will display a scatter plot of the spatial coordinates of all identified nuclei. Each nucleus (i.e. point) will be colored according to the number of spots assigned to it. You can change the color scheme by selecting a different colormap in the colormap drop-down menu ( above).  The nuclei colors will automatically adjust as you change the FISH channel, modify the spot intensity threshold or create/delete masks. 
+When starting the threshold GUI, the main axes will display a scatter plot of the spatial coordinates of all identified nuclei. Each nucleus (i.e. point) will be colored according to the number of spots assigned to it. You can change the color scheme by selecting a different colormap in the colormap drop-down menu &#9318;. The nuclei colors will adjust automatically as you change the FISH channel, modify the spot intensity threshold or create/delete masks. 
 
 If your scans is larger than 20,000 pixels in any dimension, the main axes will open with a zoomed-in view of your scan. The position of this zoomed-in view will be indicated in the thumbnail axes. You may zoom-out by 2X by right-clicking (or control-clicking on a Mac) the main axes. Note that the more zoomed-out view may slow down the GUI.
 
-You can toggle between the scatterplot and image overlay by selecting the scatter checkbox ( above). However, if your current view is >64,000,000 pixels (e.g. >8,000 x 8,000), Dentist2 will not show the image overlay.  
+You can toggle between the scatterplot and image overlay by selecting the scatter checkbox (5). However, if your current view is >64,000,000 pixels (e.g. >8,000 x 8,000), Dentist2 will not show the image overlay.  
 ### Image overlay
-When toggling off the scatterplot, the main axes will show an overlay of DAPI and the current FISH channel cropped to your current view (note the exception above for very large views).  
+When toggling off the scatterplot, the main axes will show an overlay of DAPI and the current FISH channel cropped to your current view (note the exception above for very large views). You can use the sliders (4)  
 
 
 Thumbnail axes
