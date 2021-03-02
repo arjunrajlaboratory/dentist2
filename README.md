@@ -44,8 +44,9 @@ Change your working directory to the folder containing your scan file (`>>cd('~/
 ```
 The scanDimensions should be formatted as \[number of rows, numbers of columns\]. Use the stitching GUI to select the scan layout and control points as described [below](#stitching). When you close the GUI window, two files will be written to your working directory: 'scanSummary.txt' and 'tilesTable.csv' (see description below).
 
-<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/d2StitchingGUI.png" width="1000">
+<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/d2StitchingGUI.png" width="1100">
 
+Example scan patterns:
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/stitchGUIeg.png" width="500">
 
 Next, launch the thresholding GUI by typing the following:
@@ -60,7 +61,7 @@ When first launching the threshold GUI, it may take several minutes for the soft
 
 As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot intensity threshold and mask, add, or delete erroneous spots and cells. When you are finished, you can export the data into a summarized table of spots per cell ('spotsSummary.csv') by clicking on the export button. When you close the GUI window, data for all spot calls, nuclei and masks will be saved to 'spots.csv', 'nuclei.csv' and 'masks.csv', respectively.
 
-<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/D2threshGUI.png" width="1000">
+<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/D2threshGUI.png" width="1100">
 
 Stitching
 ==========
