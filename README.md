@@ -68,7 +68,7 @@ As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot 
 
 Stitching
 ==========
-Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button <font size="200">&#9314</font> ; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles as the same positions in a scan and it can be helpful to check several scan positions. 
+Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button <font size="200">&#9314;</font> ; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles as the same positions in a scan and it can be helpful to check several scan positions. 
 
 Once you've chosen your scan pattern, use the show new positions button (3) or textbox underneath to select a position with plenty of nuclei on the border of the images. Click select row control points &#9315; to launch MATLAB's [cpselect](https://www.mathworks.com/help/images/ref/cpselect.html) tool. This should create a new figure window. Select matching pixels on the borders of the images like so: 
 
