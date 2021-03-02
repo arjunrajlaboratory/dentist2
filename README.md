@@ -43,8 +43,8 @@ Change your working directory to the folder containing your scan file (`>>cd('~/
 >>h = d2stitchingGUI(scanDimensions, 'scanFileName');
 ```
 The scanDimensions should be formatted as \[number of rows, numbers of columns\]. Use the stitching GUI to select the scan layout and control points as described [below](#stitching). When you close the GUI window, two files will be written to your working directory: 'scanSummary.txt' and 'tilesTable.csv' (see description below).
-
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/d2StitchingGUI.png" width="1100">
+
 **Example scan patterns**
 
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/stitchGUIeg.png" width="500">
