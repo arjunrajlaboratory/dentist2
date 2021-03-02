@@ -185,7 +185,49 @@ classdef nucleiTable < handle
             %Plan of attack. Create empty stitch. Load label matrices in
             %parallel. Cut the perimiter from each mask. Insert tile into stitch matrix. 
             %Find connected components (centroids and area). Add boundary to area if desired. 
+            cpTilePositions = readtable(cpTilePositionsFile, 'ReadRowNames', true);
+            tiles = cpTilePositions.tile;
+            maskArray = cell(1, numel(tiles));
+            parfor i = 1:numel(tiles) %Need to test whether this parallelization is faster than just 1 for loop. 
+                tileLabelMat = imread(fullfile(inDir, sprintf('%s_cp_masks.tif', tiles{i})));
+                tileMask = zeros(size(tileLabelMat));
+                cellIDs = unique(tileLabelMat);
+                cellIDs(cellIDs == 0) = [];
+                for ii = 1:numel(cellIDs)
+                    cellMask = tileLabelMat == cellIDs(ii);
+                    cellPerim = bwperim(cellMask);
+                    cellMask(cellPerim) = 0;
+                    tileMask = or(tileMask, cellMask);
+                end
+                maskArray{i} = imresize(tileMask, scaleFactor);
+            end
+            maskMatrix = zeros(p.scanObj.stitchDim); %Assuming stitch is the same size as the scan. Alternatively, could use max(rowStart)+height, max(colStart)+width, 
+            tileSize = cellfun(@(x) size(x) - [1,1], maskArray, 'UniformOutput', false);
+            for i = 1:numel(maskArray)
+                left = cpTilePositions.rowStart(i);
+                top = cpTilePositions.colStart(i);
+                maskMatrix(left:left+tileSize{i}(1),top:top+tileSize{i}(2)) = maskArray{i};
+            end
+            
+            CC = bwconncomp(maskMatrix);
+            rp = regionprops(CC);
+            area = [rp.Area];
+            idx = area >= p.minNucleusSize;
+            rp = rp(idx);
+            centroids = [rp.Centroid];
+            centroids = round(reshape(centroids,2,[])');
+            centroids = single(centroids);
+            area = single([rp.Area]);
+            
+            status = true(height(centroids), 1);
+            maskID = single(zeros(height(centroids), 1));
+            colors = single(zeros(height(centroids),3));
+
+            p.nuclei = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
+                'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
+            p.addEmptyRows(1000);
         end
+        
         function p = addEmptyRows(p, n)
             newRows = table('Size', [n, width(p.nuclei)],...
                 'VariableNames', p.nuclei.Properties.VariableNames,...
