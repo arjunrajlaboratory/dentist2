@@ -1,3 +1,7 @@
+element {
+  font-size: 200;
+}
+
 Dentist2
 ========
 This repository contains tools to help analyze RNA FISH data from large image scans. Example input and output data are available on Dropbox [here](https://www.dropbox.com/sh/djy9mock6vp5j2d/AADqZDtkAEROWK7Jh85oCE68a?dl=0).  
