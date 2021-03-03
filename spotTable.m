@@ -2,6 +2,10 @@ classdef spotTable < handle
     
     properties (Access = public)
         
+        scanObj
+        maskObj 
+        nucleiObj 
+        
         spots
         centroidLists %Not sure if this should go into the View
         
@@ -15,27 +19,25 @@ classdef spotTable < handle
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
         paletteIdx = 1;
         borderSpotIdx;
-        
-        scanObj
-        maskObj 
-        nucleiObj 
-        
+        spotsFile = 'spots.csv' %Output filenames
+        spotsSummaryFile = 'spotsSummary.csv'
     end
     
     methods
         
-        function p = spotTable(scanObject, maskObject, nucleiObject, scanSummaryFile, varargin)
+        function p = spotTable(scanObject, maskObject, nucleiObject, varargin)
             p.scanObj = scanObject;
             p.maskObj = maskObject;
             p.nucleiObj = nucleiObject;
-            p.parseScanSummary(scanSummaryFile);
+            p.parseScanSummary(p.scanObj.scanSummaryFile);
 
-            if nargin == 4
+            if nargin == 3
                 fprintf('New spots table\n');
                 p.spots = cell2table(cell(0,9),...
                     'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
-            elseif nargin == 5
+            elseif nargin == 4
                 fprintf('Loading spot table\n');
+                p.spotsFile = varargin{1};
                 opts = detectImportOptions(varargin{1});
                 opts = setvartype(opts, {'spotID', 'x', 'y', 'nearestNucID', 'maskID', 'distanceToNuc'}, 'single');
                 opts = setvartype(opts, 'channel', 'string');
@@ -512,17 +514,11 @@ classdef spotTable < handle
             outTable.nearestNucID = [];
         end
         
-        function updateScanSummary(p, varargin)
-            if nargin == 1
-                inFileName = 'scanSummary.txt';
-            elseif nargin == 2
-                inFileName = varargin{1};
-            end
-            
-            scanSummaryTable = d2utils.parseScanSummary(inFileName);
+        function updateScanSummary(p)
+            scanSummaryTable = d2utils.parseScanSummary(p.scanObj.scanSummaryFile);
             scanSummaryTable{'spotChannels',:} = {strjoin(p.spotChannels)};
             scanSummaryTable{'thresholds',:} = {num2str(p.thresholds)};
-            writetable(scanSummaryTable, inFileName, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
+            writetable(scanSummaryTable, p.scanObj.scanSummaryFile, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
         end
         
         function p = parseScanSummary(p, inFileName)
@@ -540,34 +536,26 @@ classdef spotTable < handle
                     p.thresholds = str2double(split(scanSummaryTable{'thresholds',1})');
                 end
             else
-                fprintf('Unable to find %s in your current directory.\n', n.Results.spotsFile)
+                fprintf('Unable to find %s in your current directory.\n', inFileName)
                 p.spotChannels = p.scanObj.channels(~ismember(p.scanObj.channels,{'dapi','trans'}));
                 fprintf('Setting %s as spot channels.\n', strjoin(p.spotChannels));
             end
         end
 
-        function saveSpotsTable(p, varargin)
+        function saveSpotsTable(p)
             if ~isempty(p.spots)
-                if nargin == 1
-                    writetable(p.spots(:,{'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'}), 'spots.csv');
-                elseif nargin == 2
-                    writetable(p.spots(:, {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'}), varargin{1});
-                end
+                writetable(p.spots(:,{'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'}), p.spotsFile);
             else
                 fprintf("spots table is empty. Run findSpots and try again")
             end
         end
         
-        function exportSpotsSummary(p, varargin)
+        function exportSpotsSummary(p)
             if isempty(p.spots(p.spots.status,:)) || all(p.spots.nearestNucID == 0)
                 fprintf("There are no valid spots or spots are not assigned to cells. Try running findSpots and assignSpotsToNuclei")
             else
                 outTable = p.tabulateAllChannels;
-                if nargin == 1
-                    writetable(outTable, 'spotsSummary.csv');
-                elseif nargin == 2
-                    writetable(outTable, varargin{1});
-                end
+                writetable(outTable, p.spotsSummaryFile);
             end
         end
     end

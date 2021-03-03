@@ -2,12 +2,13 @@ classdef nucleiTable < handle
     
     properties (Access = public)
         
+        scanObj
+        maskObj
+        
         nuclei
         minNucleusSize = 1000; %Update set method to call findNuclei and updateAllMasks
         dapiMask
-        
-        scanObj
-        maskObj  
+        nucleiFile = 'nuclei.csv'
         nucleiChanged = false %kinda serving as an event
     end
     
@@ -28,6 +29,7 @@ classdef nucleiTable < handle
                     'VariableTypes', [repmat({'single'}, 1, 3), {'logical'}, repmat({'single'}, 1, 3)]);
             elseif nargin == 3
                 fprintf('Loading Table\n');
+                p.nucleiFile = varargin{1};
                 opts = detectImportOptions(varargin{1});
                 opts = setvartype(opts, 'single');
                 p.nuclei = readtable(varargin{1},opts);
@@ -392,13 +394,9 @@ classdef nucleiTable < handle
             p.nucleiChanged = true;
         end
         
-        function saveNucleiTable(p, varargin)
+        function saveNucleiTable(p)
             if ~isempty(p.nuclei)
-                if nargin == 1
-                    writetable(p.nuclei(~(p.nuclei.nucID == 0),{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), 'nuclei.csv') %Not saving nuclei.colors
-                elseif nargin ==2 
-                    writetable(p.nuclei(~(p.nuclei.nucID == 0),{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), varargin{1})
-                end
+                writetable(p.nuclei(~(p.nuclei.nucID == 0),{'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea'}), p.nucleiFile) %Not saving nuclei.colors
             else
                 fprintf("nuclei is empty. Run findNuclei and try again")
             end

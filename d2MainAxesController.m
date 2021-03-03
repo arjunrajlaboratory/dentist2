@@ -65,6 +65,7 @@ classdef d2MainAxesController < handle
             p.updateCentroidListView();
             p.updateMainAxes();
             p.threshCntrlr.plotIntensityHistogram();
+            p.threshCntrlr.plotIntensityThreshold();
         end
         
         function changeColormap(p, ~, ~)

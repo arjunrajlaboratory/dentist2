@@ -7,6 +7,7 @@ classdef maskTable < handle
         channels
         heightMaskTable = 100000 %Used to preallocate rows for maskTable
         heightMaskTableBB = 100000
+        masksFile = 'masks.csv'
     end
     
     methods
@@ -27,6 +28,7 @@ classdef maskTable < handle
 %                 p.masksBB = array2table(false(0,numel(p.channels) + 5), 'VariableNames', [{'maskID','x','y', 'h', 'w'} , p.channels]);
             elseif nargin == 2 % Otherwise, load the specified table
                 fprintf('Loading Table\n');
+                p.masksFile = varargin{1};
                 tmpMasks = readtable(varargin{1},'TextType','string');
                 tmpMasks = convertvars(tmpMasks,{'maskID', 'x', 'y'},'single');
                 p.masks = convertvars(tmpMasks,4:width(tmpMasks),'logical');
@@ -177,13 +179,9 @@ classdef maskTable < handle
             end
         end
        
-        function saveMasksTable(p, varargin)
+        function saveMasksTable(p)
            if ~isempty(p.masks)
-               if nargin == 1
-                   writetable(p.masks(~(p.masks.maskID) == 0,:), 'masks.csv');
-               elseif nargin == 2
-                   writetable(p.masks(~(p.masks.maskID) == 0,:), varargin{1});
-               end
+               writetable(p.masks(~(p.masks.maskID) == 0,:), p.masksFile);
            else
                fprintf("Masks table is empty. Not saving masks.csv")
            end

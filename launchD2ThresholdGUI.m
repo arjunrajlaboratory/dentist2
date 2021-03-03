@@ -42,6 +42,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     else
         fprintf('Loading pre-stitched scans.\nThis may take several minutes.\n')
         scanObj = scanObject('scanFile', n.Results.preStitchedScan);
+        scanObj.scanSummaryFile = n.Results.scanSummary;
         scanObj.saveScanSummary();
     end
 %----------------------------------------------------------------
@@ -51,6 +52,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     else
         fprintf('Unable to detect %s in your current directory. Creating a new masks object\n', n.Results.masksFile)
         maskObj = maskTable(scanObj);
+        maskObj.masksFile = n.Results.masksFile;
     end
 %----------------------------------------------------------------
 %
@@ -60,6 +62,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     else
          fprintf('Unable to detect %s in your current directory. Creating a new nuclei object\n', n.Results.nucleiFile)
          nucleiObj = nucleiTable(scanObj, maskObj);
+         nucleiObj.nucleiFile = n.Results.nucleiFile;
          if isempty(n.Results.cellPose) %No cellpose
             disp('Finding nuclei. This may take a few minutes.')
             if isempty(n.Results.preStitchedScan)
@@ -94,10 +97,11 @@ function guiHandle = launchD2ThresholdGUI(varargin)
 %----------------------------------------------------------------
 %   
     if isfile(n.Results.spotsFile)
-        spotsObj = spotTable(scanObj, maskObj, nucleiObj, n.Results.scanSummary, n.Results.spotsFile);
+        spotsObj = spotTable(scanObj, maskObj, nucleiObj, n.Results.spotsFile);
     else
         fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
-        spotsObj = spotTable(scanObj, maskObj, nucleiObj, n.Results.scanSummary);
+        spotsObj = spotTable(scanObj, maskObj, nucleiObj);
+        spotsObj.spotsFile = n.Results.spotsFile;
         disp('Finding spots. This may take several minutes.')
         spotsObj.findSpots4(); %Only run findSpots4 on non-contrasted stitched scans!
         spotsObj.maskBorderSpots();

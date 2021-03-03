@@ -3,7 +3,8 @@ classdef scanObject < handle
     properties (Access = public)
         
         scanFile
-        tilesTableName
+        scanSummaryFile = 'scanSummary.txt'
+        tilesTableName = 'tilesTable.csv'
 
         tilesTable
         tileSize
@@ -40,7 +41,8 @@ classdef scanObject < handle
 
             if ~isempty(n.Results.scanSummary)
                     fprintf('Loading %s\n', n.Results.scanSummary);
-                    p.loadScanSummary(n.Results.scanSummary);
+                    p.scanSummaryFile = n.Results.scanSummary;
+                    p.loadScanSummary();
             else
                 if ~isempty(n.Results.scanFile) && all(n.Results.scanDim)
                     fprintf('Loading file %s\n', n.Results.scanFile)
@@ -328,39 +330,23 @@ classdef scanObject < handle
             outIm = p.smallDapiStitch(smallRect(1):smallRect(1)+smallRect(3)-1, smallRect(2):smallRect(2)+smallRect(4)-1);
         end
         
-        function saveTilesTable(p, varargin)
+        function saveTilesTable(p)
             if ~isempty(p.tilesTable) %Not sure we need the option to specify alternative filename
-                if nargin == 1
-                    p.tilesTableName = 'tilesTable.csv';
-                elseif nargin ==2 
-                    p.tilesTableName = varargin{1};
-                end
                 writetable(p.tilesTable, p.tilesTableName)
             else
                 fprintf("tilesTable is empty. Run loadTiles and try again")
             end
         end
         
-        function loadTilesTable(p, varargin)
-            if nargin == 1
-                inFileName = 'tilesTable.csv';
-            elseif nargin == 2
-                inFileName = varargin{1};
-            end
-            fprintf('Loading %s\n', inFileName);
-            opts = detectImportOptions(inFileName);
+        function loadTilesTable(p)
+            fprintf('Loading %s\n', p.tilesTableName);
+            opts = detectImportOptions(p.tilesTableName);
             opts = setvartype(opts, 'single'); %Probably unnecessary given the typical scan size.
-            p.tilesTable = readtable(inFileName, opts);
+            p.tilesTable = readtable(p.tilesTableName, opts);
         end
         
-        function loadScanSummary(p, varargin)
-            if nargin == 1
-                inFileName = 'scanSummary.txt';
-            elseif nargin == 2
-                inFileName = varargin{1};
-            end
-            
-            scanSummaryTable = d2utils.parseScanSummary(inFileName);
+        function loadScanSummary(p)
+            scanSummaryTable = d2utils.parseScanSummary(p.scanSummaryFile);
             p.scanFile = scanSummaryTable{'scanFileName',1}{:};%Could possibly check that the scanFile tilesTable exist
             p.tilesTableName = scanSummaryTable{'tilesTableName',1}{:};
             p.scanDim = str2double(split(scanSummaryTable{'scanDimensions',1})');
@@ -376,19 +362,14 @@ classdef scanObject < handle
             p.channels = d2utils.readND2Channels(p.scanFile);
             %Load tiles table.
             if isfile(p.tilesTableName)
-                p.loadTilesTable(p.tilesTableName);
+                p.loadTilesTable();
             end 
         end
         
-        function saveScanSummary(p, varargin) 
+        function saveScanSummary(p) 
             %NOTE! Avoid tabs ('\t') in your file name. Commas are OK. 
             %Should maybe check that all the necessary properties are not
             %empty. 
-            if nargin == 1 %Not sure we need the option to specify alternative filename
-                outFileName = 'scanSummary.txt';
-            elseif nargin == 2
-                outFileName = varargin{1};
-            end
             
             if ~isempty(p.scanDim) && all(p.scanDim) %Using this as indicator for whether the scan is tiled or pre-stitched
                 outTableArray = {p.scanFile; p.tilesTableName; num2str(p.scanDim); num2str(p.tileSize); num2str(p.stitchDim);...
@@ -401,7 +382,7 @@ classdef scanObject < handle
                 outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'stitchDimensions', 'channels'});
             end
            
-            writetable(outTable, outFileName, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
+            writetable(outTable, p.scanSummaryFile, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
         end
                 
         function saveStitches(p, varargin) 
