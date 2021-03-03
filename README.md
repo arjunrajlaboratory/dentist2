@@ -139,6 +139,8 @@ Description of objects and default parameters
 Troubleshooting
 ===============
 
-
+Problem: Spots are clear in the image but are not called by dentis (not called by dentist2). 
+Possible Reasons: 
+Possible Solutions: 
 
 
