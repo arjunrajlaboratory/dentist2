@@ -73,10 +73,12 @@ Stitching
 Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button &#9314; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles as the same positions in a scan and it can be helpful to check several scan positions. 
 
 Once you've chosen your scan pattern, use the show new positions button &#9314; or textbox underneath to select a position with plenty of nuclei on the border of the images. Click select row control points &#9315; to launch MATLAB's [cpselect](https://www.mathworks.com/help/images/ref/cpselect.html) tool. This should create a new figure window. Select matching pixels on the top and bottom borders of the images like so: 
-<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/cpSelectRow.png" width="800">
+
+![cpSelect Row](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/cpSelectRow.png)
 
 Close the window when finished. Click select column control points &#9315; and select matching pixels on the right and left borders of the images like so: 
-<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/cpSelectColumn.png" width="800">
+
+![cpSelect Row](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/cpSelectColumn.png)
 
 Close the window when finished.
 
