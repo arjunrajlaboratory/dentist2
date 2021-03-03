@@ -34,7 +34,9 @@ Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not
 
 Expected input
 ==============
-Dentist2 expects images from a **tiled rectangular scan** in a **single z-plane**. There should be one DAPI channel and one or more FISH channels. The FISH channels may be named 'YFP', 'GFP', 'CY3', 'A594', 'CY5', 'A647' '700' or 'CY7'. If you'd like to process other fluorescence channels, you may need to modify the map in +d2utils/readND2Channels.m.  
+Dentist2 expects images from a **tiled rectangular scan** in a **single z-plane**. There should be one DAPI channel and one or more FISH channels. The FISH channels may be named 'YFP', 'GFP', 'CY3', 'A594', 'CY5', 'A647' '700' or 'CY7'. If you'd like to process other fluorescence channels, you may need to modify the map in +d2utils/readND2Channels.m. 
+
+At the moment, Dentist2 identifies nuclei based on DAPI signal and assigned RNA FISH spots to the nearest nucleus. In the future, we may add the option to input whole-cell segmentations and assign spots to the surrounding cell or, for IF, average fluorescence intensity per cell.
 
 Quick start
 ============
@@ -70,9 +72,16 @@ Stitching
 ==========
 Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button &#9314; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles as the same positions in a scan and it can be helpful to check several scan positions. 
 
-Once you've chosen your scan pattern, use the show new positions button &#9314; or textbox underneath to select a position with plenty of nuclei on the border of the images. Click select row control points &#9315; to launch MATLAB's [cpselect](https://www.mathworks.com/help/images/ref/cpselect.html) tool. This should create a new figure window. Select matching pixels on the borders of the images like so: 
+Once you've chosen your scan pattern, use the show new positions button &#9314; or textbox underneath to select a position with plenty of nuclei on the border of the images. Click select row control points &#9315; to launch MATLAB's [cpselect](https://www.mathworks.com/help/images/ref/cpselect.html) tool. This should create a new figure window. Select matching pixels on the top and bottom borders of the images like so: 
 
-Close the window when finished. 
+Close the window when finished. Click select column control points &#9315; and select matching pixels on the right and left borders of the images like so: 
+
+Close the window when finished.
+
+You may click on preview stitch &#9316; to view a stitch based on the stored control points. If you are satisfied with the stitch, you may exit out of the GUI. Otherwise, you can change scan positions and select additional control points. 
+
+When you exit out of the GUI, the files 'tilesTable.csv' and 'scanSummary.txt' will be saved to your working directory. TilesTable.csv contains the relative coordinates of all tiles in your scan.
+
 D2ThresholdGUI
 ==============
 
