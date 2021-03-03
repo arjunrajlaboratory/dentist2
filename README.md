@@ -45,6 +45,7 @@ Change your working directory to the folder containing your scan file (`>>cd('~/
 >>h = d2stitchingGUI(scanDimensions, 'scanFileName');
 ```
 The scanDimensions should be formatted as \[number of rows, numbers of columns\]. Use the stitching GUI to select the scan layout and control points as described [below](#stitching). When you close the GUI window, two files will be written to your working directory: 'scanSummary.txt' and 'tilesTable.csv'.
+
 **Annotated screenshot of stitching GUI**
 
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/d2StitchingGUI.png" width="1100">
@@ -66,15 +67,20 @@ When first launching the threshold GUI, it may take several minutes for the soft
 As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot intensity threshold and mask, add, or delete erroneous spots and cells. When you are finished, you can export the data into a summarized table of spots per cell ('spotsSummary.csv') by clicking on the export button. When you close the GUI window, data for all spot calls, nuclei and masks will be saved to 'spots.csv', 'nuclei.csv' and 'masks.csv', respectively.
 
 **Annotated screenshot of threshold GUI**
-<img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/D2threshGUI.png" width="1200">
+
+![thresholdGUI](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/D2threshGUI.png)
 
 Stitching
 ==========
-Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button &#9314; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles as the same positions in a scan and it can be helpful to check several scan positions. 
+Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button &#9314; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles at the same positions in a scan, and it can be helpful to check several scan positions. 
 
 Once you've chosen your scan pattern, use the show new positions button &#9314; or textbox underneath to select a position with plenty of nuclei on the border of the images. Click select row control points &#9315; to launch MATLAB's [cpselect](https://www.mathworks.com/help/images/ref/cpselect.html) tool. This should create a new figure window. Select matching pixels on the top and bottom borders of the images like so: 
 
+![cpSelect Row](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/cpSelectRow.png)
+
 Close the window when finished. Click select column control points &#9315; and select matching pixels on the right and left borders of the images like so: 
+
+![cpSelect Col](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/cpSelectColumn.png)
 
 Close the window when finished.
 
@@ -133,6 +139,8 @@ Description of objects and default parameters
 Troubleshooting
 ===============
 
-
+* Problem: Spots are clear in the image but are not called by dentis (not called by dentist2). 
+  * Possible Reasons: 
+  * Possible Solutions: 
 
 
