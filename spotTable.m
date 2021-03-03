@@ -349,12 +349,13 @@ classdef spotTable < handle
                 
                 channelIdx = ismember(p.scanObj.stitchedScans.labels, p.spotChannels{i});
                 fprintf('Finding %s spots\n',p.spotChannels{i});
-                rowSplit = [repmat(2000,1, floor(p.scanObj.stitchDim(1)/2000)), mod(p.scanObj.stitchDim(1),2000)]; %Can change this process larger or smaller tiles. Just beware of number of bits.
-                colSplit = [repmat(2000,1, floor(p.scanObj.stitchDim(2)/2000)), mod(p.scanObj.stitchDim(2),2000)];
+                %Below, setting block size to 1000 pixels. Can make this larger if you have very even illumination/spot intensities. Just beware of number of bits.
+                rowSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(1)/1000)), mod(p.scanObj.stitchDim(1),1000)]; 
+                colSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(2)/1000)), mod(p.scanObj.stitchDim(2),1000)];
                 splitMat = mat2cell(p.scanObj.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
                 nRowSplit = size(splitMat, 1);
                 nColSplit = size(splitMat, 2);
-                startCoords = combvec(linspace(0, (nColSplit-1)*2000, nColSplit), linspace(0, (nColSplit-1)*2000, nRowSplit))';
+                startCoords = combvec(linspace(0, (nColSplit-1)*1000, nColSplit), linspace(0, (nColSplit-1)*1000, nRowSplit))';
                 tempX = cell(numel(splitMat), 1);
                 tempY = cell(numel(splitMat), 1);
                 tempIntensity = cell(numel(splitMat), 1);
@@ -390,12 +391,13 @@ classdef spotTable < handle
                 
                 channelIdx = ismember(p.scanObj.stitchedScans.labels, p.spotChannels{i});
                 fprintf('Finding %s spots\n',p.spotChannels{i});
-                rowSplit = [repmat(2000,1, floor(p.scanObj.stitchDim(1)/2000)), mod(p.scanObj.stitchDim(1),2000)]; %Can change this process larger or smaller tiles. Just beware of number of bits.
-                colSplit = [repmat(2000,1, floor(p.scanObj.stitchDim(2)/2000)), mod(p.scanObj.stitchDim(2),2000)];
+                %Below, setting block size to 1000 pixels. Can make this larger if you have very even illumination/spot intensities. Just beware of number of bits.
+                rowSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(1)/1000)), mod(p.scanObj.stitchDim(1),1000)]; 
+                colSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(2)/1000)), mod(p.scanObj.stitchDim(2),1000)];
                 splitMat = mat2cell(p.scanObj.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
                 nRowSplit = size(splitMat, 1);
                 nColSplit = size(splitMat, 2);
-                startCoords = combvec(linspace(0, (nColSplit-1)*2000, nColSplit), linspace(0, (nColSplit-1)*2000, nRowSplit))';
+                startCoords = combvec(linspace(0, (nColSplit-1)*1000, nColSplit), linspace(0, (nColSplit-1)*1000, nRowSplit))';
                 tempX = cell(numel(splitMat), 1);
                 tempY = cell(numel(splitMat), 1);
                 tempIntensity = cell(numel(splitMat), 1);
@@ -424,7 +426,7 @@ classdef spotTable < handle
             mask = p.scanObj.stitchedScans.stitches{1} == 0;	
             clearBorder = imclearborder(mask);
             mask = xor(mask, clearBorder);
-            maskDilated = imdilate(mask, true(7)); %Adding 3 pixels to borderMask.
+            maskDilated = imdilate(mask, true(17)); %Adding 8 pixels to borderMask. ~3 pixels are needed for findSpots3. 
             [maskXidx, maskYidx] = find(maskDilated);
             p.borderSpotIdx = ismember(p.spots{:,{'x', 'y'}},[maskXidx, maskYidx], 'rows'); 
             

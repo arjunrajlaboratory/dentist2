@@ -370,10 +370,13 @@ classdef nucleiTable < handle
             
             masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masksBB.maskID(p.maskObj.masksBB.dapi));
             masksToRemove(masksToRemove == 0) = [];
-            nucIdx = ismember(p.nuclei.maskID, masksToRemove);
-            p.nuclei.maskID(nucIdx) = single(0);
-            p.nuclei.status(nucIdx) = true;
-            p.nucleiChanged = true;
+            if ~isempty(masksToRemove)
+                nucIdx = ismember(p.nuclei.maskID, masksToRemove);
+                p.nuclei.maskID(nucIdx) = single(0);
+                p.nuclei.status(nucIdx) = true;
+                p.nucleiChanged = true;
+            end
+            
         end
         
         function p = removeMasks2(p, rect)

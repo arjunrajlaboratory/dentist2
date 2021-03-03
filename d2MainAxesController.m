@@ -292,7 +292,7 @@ classdef d2MainAxesController < handle
         
         function overlaySpots(p, ~, ~)
             if logical(p.viewObj.spotsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
-                [spotsInView, spotIdx] = p.spotTable.getValidSpotsInRect(p.spotTable.spotChannels{p.channelIdx}, p.viewRect);
+                [spotsInView, ~] = p.spotTable.getValidSpotsInRect(p.spotTable.spotChannels{p.channelIdx}, p.viewRect);
                 hold(p.viewObj.mainAxes, 'on')
                 p.spotScatterH = scatter(spotsInView.y, spotsInView.x, 20, spotsInView.colors,...
                     'Parent', p.viewObj.mainAxes, 'HitTest','off');
