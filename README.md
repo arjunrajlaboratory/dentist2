@@ -45,6 +45,7 @@ Change your working directory to the folder containing your scan file (`>>cd('~/
 >>h = d2stitchingGUI(scanDimensions, 'scanFileName');
 ```
 The scanDimensions should be formatted as \[number of rows, numbers of columns\]. Use the stitching GUI to select the scan layout and control points as described [below](#stitching). When you close the GUI window, two files will be written to your working directory: 'scanSummary.txt' and 'tilesTable.csv'.
+
 **Annotated screenshot of stitching GUI**
 
 <img src="https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/d2StitchingGUI.png" width="1100">
@@ -71,7 +72,7 @@ As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot 
 
 Stitching
 ==========
-Use the scan pattern checkboxes <span style="font-size:larger;">Test</span>  &#9313; <font size="+10">&#9313;</font> <font size="+10">Test</font> to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button &#9314; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles as the same positions in a scan and it can be helpful to check several scan positions. 
+Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button &#9314; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles at the same positions in a scan, and it can be helpful to check several scan positions. 
 
 Once you've chosen your scan pattern, use the show new positions button &#9314; or textbox underneath to select a position with plenty of nuclei on the border of the images. Click select row control points &#9315; to launch MATLAB's [cpselect](https://www.mathworks.com/help/images/ref/cpselect.html) tool. This should create a new figure window. Select matching pixels on the top and bottom borders of the images like so: 
 
