@@ -506,7 +506,6 @@ classdef d2MainAxesController < handle
                     case 'c'
                         p.scatterCallback();
                     case 'm'
-                        disp('m')
                         p.addSpotMask();
                     case 'd'
                         p.deleteMask();
@@ -534,11 +533,15 @@ classdef d2MainAxesController < handle
             elseif strcmp(modifierPressed{1}, 'shift')
                 switch(keyPressed)
                     case 'm'
-                        disp('shift M')
                         p.addCellMask();
                     case 's'
+                        fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
+                        p.nucleiObj.saveNucleiTable;
+                        p.spotTable.updateScanSummary;
+                        p.spotTable.saveSpotsTable;
+                        p.maskObj.saveMasksTable;
                     case 'e'
-                        
+                        p.spotTable.exportSpotsSummary;
                 end
             end
         end

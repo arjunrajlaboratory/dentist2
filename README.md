@@ -70,6 +70,20 @@ As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot 
 
 ![thresholdGUI](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/D2threshGUI.png)
 
+Note these hotkeys:
+- 'up arrow': move up centroid list
+- 'down arrow': move down centroid list
+- 'z': zoom-mode
+- 'p': pan-view mode
+- 's': overlay spots checkbox
+- 'n': overlay nuclei checkbox
+- 'c': scatter checkbox
+- 'm': add spot mask
+- 'shift-m': add cell mask
+- 'd': delete mask
+- 'shift-s': save tables
+- 'shift-e': export spots summary
+
 Stitching
 ==========
 Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button &#9314; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles at the same positions in a scan, and it can be helpful to check several scan positions. 
