@@ -100,13 +100,13 @@ classdef d2stitchingGUI < handle
         function closeFigFcn(p, ~, ~)
             delete(p.figHandle)
             if isempty(p.stitchCntrlr.rowTransform)
-                p.scanObj.rowTransformCoords = [0, 0.9 * p.scanObj.tileSize(1)]; %Set default overlap to 10%
+                p.scanObj.rowTransformCoords = [0, round(0.9 * p.scanObj.tileSize(1))]; %Set default overlap to 10%
             else
                 p.scanObj.rowTransformCoords = round(median(p.stitchCntrlr.rowTransform, 1));
             end
             
             if isempty(p.stitchCntrlr.colTransform)
-                p.scanObj.columnTransformCoords = [0.9 * p.scanObj.tileSize(2), 0]; %Set default overlap to 10%
+                p.scanObj.columnTransformCoords = [round(0.9 * p.scanObj.tileSize(2)), 0]; %Set default overlap to 10%
             else
                 p.scanObj.columnTransformCoords = round(median(p.stitchCntrlr.colTransform, 1));
             end

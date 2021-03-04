@@ -69,8 +69,6 @@ classdef scanObject < handle
             p.direction = 'horizontal';
             p.startPos = 'top left';
             p.scanMatrix = d2utils.makeScanMatrix(p.scanDim);
-%             p.rowTransformCoords = [0 round(0.1*p.tileSize(1))]; %set default overlap to 10%
-%             p.columnTransformCoords = [round(0.1*p.tileSize(2)), 0];
         end
         
         function p = loadTiles(p)  
@@ -413,7 +411,6 @@ classdef scanObject < handle
            load('stitchedScans.mat', 'd2StitchedScans');
            p.dapiStitch = d2StitchedScans{1};
            p.stitchedScans = d2StitchedScans{2};
-%            clear d2StitchedScans
        end
         
     end
