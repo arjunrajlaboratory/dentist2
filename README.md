@@ -20,9 +20,9 @@ Table of contents
 
 Dependencies
 =============
-Dentist2 uses the Bio-Formats MATLAB toolbox (bfmatlab) to read .nd2 files. This software can be downloaded from the [Open Microscopy Consortium](https://www.openmicroscopy.org/) [here](https://docs.openmicroscopy.org/bio-formats/6.3.1/users/matlab/). For auto-contrating DAPI images, Dentist2 uses the scale.m function available in the [rajlabimagetools repository](https://github.com/arjunrajlaboratory/rajlabimagetools). 
+Dentist2 uses the Bio-Formats MATLAB toolbox (bfmatlab) to read .nd2 files. This software can be downloaded from the [Open Microscopy Consortium](https://www.openmicroscopy.org/) [here](https://docs.openmicroscopy.org/bio-formats/6.3.1/users/matlab/). Dentist2 also uses a few functions from the [rajlabimagetools repository](https://github.com/arjunrajlaboratory/rajlabimagetools). 
 
-Before running Dentist2, please download bfmatlab and rajlabimagetools (or just scale.m) and add them to your path by typing the following in your MATLAB console. 
+Before running Dentist2, please download bfmatlab and rajlabimagetools and add them to your path by typing the following in your MATLAB console. 
 
 ```matlab
 >>addpath('~/path/to/dentist2/')
@@ -84,7 +84,7 @@ Close the window when finished. Click select column control points &#9315; and s
 
 Close the window when finished.
 
-You may click on preview stitch &#9316; to view a stitch based on the stored control points. If you are satisfied with the stitch, you may exit out of the GUI. Otherwise, you can change scan positions and select additional control points. 
+You may click on preview stitch &#9316; to view a stitched image based on the stored control points. If you are satisfied with the stitch, you may exit out of the GUI. Otherwise, you can change scan positions and select additional control points. 
 
 When you exit out of the GUI, the files 'tilesTable.csv' and 'scanSummary.txt' will be saved to your working directory. TilesTable.csv contains the relative coordinates of all tiles in your scan.
 
