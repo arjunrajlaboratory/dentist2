@@ -2,12 +2,12 @@ function polygonVector = parseCellposeOutlines(inFileName, varargin)
     p = inputParser;
     p.addRequired('inFileName', @ischar);
     p.addParameter('position', [1 1],@(x)validateattributes(x,{'numeric'}, {'size', [1, 2], '>', 0}));
-    p.addParameter('scaleFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
+    p.addParameter('scaleFactor', [1, 1], @(x)validateattributes(x,{'numeric'}, {'size', [1, 2], '>', 0}));
     p.parse(inFileName, varargin{:});
     
     inFileName = p.Results.inFileName;
     scaleFactor = p.Results.scaleFactor;
-    position = ceil(p.Results.position/scaleFactor);
+    position = ceil(p.Results.position./scaleFactor);
     
     tmpFile = dir(inFileName);
     if logical(tmpFile.bytes) %trouble with empty files. Should try improving how files is read.
@@ -17,6 +17,7 @@ function polygonVector = parseCellposeOutlines(inFileName, varargin)
         
         tmpTable = array2table(tmpTable);
         tmpTable = rowfun(@(x) reshape(x, 2, [])', tmpTable, 'SeparateInputs', false, 'OutputFormat','cell');
+%         tmpTable = cellfun(@(x) x + position,tmpTable, 'UniformOutput', false);
         tmpTable = cellfun(@(x) x(~isnan(x(:,1)), :) + position,tmpTable, 'UniformOutput', false);
         tmpTable = cellfun(@(x) polyshape(x),tmpTable, 'UniformOutput', false);
         polygonVector = [tmpTable{:}];

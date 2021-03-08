@@ -161,13 +161,13 @@ classdef scanObject < handle
         function p = contrastDAPIstitch(p)
             function_scale =  @(block_struct) im2uint16(scale(block_struct.data));
             
-            p.dapiStitch = blockproc(p.dapiStitch, [5000 5000], function_scale, 'BorderSize', [0 0], 'UseParallel', true);
+            p.dapiStitch = blockproc(p.dapiStitch, [1000 1000], function_scale, 'BorderSize', [0 0], 'UseParallel', true);
         end
         
         function p = contrastStitchedScans(p, percentiles, scaleFactor)  %Can modify this function for different default contrast
             function_contrast =  @(block_struct) im2uint16(d2utils.percentileScaleImage(block_struct.data, percentiles, scaleFactor));
             for i = 1:numel(p.stitchedScans.stitches)
-                p.stitchedScans.stitches{i} = blockproc(p.stitchedScans.stitches{i}, [5000 5000], function_contrast, 'BorderSize', [0 0], 'UseParallel', true);
+                p.stitchedScans.stitches{i} = blockproc(p.stitchedScans.stitches{i}, [1000 1000], function_contrast, 'BorderSize', [0 0], 'UseParallel', true);
             end
         end
         
