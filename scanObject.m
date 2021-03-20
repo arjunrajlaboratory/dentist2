@@ -307,7 +307,7 @@ classdef scanObject < handle
         function outIm = getImageRect(p, channel, rect) %rect specified as [x y nrows ncols]
             channelIdx = ismember(p.stitchedScans.labels, channel);
             outIm = p.stitchedScans.stitches{channelIdx};
-            outIm = outIm(rect(1):rect(1)+rect(3), rect(2):rect(2)+rect(4)); %Kinda ugly, would prefer using imcrop
+            outIm = outIm(rect(1):rect(1)+rect(3)-1, rect(2):rect(2)+rect(4)-1); %Kinda ugly, would prefer using imcrop
         end
         
         function outIm = getSmallImageRect(p, channel, rect) %rect specified as [x y nrows ncols]
@@ -319,7 +319,7 @@ classdef scanObject < handle
         end
         
         function outIm = getDapiImage(p, rect) %rect specified as [x y nrows ncols]
-            outIm = p.dapiStitch(rect(1):rect(1)+rect(3), rect(2):rect(2)+rect(4));
+            outIm = p.dapiStitch(rect(1):rect(1)+rect(3)-1, rect(2):rect(2)+rect(4)-1);
         end
         
         function outIm = getSmallDapiImage(p, rect) %rect specified as [x y nrows ncols]

@@ -145,7 +145,7 @@ classdef d2ThresholdView2 < handle
             p.threshAxesCntrlr = d2ThresholdAxesController(p, p.scanObj, p.spotTable, p.maskObj, p.nucleiObj);
             p.attachThresholdController(p.threshAxesCntrlr);
              
-            p.thumbAxesCntrlr = d2ThumbnailAxesController(p, p.scanObj, p.spotTable, p.maskObj, p.nucleiObj);  
+            p.thumbAxesCntrlr = d2ThumbnailAxesController(p, p.scanObj, p.spotTable);  
             p.attachThumbnailController(p.thumbAxesCntrlr);
             
             %Connect controllers

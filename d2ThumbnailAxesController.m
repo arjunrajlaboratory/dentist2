@@ -5,8 +5,6 @@ classdef d2ThumbnailAxesController < handle
         %Model objects
         spotTable
         scanObj
-        maskObj
-        nucleiObj
         
         %View
         viewObj
@@ -21,12 +19,10 @@ classdef d2ThumbnailAxesController < handle
     end
     
     methods
-        function p = d2ThumbnailAxesController(view, scanObj, spotTable, maskObj, nucleiObj)
+        function p = d2ThumbnailAxesController(view, scanObj, spotTable)
             p.viewObj = view;
             p.spotTable = spotTable;
             p.scanObj = scanObj;
-            p.maskObj = maskObj;
-            p.nucleiObj = nucleiObj;
         end
         
         function startup(p)

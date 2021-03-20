@@ -1,17 +1,15 @@
-classdef d2MainAxesController < handle
+classdef d2IFController < handle
     properties (Access = public)
         
         %Model objects
-        spotTable
         scanObj
         maskObj
-        nucleiObj
+        IFboundaries
+        IFtable
         
         %View
         viewObj
         
-        %Other controllers
-        threshCntrlr
         thumbCntrlr
         
         viewRect %Image coords not axes coords
@@ -20,33 +18,32 @@ classdef d2MainAxesController < handle
         zoomROI
         zoomStart
         zoomRect
-
+        quantMetricDict
+        quantMetric
         fixedZoom = false
         panStart
         channelIdx
         zoomMode = true
-        scatterH %Not sure if we need these handle. 
+        scatterH %Not sure if we need these handles. 
         imageH
-        spotScatterH
-        
-        nucleiScatterH
+        nucleiPlotH
+        cellPlotH
+        nucH
+        cellH
         maskH
         imagesInView
         dapiInView
-        
-        resizedImg %Not sure if we want to save these or regenerate
-        resizedDapi
         
         numCells
     end
     
     methods
-        function p = d2MainAxesController(view, scanObj, spotTable, maskObj, nucleiObj)
+        function p = d2IFController(view, scanObj, maskObj, IFboundaries, IFtable)
             p.viewObj = view;
-            p.spotTable = spotTable;
             p.scanObj = scanObj;
             p.maskObj = maskObj;
-            p.nucleiObj = nucleiObj;
+            p.IFboundaries = IFboundaries;
+            p.IFtable = IFtable;
             p.viewRect = [1, 1, min(p.scanObj.stitchDim, [25000 25000])];
             p.startup()
         end
@@ -54,23 +51,25 @@ classdef d2MainAxesController < handle
         function startup(p)
             p.channelIdx = p.viewObj.channelPopup.Value;
             p.plotScatterMain();
+            p.quantMetricDict = containers.Map({'mean nucleus', 'mean cytoplasm', 'sum nucleus', 'sum cytoplasm'},...
+                            {'meanNuc', 'meanCyto', 'sumNuc', 'sumCyto'}); %Hard-coded for now. Can make this more functional in the future
+            p.quantMetric = get(p.viewObj.quantMetric.SelectedObject, 'String');
             p.updateImageInView();
-            p.numCells = height(p.spotTable.centroidLists{p.channelIdx});
-            %p.updateMainAxes()
+            p.numCells = height(p.IFtable.centroidLists{p.channelIdx});
         end
         
         function p = changeChannel(p, ~, ~)
             p.channelIdx = p.viewObj.channelPopup.Value;
+            set(p.viewObj.IFCheckBox, 'String', p.IFtable.channels{p.channelIdx});
             %Update centroid listbox
             p.updateCentroidListView();
             p.updateMainAxes();
-            p.threshCntrlr.plotIntensityHistogram();
-            p.threshCntrlr.plotIntensityThreshold();
         end
         
         function changeColormap(p, ~, ~)
-            p.spotTable.paletteIdx = p.viewObj.colormapPopup.Value;
-            p.spotTable.updateExpressionColors();
+            p.IFtable.paletteIdx = p.viewObj.colormapPopup.Value;
+%             p.IFtable.updateExpressionColors(); %Add var (e.g. meanNuc,
+%             meanCyto etc.)
             p.updateMainAxes();
         end
         
@@ -83,21 +82,21 @@ classdef d2MainAxesController < handle
                 p.plotScatterMain();
             else
                 p.showImage();
-                p.overlaySpots();
                 p.overlayNuclei();
-                p.overlayMasks();
+                p.overlayCells();
+%                 p.overlayMasks();
             end
         end
         
         function updateCentroidListView(p)
-            p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.channelIdx}.GroupCount);
-            p.numCells = height(p.spotTable.centroidLists{p.channelIdx}); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
+            set(p.viewObj.centroidList, 'String', string(p.IFtable.centroidLists{p.channelIdx}{:,4})); %  %Add var (e.g. meanNuc, meanCyto etc.)
+            p.numCells = height(p.IFtable.centroidLists{p.channelIdx}); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
         end
         
         function p = centroidSelected(p, ~, ~)
             if strcmp(get(p.viewObj.figHandle, 'SelectionType'), 'open') %Respond to double mouse click
                 cellIdx = get(p.viewObj.centroidList, 'Value');
-                cellPos = p.spotTable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
+                cellPos = p.IFtable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
                 p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.stitchDim);
                 set(p.viewObj.scatterCheckBox, 'Value', 0)
                 p.updateImageInView();
@@ -105,9 +104,20 @@ classdef d2MainAxesController < handle
                 p.thumbCntrlr.overlayThumbnailRect();
             end
         end
+
+        function quantMetricChanged(p, ~, evt)
+            p.quantMetric = evt.NewValue.String;
+            cellIdx = get(p.viewObj.centroidList, 'Value');
+            cellID = p.IFtable.centroidLists{p.channelIdx}.cellID(cellIdx);
+            p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
+            p.updateCentroidListView();
+            newCellIdx = find(p.IFtable.centroidLists{p.channelIdx}.cellID == cellID);
+            set(p.viewObj.centroidList, 'Value', newCellIdx);
+            p.updateMainAxes();
+        end
         
         function plotScatterMain(p)
-            centroidsInView = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
+            centroidsInView = p.IFtable.centroidTableInRect(p.channelIdx, p.viewRect);
             centroidsInView = flipud(centroidsInView); %In order to plot cells with 0 expression in the back
             set(p.viewObj.mainAxes, 'XLim', [p.viewRect(2),  p.viewRect(2)+p.viewRect(4)])
             set(p.viewObj.mainAxes, 'YLim', [p.viewRect(1),  p.viewRect(1)+p.viewRect(3)])
@@ -254,15 +264,15 @@ classdef d2MainAxesController < handle
         end
         
         function p = updateImageInView(p)
-            p.imagesInView = cell(0, numel(p.spotTable.spotChannels));
+            p.imagesInView = cell(0, numel(p.IFtable.channels));
             if prod(p.viewRect(3:4)) < 4000001
-                for i = 1:numel(p.spotTable.spotChannels)
-                    p.imagesInView{i} = p.scanObj.getImageRect(p.spotTable.spotChannels{i}, p.viewRect);
+                for i = 1:numel(p.IFtable.channels)
+                    p.imagesInView{i} = p.scanObj.getImageRect(p.IFtable.channels{i}, p.viewRect);
                 end
                 p.dapiInView = p.scanObj.getDapiImage(p.viewRect);
             elseif prod(p.viewRect(3:4)) < 64000001
-                for i = 1:numel(p.spotTable.spotChannels)
-                    p.imagesInView{i} = p.scanObj.getSmallImageRect(p.spotTable.spotChannels{i}, p.viewRect);
+                for i = 1:numel(p.IFtable.channels)
+                    p.imagesInView{i} = p.scanObj.getSmallImageRect(p.IFtable.channels{i}, p.viewRect);
                 end
                 p.dapiInView = p.scanObj.getSmallDapiImage(p.viewRect);
             else
@@ -272,11 +282,20 @@ classdef d2MainAxesController < handle
         end
         
         function showImage(p)
-           %Adjust contrast
-            contrastIn = [get(p.viewObj.lowerContrastSlider, 'Value'), get(p.viewObj.upperContrastSlider, 'Value')];
-            tmpIm = imadjust(p.imagesInView{p.channelIdx}, contrastIn, []);
-            %Decide if overlay with DAPI?
-            tmpRGB = cat(3, tmpIm, tmpIm, tmpIm+p.dapiInView);
+            if get(p.viewObj.IFCheckBox, 'Value') 
+                contrastIn = [get(p.viewObj.lowerContrastSlider, 'Value'), get(p.viewObj.upperContrastSlider, 'Value')];
+                tmpIm = imadjust(p.imagesInView{p.channelIdx}, contrastIn, []);
+%                 tmpRGB = cat(3, tmpIm, tmpIm, tmpIm+p.dapiInView);
+            else
+                tmpIm = zeros(size(p.imagesInView{p.channelIdx}), 'uint16');
+            end
+            
+            if get(p.viewObj.dapiCheckBox, 'Value')
+                tmpRGB = cat(3, tmpIm, tmpIm, tmpIm+p.dapiInView);
+            else
+                tmpRGB = repelem(tmpIm, 1, 1, 3);
+            end
+            
             xlimits = [p.viewRect(2),  p.viewRect(2)+p.viewRect(4)];
             ylimits = [p.viewRect(1),  p.viewRect(1)+p.viewRect(3)];
             %axis(p.viewObj.mainAxes, [xlimits, ylimits], 'square')
@@ -290,50 +309,62 @@ classdef d2MainAxesController < handle
             hold(p.viewObj.mainAxes, 'off')
         end
         
-        function overlaySpots(p, ~, ~)
-            if logical(p.viewObj.spotsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
-                [spotsInView, ~] = p.spotTable.getValidSpotsInRect(p.spotTable.spotChannels{p.channelIdx}, p.viewRect);
+        function overlayCells(p, ~, ~)
+            if logical(p.viewObj.cellBordersCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
+                cellsInView = p.IFboundaries.getCellBoundariesInRect(p.IFboundaries.channels{p.channelIdx}, p.viewRect);
+                [cellXmat, cellYmat] = d2utils.polyvect2patchMats(cellsInView.cellBoundary); 
                 hold(p.viewObj.mainAxes, 'on')
-                p.spotScatterH = scatter(spotsInView.y, spotsInView.x, 20, spotsInView.colors,...
-                    'Parent', p.viewObj.mainAxes, 'HitTest','off');
+                p.cellPlotH = patch(cellYmat, cellXmat, reshape(cellsInView.colors, [], 1, 3),...
+                    'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'NucBoundary');
+%                 for i = 1:height(cellsInView)
+%                     patch(cellsInView.cellBoundary(i).Vertices(:,2), cellsInView.cellBoundary(i).Vertices(:,1), cellsInView.colors(i,:),...
+%                     'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'CellBoundary');
+%                 end
                 hold(p.viewObj.mainAxes, 'off')
             else
-                delete(p.spotScatterH)
+                delete(p.cellPlotH)
+%                 delete(findobj(p.viewObj.mainAxes, 'Tag', 'CellBoundary')) 
             end
         end
         
         function overlayNuclei(p, ~, ~)
-            if logical(p.viewObj.centroidsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
-                outTableTmp = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
+            if logical(p.viewObj.nucleiBordersCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
+                nucleiInView = p.IFboundaries.getNucBoundariesInRect(p.IFboundaries.channels{p.channelIdx}, p.viewRect);
+                [nucXmat, nucYmat] = d2utils.polyvect2patchMats(nucleiInView.nucBoundary);
                 hold(p.viewObj.mainAxes, 'on')
-                p.nucleiScatterH = scatter(outTableTmp.y, outTableTmp.x, 35, outTableTmp.colors, 'filled',...
-                    'Parent', p.viewObj.mainAxes, 'HitTest','off');
+                p.nucleiPlotH = patch(nucYmat, nucXmat, reshape(nucleiInView.colors, [], 1, 3),...
+                    'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'NucBoundary');
+%                 for i = 1:height(nucleiInView)
+%                     patch(nucleiInView.nucBoundary(i).Vertices(:,2), nucleiInView.nucBoundary(i).Vertices(:,1), nucleiInView.colors(i,:),...
+%                     'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'NucBoundary');
+%                 end
                 hold(p.viewObj.mainAxes, 'off')
             else
-                delete(p.nucleiScatterH)
+                delete(p.nucleiPlotH)
+%                 delete(findobj(p.viewObj.mainAxes, 'Tag', 'NucBoundary'))
             end
         end
-        
-        function overlayMasks(p, ~, ~)
-            masks = findobj(p.viewObj.mainAxes, 'type', 'images.roi.freehand');
-            delete(masks);
-            if logical(p.viewObj.masksCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
-                maskTableTmp = p.maskObj.getChannelMasksInRect(p.viewRect, p.spotTable.spotChannels{p.channelIdx});
-                maskIDs = unique(maskTableTmp.maskID);
-                maskIDs(maskIDs == 0) = [];
-                for i = 1:numel(maskIDs)
-                    drawfreehand(p.viewObj.mainAxes, 'Position', maskTableTmp{maskTableTmp.maskID == maskIDs(i), {'y', 'x'}},...
-                        'Color', 'red', 'InteractionsAllowed', 'none');
-                end
-                cellMasksTmp = p.maskObj.getChannelMasksInRect(p.viewRect, 'dapi');
-                maskIDs = unique(cellMasksTmp.maskID);
-                maskIDs(maskIDs == 0) = [];
-                for i = 1:numel(maskIDs)
-                    drawfreehand(p.viewObj.mainAxes, 'Position', cellMasksTmp{cellMasksTmp.maskID == maskIDs(i), {'y', 'x'}},...
-                        'Color', 'blue', 'InteractionsAllowed', 'none');
-                end
-            end
-        end
+%         
+%         function overlayMasks(p, ~, ~)
+%             masks = findobj(p.viewObj.mainAxes, 'type', 'images.roi.freehand');
+%             delete(masks);
+%             if logical(p.viewObj.masksCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
+%                 maskTableTmp = p.maskObj.getChannelMasksInRect(p.viewRect, p.spotTable.spotChannels{p.channelIdx});
+%                 maskIDs = unique(maskTableTmp.maskID);
+%                 maskIDs(maskIDs == 0) = [];
+%                 for i = 1:numel(maskIDs)
+%                     drawfreehand(p.viewObj.mainAxes, 'Position', maskTableTmp{maskTableTmp.maskID == maskIDs(i), {'y', 'x'}},...
+%                         'Color', 'red', 'InteractionsAllowed', 'none');
+%                 end
+%                 cellMasksTmp = p.maskObj.getChannelMasksInRect(p.viewRect, 'dapi');
+%                 maskIDs = unique(cellMasksTmp.maskID);
+%                 maskIDs(maskIDs == 0) = [];
+%                 for i = 1:numel(maskIDs)
+%                     drawfreehand(p.viewObj.mainAxes, 'Position', cellMasksTmp{cellMasksTmp.maskID == maskIDs(i), {'y', 'x'}},...
+%                         'Color', 'blue', 'InteractionsAllowed', 'none');
+%                 end
+%             end
+%         end
         
         function scatterCallback(p, ~, ~)
             if p.viewObj.scatterCheckBox.Value == 0
@@ -364,125 +395,88 @@ classdef d2MainAxesController < handle
                 p.overlaySpots;
             end
         end
-        %Note that when masking/adding/deleting spots and cells using the
-        %functions below, the threshold histogram is not automatically
-        %updated. It will update once the 'filter masked spots' button is
-        %pushed. Could add an automatic update but I don't think it's
-        %necessary at this point. 
-        function addSpotMask(p, ~, ~)
+        
+        function addNucAndCell(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskCellButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
-            channel = p.spotTable.spotChannels{p.channelIdx};
-            p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
-            %addlistener(p.maskH, 'DrawingFinished', @p.maskSpots);
-            if ~isempty(p.maskH.Position) && isvalid(p.maskH) %Allows 'escape' from ROI
-                p.maskSpots(p.maskH, channel)
-            end
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskCellButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
-            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
-        end
-        
-        function maskSpots(p, roi, channel)
-            %tmpPoly = roi.Position;
-            set(p.viewObj.masksCheckBox, 'Value', true)
-            p.maskObj.addMaskLocalCoords(roi.Position, channel);
-            delete(roi)
-            p.spotTable.addNewMask(channel);
-            p.spotTable.updateSpotStatus(channel);
-            p.spotTable.updateCentroidList(channel);
-            p.updateCentroidListView();
-            p.updateMainAxes();
-        end
-        
-        function addCellMask(p, ~, ~)
-            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
-            p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
-            if ~isempty(p.maskH.Position) %Allows 'escape' from ROI
-                p.maskCells(p.maskH)
-            end
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
-            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
-        end
-        
-        function maskCells(p, roi)
-            %tmpPoly = roi.Position;
-            p.maskObj.addMaskLocalCoords(roi.Position, 'dapi');
-            delete(roi)
-            p.nucleiObj.addNewMask();
-            p.spotTable.assignSpotsInRect(p.viewRect); 
-            p.spotTable.updateAllSpotStatus();
-            p.spotTable.makeCentroidList();
-            p.updateCentroidListView();
-            set(p.viewObj.masksCheckBox, 'Value', true)
-            p.updateMainAxes();
-        end
-        
-        function deleteMask(p, ~, ~)
-            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
-            channel = p.spotTable.spotChannels{p.channelIdx};
-            [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
-            if ~isempty(x)  
-                ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
-                p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
-                p.nucleiObj.removeMasks();
-                p.spotTable.removeMasks2(channel, p.viewRect);
-                if p.nucleiObj.nucleiChanged %Kinda ugly. Should write something better. Could make separate buttons for cell masks and spot masks
-                    p.spotTable.assignSpotsInRect(p.viewRect);
-                    p.spotTable.updateAllSpotStatus();
-                    p.spotTable.makeCentroidList();
-                else
-                    p.spotTable.updateSpotStatus(channel);
-                    p.spotTable.updateCentroidList(channel);
-                end
-                p.nucleiObj.nucleiChanged = false;
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
+            p.nucH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
+            if ~isempty(p.nucH.Position) %Allows 'escape' from ROI
+                p.IFtable.addNucleus(fliplr(round(p.nucH.Position)), [0 0], p.IFtable.channels{p.channelIdx}, true)
+                p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
             end
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'on')
+            delete(p.nucH)
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
-        function addCells(p, ~, ~)
+        function addEmptyNuc(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
-            [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
-            if ~isempty(x)
-                ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
-                p.nucleiObj.addCell(ptsInView(:,2), ptsInView(:,1));
-                p.spotTable.assignSpotsInRect(p.viewRect);
-                p.spotTable.updateAllSpotStatus();
-                p.spotTable.makeCentroidList();
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
+            p.nucH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
+            if ~isempty(p.nucH.Position) %Allows 'escape' from ROI
+                p.IFtable.addNucleus(fliplr(round(p.nucH.Position)), [0 0], p.IFtable.channels{p.channelIdx}, false);
+                p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
             end
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+            delete(p.nucH)
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
-        function deleteCells(p, ~, ~)
+        function addCell(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
+            p.cellH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
+            if ~isempty(p.cellH.Position) %Allows 'escape' from ROI
+                p.IFtable.addCell(fliplr(round(p.cellH.Position)), [0 0], p.IFtable.channels{p.channelIdx});
+                p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
+                p.updateCentroidListView();
+                p.updateMainAxes();
+            end
+            delete(p.cellH)
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
+        end
+        
+        function deleteNuc(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.
             if ~isempty(x)
-                ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
-                p.nucleiObj.removeCell(ptsInView(:,2), ptsInView(:,1));
-                p.spotTable.assignSpotsInRect(p.viewRect);
-                p.spotTable.updateAllSpotStatus();
-                p.spotTable.makeCentroidList();
+                p.IFtable.deleteNuc([x, y], p.IFboundaries.channels{p.channelIdx}, p.viewRect);
+                p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
             end
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
+        end
+        
+        function deleteCell(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
+            [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.
+            if ~isempty(x)
+                p.IFtable.deleteCell([x, y], p.IFboundaries.channels{p.channelIdx}, p.viewRect);
+                p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
+                p.updateCentroidListView();
+                p.updateMainAxes();
+            end
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
         function type = getSelectionType(p)
@@ -498,14 +492,14 @@ classdef d2MainAxesController < handle
                         p.zoomInPressed();
                     case 'p'
                         p.panViewPressed();
-                    case 's'
-                        p.overlaySpots();
+%                     case 's'
+%                         p.overlaySpots();
                     case 'n'
                         p.overlayNuclei();
-                    case 'c'
+                    case 's'
                         p.scatterCallback();
                     case 'm'
-                        p.addSpotMask();
+%                         p.addSpotMask();
                     case 'd'
                         p.deleteMask();
                     case 'f' 
@@ -532,7 +526,7 @@ classdef d2MainAxesController < handle
             elseif strcmp(modifierPressed{1}, 'shift')
                 switch(keyPressed)
                     case 'm'
-                        p.addCellMask();
+%                         p.addCellMask();
                     case 's'
                         fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
                         p.nucleiObj.saveNucleiTable;

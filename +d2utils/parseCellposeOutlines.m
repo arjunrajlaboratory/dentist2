@@ -3,6 +3,7 @@ function polygonVector = parseCellposeOutlines(inFileName, varargin)
     p.addRequired('inFileName', @ischar);
     p.addParameter('position', [1 1],@(x)validateattributes(x,{'numeric'}, {'size', [1, 2], '>', 0}));
     p.addParameter('scaleFactor', [1, 1], @(x)validateattributes(x,{'numeric'}, {'size', [1, 2], '>', 0}));
+    p.addParameter('flip', false, @islogical);
     p.parse(inFileName, varargin{:});
     
     inFileName = p.Results.inFileName;
@@ -17,6 +18,9 @@ function polygonVector = parseCellposeOutlines(inFileName, varargin)
         
         tmpTable = array2table(tmpTable);
         tmpTable = rowfun(@(x) reshape(x, 2, [])', tmpTable, 'SeparateInputs', false, 'OutputFormat','cell');
+        if p.Results.flip
+            tmpTable = cellfun(@(x) fliplr(x),tmpTable, 'UniformOutput', false);
+        end
 %         tmpTable = cellfun(@(x) x + position,tmpTable, 'UniformOutput', false);
         tmpTable = cellfun(@(x) x(~isnan(x(:,1)), :) + position,tmpTable, 'UniformOutput', false);
         tmpTable = cellfun(@(x) polyshape(x),tmpTable, 'UniformOutput', false);
