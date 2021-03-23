@@ -2,7 +2,7 @@ classdef IFboundaries < handle
     
     properties (Access = public)
        scanObj 
-       maskObj
+       maskObj %Masks for cells and nuclei. Not for IF signal. 
        nucBoundaries %based on cellpose outlines
        nucBoundaries2 %based on labelmat
        cellBoundaries %based on cellpose outlines
@@ -137,7 +137,7 @@ classdef IFboundaries < handle
             nucBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), tmpBoundaries, 'UniformOutput', false); 
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), nucBoundariesArray, 'UniformOutput', false);
             status = true(numel(nucBoundariesArray),numel(p.channels));
-            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
+            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', {'cellID', 'nucBoundary', 'nucBB', 'status'});
         end
         
         function p = loadCellPoseDapi(p, labelMatFile, outlineFile)
@@ -170,7 +170,7 @@ classdef IFboundaries < handle
 %             p.nucBoundaries = array2table([single(nucIDArray'), vertcat(nucBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
             %Try storying boundaries as polyshape.
             status = true(numel(nucBoundariesArray),numel(p.channels));
-            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
+            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', {'cellID', 'nucBoundary', 'nucBB', 'status'});
 %             p.nucBoundaries.status = true(numel(nucBoundariesArray), 1);
 %             
             polyVectDilated = polybuffer(polyVect, p.radius);
@@ -181,24 +181,69 @@ classdef IFboundaries < handle
 %             cellIDArray = repelem(1:numel(cellBoundariesHeight), cellBoundariesHeight);
 %             p.cellBoundaries = array2table([single(cellIDArray'), vertcat(cellBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
             status = true(numel(cellBoundariesArray),numel(p.channels));
-            p.cellBoundaries = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
+            p.cellBoundaries = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', {'cellID', 'cellBoundary', 'cellBB', 'status'});
             p.cellBoundaries.status = true(numel(cellBoundariesArray), 1);
 %             warning('on', 'MATLAB:polyshape:repairedBySimplify')
             warning('on', 'MATLAB:polyshape:boundary3Points')
         end
         
-        function outCellBoundaries = getCellBoundariesInRect(p, channel, rect) %rect specified as [x y nrows ncols]
-            
-            idx = rectint(p.cellBoundaries2.cellBB,rect)>0 & p.cellBoundaries2{:,channel};
-            
-            outCellBoundaries = p.cellBoundaries2(idx,:);
+        function p = labelMat2nucTable(p, varargin)
+            if nargin == 2
+                tmpLabelMat = imread(labelMatFile);
+                if all(size(tmpLabelMat) ==  p.scanObj.stitchDim)
+                    p.dapiLabelMat =  tmpLabelMat;
+                else
+                    p.dapiLabelMat = imresize(tmpLabelMat, p.scanObj.stitchDim, 'nearest');
+                end
+            end
+            nucBoundariesTmp = cell(0, numel(p.dapiRP));
+            for i = 1:numel(p.dapiRP) %can make this parfor?
+                tmpBB = p.dapiRP(i).BoundingBox;
+                %Create buffer
+                tmpShift = ceil(tmpBB(3:4)*0.1);
+                tmpStart = max([1,1], tmpBB(1:2)-tmpShift);
+                tmpEnd = min(tmpStart+tmpBB(3:4)+(tmpShift*2), size(p.dapiLabelMat)); %Could make this stitchDim
+                
+                tmpRegionMask = p.dapiLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
+                tmpDapiMask = tmpRegionMask == i;
+                tmpNucBoundary = bwboundaries(tmpDapiMask, 'noholes');
+                nucBoundariesTmp{i} = cellfun(@(x) x+tmpStart-1, tmpNucBoundary, 'UniformOutput', false);
+            end
+            %Update nucBoundaries
+            warning('off', 'MATLAB:polyshape:repairedBySimplify')
+            nucBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), nucBoundariesTmp, 'UniformOutput', false); 
+            tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), nucBoundariesArray, 'UniformOutput', false);
+            status = true(numel(nucBoundariesArray), numel(p.channels));
+            p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', {'cellID', 'nucBoundary', 'nucBB', 'status'});
+            warning('on', 'MATLAB:polyshape:repairedBySimplify')
         end
         
-        function outNucBoundaries = getNucBoundariesInRect(p,channel, rect) %rect specified as [x y nrows ncols]
+%         function outCellBoundaries = getCellBoundariesInRect(p, channel, rect) %rect specified as [x y nrows ncols]
+%             
+%             idx = rectint(p.cellBoundaries2.cellBB,rect)>0 & p.cellBoundaries2{:,channel};
+%             
+%             outCellBoundaries = p.cellBoundaries2(idx,:);
+%         end
+%         
+%         function outNucBoundaries = getNucBoundariesInRect(p,channel, rect) %rect specified as [x y nrows ncols]
+%             
+%             idx = rectint(p.nucBoundaries2.nucBB,rect)>0 & p.nucBoundaries2{:,channel};
+%             
+%             outNucBoundaries = p.nucBoundaries2(idx,:);
+%         end
+        
+        function outNucBoundaries = getNucBoundariesInRect(p, rect) %rect specified as [x y nrows ncols]
             
-            idx = rectint(p.nucBoundaries2.nucBB,rect)>0 & p.nucBoundaries2{:,channel};
+            idx = rectint(p.nucBoundaries2.nucBB,rect)>0;
             
             outNucBoundaries = p.nucBoundaries2(idx,:);
+        end
+        
+        function outCellBoundaries = getCellBoundariesInRect(p, rect) %rect specified as [x y nrows ncols]
+            
+            idx = rectint(p.cellBoundaries2.cellBB,rect)>0;
+            
+            outCellBoundaries = p.cellBoundaries2(idx,:);
         end
         
         function p = addColors(p)
@@ -211,7 +256,7 @@ classdef IFboundaries < handle
         end
         
         function p = addNewCell(p, newCellID, nucPoly, cellPoly)
-            nucBB = d2utils.polyshapeBoundingBox(nucPoly)
+            nucBB = d2utils.polyshapeBoundingBox(nucPoly);
             cellBB = d2utils.polyshapeBoundingBox(cellPoly);
             idx = find(p.nucBoundaries2.cellID == 0, 1, 'first');
             randomColor = single(p.randomColors(randi(50),:));
@@ -233,5 +278,53 @@ classdef IFboundaries < handle
             p.cellBoundaries2{cellBoundaryIdx, p.channels} = true(1, numel(p.channels));
         end
         
+        function p = maskCells(p)
+            maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
+            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,'BB'}; %Only query nuclei within mask bouding box
+            tmpMaskPoly = polyshape(p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask,{'x', 'y'}});
+            nucTableTmp = p.getNucBoundariesInRect(maskBB);
+            cellTableTmp = p.getCellBoundariesInRect(maskBB);
+            
+            nucIDs = nucTableTmp.cellID(overlaps(tmpMaskPoly, nucTableTmp.nucBoundary));
+            cellIDs = cellTableTmp.cellID(overlaps(tmpMaskPoly, cellTableTmp.cellBoundary));
+            cellIDToMask = union(nucIDs, cellIDs);
+            
+            nucIdx = ismember(p.nucBoundaries2.cellID, cellIDToMask);
+            p.nucBoundaries2{nucIdx, channel} = false;
+%             p.nucBoundaries2{nucIdx, 'maskID'} = false;
+            
+            cellIdx = ismember(p.cellBoundaries2.cellID, cellIDToMask);
+            p.cellBoundaries2{cellIdx, channel} = false;
+%             p.cellBoundaries2{cellIdx, 'maskID'} = false;
+        end
+
+%         function p = maskCellsInChannel(p, channel)
+%             maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
+%             maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,'BB'}; %Only query nuclei within mask bouding box
+%             tmpMaskPoly = polyshape(p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask,{'x', 'y'}});
+%             nucTableTmp = p.getNucBoundariesInRect(channel, maskBB);
+%             cellTableTmp = p.getCellBoundariesInRect(channel, maskBB);
+%             
+%             nucIdx = p.getNucleiInRectIdx(maskBB);
+%             polyIdx = inpolygon(p.nuclei.x(nucIdx), p.nuclei.y(nucIdx),...
+%                 p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'y'});
+%             
+%             nucIdx(nucIdx) = polyIdx; %Only nuclei in polygon remain true
+%             p.nuclei.maskID(nucIdx) = maxCellMask;
+%             p.nuclei.status(nucIdx) = false;
+%             
+%         end
+%         
+%         function p = addMask(p, channel, rect, maskCoords)
+%             tmpMaskPoly = polyshape(maskCoords);
+%             nucTableTmp = p.getNucBoundariesInRect(channel, rect);
+%             cellTableTmp = p.getCellBoundariesInRect(channel, rect);
+%             
+%             nucIDs = nucTableTmp.cellID(overlaps(tmpMaskPoly, nucTableTmp.nucBoundary));
+%             cellIDs = cellTableTmp.cellID(overlaps(tmpMaskPoly, cellTableTmp.cellBoundary));
+%             cellIDToMask = union(nucIDs, cellIDs);
+%             mask
+%                 tmpCellIDs = union(nucTableTmp.cellID, cellTableTmp.cellID);
+%         end
     end
 end

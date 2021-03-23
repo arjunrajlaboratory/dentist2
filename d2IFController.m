@@ -311,7 +311,7 @@ classdef d2IFController < handle
         
         function overlayCells(p, ~, ~)
             if logical(p.viewObj.cellBordersCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
-                cellsInView = p.IFboundaries.getCellBoundariesInRect(p.IFboundaries.channels{p.channelIdx}, p.viewRect);
+                cellsInView = p.IFboundaries.getCellBoundariesInRect(p.viewRect);
                 [cellXmat, cellYmat] = d2utils.polyvect2patchMats(cellsInView.cellBoundary); 
                 hold(p.viewObj.mainAxes, 'on')
                 p.cellPlotH = patch(cellYmat, cellXmat, reshape(cellsInView.colors, [], 1, 3),...
@@ -329,7 +329,7 @@ classdef d2IFController < handle
         
         function overlayNuclei(p, ~, ~)
             if logical(p.viewObj.nucleiBordersCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
-                nucleiInView = p.IFboundaries.getNucBoundariesInRect(p.IFboundaries.channels{p.channelIdx}, p.viewRect);
+                nucleiInView = p.IFboundaries.getNucBoundariesInRect(p.viewRect);
                 [nucXmat, nucYmat] = d2utils.polyvect2patchMats(nucleiInView.nucBoundary);
                 hold(p.viewObj.mainAxes, 'on')
                 p.nucleiPlotH = patch(nucYmat, nucXmat, reshape(nucleiInView.colors, [], 1, 3),...
@@ -375,24 +375,22 @@ classdef d2IFController < handle
         
         function shuffleColorsInView(p, ~, ~)
             if ~logical(p.viewObj.scatterCheckBox.Value)
-                outTableTmp = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
-                randomColors  = single(d2utils.distinguishable_colors(50));
-                outTableTmp.colors = randomColors(randi(50, height(outTableTmp), 1),:);
+                nucTableTmp = p.IFboundaries.getNucBoundariesInRect(p.viewRect);
+                cellTableTmp = p.IFboundaries.getCellBoundariesInRect(p.viewRect);
+                tmpCellIDs = union(nucTableTmp.cellID, cellTableTmp.cellID);
+                                
+                colorPal  = single(d2utils.distinguishable_colors(50));
+                newColors = colorPal(randi(50, numel(tmpCellIDs), 1),:);
                 
-                %Update centroid list with new colors
-                idx = ismember(p.spotTable.centroidLists{p.channelIdx}.nucID, outTableTmp.nucID);
-                p.spotTable.centroidLists{p.channelIdx}.colors(idx, :) = outTableTmp.colors;
-                %Update nuclei table wtih new colors
-                [idxA, idxB] = ismember(p.nucleiObj.nuclei.nucID, outTableTmp.nucID);
-                idxB(idxB == 0) = [];
-                p.nucleiObj.nuclei.colors(idxA, :) = outTableTmp.colors(idxB,:);
-                %Update spots table with new colors
-                [idxA, idxB] = ismember(p.spotTable.spots.nearestNucID, outTableTmp.nucID);
-                idxB(idxB == 0) = [];
-                p.spotTable.spots.colors(idxA, :) = outTableTmp.colors(idxB,:);
+                %Update nuclei boundaries wtih new colors
+                nucIdx = ismember(p.IFboundaries.nucBoundaries2.cellID, tmpCellIDs);
+                p.IFboundaries.nucBoundaries2.colors(nucIdx, :) = newColors;
+                %Update cell boundaries wtih new colors
+                cellIdx = ismember(p.IFboundaries.cellBoundaries2.cellID, tmpCellIDs);
+                p.IFboundaries.cellBoundaries2.colors(cellIdx, :) = newColors;
                 %Update plots
                 p.overlayNuclei;
-                p.overlaySpots;
+                p.overlayCells;
             end
         end
         
@@ -402,7 +400,7 @@ classdef d2IFController < handle
 %                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             p.nucH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             if ~isempty(p.nucH.Position) %Allows 'escape' from ROI
-                p.IFtable.addNucleus(fliplr(round(p.nucH.Position)), [0 0], p.IFtable.channels{p.channelIdx}, true)
+                p.IFtable.addNucleus(fliplr(round(p.nucH.Position)), [0 0], true);
                 p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
@@ -419,7 +417,7 @@ classdef d2IFController < handle
 %                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             p.nucH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             if ~isempty(p.nucH.Position) %Allows 'escape' from ROI
-                p.IFtable.addNucleus(fliplr(round(p.nucH.Position)), [0 0], p.IFtable.channels{p.channelIdx}, false);
+                p.IFtable.addNucleus(fliplr(round(p.nucH.Position)), [0 0], false);
                 p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
@@ -436,7 +434,7 @@ classdef d2IFController < handle
 %                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             p.cellH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             if ~isempty(p.cellH.Position) %Allows 'escape' from ROI
-                p.IFtable.addCell(fliplr(round(p.cellH.Position)), [0 0], p.IFtable.channels{p.channelIdx});
+                p.IFtable.addCell(fliplr(round(p.cellH.Position)), [0 0]);
                 p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
@@ -453,7 +451,7 @@ classdef d2IFController < handle
 %                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.
             if ~isempty(x)
-                p.IFtable.deleteNuc([x, y], p.IFboundaries.channels{p.channelIdx}, p.viewRect);
+                p.IFtable.deleteNuc([x, y], p.viewRect);
                 p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
@@ -469,7 +467,7 @@ classdef d2IFController < handle
 %                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.
             if ~isempty(x)
-                p.IFtable.deleteCell([x, y], p.IFboundaries.channels{p.channelIdx}, p.viewRect);
+                p.IFtable.deleteCell([x, y], p.viewRect);
                 p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
@@ -477,6 +475,40 @@ classdef d2IFController < handle
 %             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
 %                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
+        end
+        
+        function addImgMask(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskCellButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
+            channel = p.IFtable.channels{p.channelIdx};
+            p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
+            %addlistener(p.maskH, 'DrawingFinished', @p.maskSpots);
+            if ~isempty(p.maskH.Position) && isvalid(p.maskH) %Allows 'escape' from ROI
+                warning('off', 'MATLAB:polyshape:repairedBySimplify')
+                tmpMaskPoly = polyshape(round(p.maskH.Position)); %This can reduce # of vertices. OK to delete. 
+                p.maskImg(tmpMaskPoly.Vertices, channel)
+                warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            end
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskCellButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
+        end
+        
+        function maskImg(p, maskPosition, channel)
+            %tmpPoly = roi.Position;
+            set(p.viewObj.masksCheckBox, 'Value', true)
+            p.maskObj.addMaskLocalCoords(maskPosition, channel);
+            delete(p.maskH)
+            %Find cells and nuclei in maskBB
+            tmpBB = d2utils.polygonBoundingBox(fliplr(maskPosition));
+            nucTableTmp = p.getNucBoundariesInRect(tmpBB);
+            cellTableTmp = p.getCellBoundariesInRect(tmpBB);
+            tmpCellIDs = union(nucTableTmp.cellID, cellTableTmp.cellID);
+            p.IFtable.requantCellChannel(p.IFtable.channels(p.channelIdx), tmpCellIDs);
+            p.IFtable.updateCentroidList(p.IFtable.channels(p.channelIdx), p.quantMetricDict(p.quantMetric));
+            p.updateCentroidListView();
+            p.updateMainAxes();
         end
         
         function type = getSelectionType(p)
