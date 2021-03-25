@@ -37,6 +37,10 @@ classdef IFboundaries < handle
             if ismember('colors', p.nucBoundaries2.Properties.VariableNames)
                 newNuclei.colors = zeros(n, 3);
             end
+            disp(head(p.nucBoundaries2))
+            disp(size(p.nucBoundaries2))
+            disp(head(newNuclei))
+            disp(size(newNuclei))
             p.nucBoundaries2 = [p.nucBoundaries2; newNuclei];
             
             newCells = table('Size', [n, width(p.cellBoundaries2)],...
@@ -137,7 +141,7 @@ classdef IFboundaries < handle
             nucBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), tmpBoundaries, 'UniformOutput', false); 
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), nucBoundariesArray, 'UniformOutput', false);
             status = true(numel(nucBoundariesArray),numel(p.channels));
-            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', {'cellID', 'nucBoundary', 'nucBB', 'status'});
+            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
         end
         
         function p = loadCellPoseDapi(p, labelMatFile, outlineFile)
@@ -170,7 +174,7 @@ classdef IFboundaries < handle
 %             p.nucBoundaries = array2table([single(nucIDArray'), vertcat(nucBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
             %Try storying boundaries as polyshape.
             status = true(numel(nucBoundariesArray),numel(p.channels));
-            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', {'cellID', 'nucBoundary', 'nucBB', 'status'});
+            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
 %             p.nucBoundaries.status = true(numel(nucBoundariesArray), 1);
 %             
             polyVectDilated = polybuffer(polyVect, p.radius);
@@ -181,7 +185,7 @@ classdef IFboundaries < handle
 %             cellIDArray = repelem(1:numel(cellBoundariesHeight), cellBoundariesHeight);
 %             p.cellBoundaries = array2table([single(cellIDArray'), vertcat(cellBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
             status = true(numel(cellBoundariesArray),numel(p.channels));
-            p.cellBoundaries = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', {'cellID', 'cellBoundary', 'cellBB', 'status'});
+            p.cellBoundaries = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
             p.cellBoundaries.status = true(numel(cellBoundariesArray), 1);
 %             warning('on', 'MATLAB:polyshape:repairedBySimplify')
             warning('on', 'MATLAB:polyshape:boundary3Points')
@@ -214,32 +218,32 @@ classdef IFboundaries < handle
             nucBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), nucBoundariesTmp, 'UniformOutput', false); 
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), nucBoundariesArray, 'UniformOutput', false);
             status = true(numel(nucBoundariesArray), numel(p.channels));
-            p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', {'cellID', 'nucBoundary', 'nucBB', 'status'});
+            p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
         end
         
-%         function outCellBoundaries = getCellBoundariesInRect(p, channel, rect) %rect specified as [x y nrows ncols]
-%             
-%             idx = rectint(p.cellBoundaries2.cellBB,rect)>0 & p.cellBoundaries2{:,channel};
-%             
-%             outCellBoundaries = p.cellBoundaries2(idx,:);
-%         end
-%         
-%         function outNucBoundaries = getNucBoundariesInRect(p,channel, rect) %rect specified as [x y nrows ncols]
-%             
-%             idx = rectint(p.nucBoundaries2.nucBB,rect)>0 & p.nucBoundaries2{:,channel};
-%             
-%             outNucBoundaries = p.nucBoundaries2(idx,:);
-%         end
+        function outCellBoundaries = getCellBoundariesInRect(p, channel, rect) %rect specified as [x y nrows ncols]
+            
+            idx = rectint(p.cellBoundaries2.cellBB,rect)>0 & p.cellBoundaries2{:,channel};
+            
+            outCellBoundaries = p.cellBoundaries2(idx,:);
+        end
         
-        function outNucBoundaries = getNucBoundariesInRect(p, rect) %rect specified as [x y nrows ncols]
+        function outNucBoundaries = getNucBoundariesInRect(p,channel, rect) %rect specified as [x y nrows ncols]
+            
+            idx = rectint(p.nucBoundaries2.nucBB,rect)>0 & p.nucBoundaries2{:,channel};
+            
+            outNucBoundaries = p.nucBoundaries2(idx,:);
+        end
+        
+        function outNucBoundaries = getAllNucBoundariesInRect(p, rect) %rect specified as [x y nrows ncols]
             
             idx = rectint(p.nucBoundaries2.nucBB,rect)>0;
             
             outNucBoundaries = p.nucBoundaries2(idx,:);
         end
         
-        function outCellBoundaries = getCellBoundariesInRect(p, rect) %rect specified as [x y nrows ncols]
+        function outCellBoundaries = getAllCellBoundariesInRect(p, rect) %rect specified as [x y nrows ncols]
             
             idx = rectint(p.cellBoundaries2.cellBB,rect)>0;
             
@@ -282,8 +286,8 @@ classdef IFboundaries < handle
             maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
             maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,'BB'}; %Only query nuclei within mask bouding box
             tmpMaskPoly = polyshape(p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask,{'x', 'y'}});
-            nucTableTmp = p.getNucBoundariesInRect(maskBB);
-            cellTableTmp = p.getCellBoundariesInRect(maskBB);
+            nucTableTmp = p.getAllNucBoundariesInRect(maskBB);
+            cellTableTmp = p.getAllCellBoundariesInRect(maskBB);
             
             nucIDs = nucTableTmp.cellID(overlaps(tmpMaskPoly, nucTableTmp.nucBoundary));
             cellIDs = cellTableTmp.cellID(overlaps(tmpMaskPoly, cellTableTmp.cellBoundary));

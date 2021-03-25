@@ -18,6 +18,9 @@ classdef d2IFView < handle
         quantMetric
         quantLabel
         quantButtons
+        selectionTool
+        selectionButton
+        selectionLabel
         nucleiBordersCheckBox %Check box
         cellBordersCheckBox %Check box
         scatterCheckBox %Check box
@@ -55,9 +58,8 @@ classdef d2IFView < handle
     methods (Access = public)
 
         % Construct app
-        function p = d2IFView(scanObject, maskObject, IFboundaries, IFtable)
+        function p = d2IFView(scanObject, IFboundaries, IFtable)
             p.scanObj = scanObject;
-            p.maskObj = maskObject;
             p.IFboundaries = IFboundaries;
             p.IFtable = IFtable;
 
@@ -99,6 +101,11 @@ classdef d2IFView < handle
             p.quantButtons(3) = uicontrol(p.quantMetric, 'Style','radiobutton', 'String', 'sum nucleus' ,'Units', 'normalized', 'Position', [0.01 0.3 0.9 0.2]);
             p.quantButtons(4) = uicontrol(p.quantMetric, 'Style','radiobutton', 'String', 'sum cytoplasm' ,'Units', 'normalized', 'Position', [0.01 0.05 0.9 0.2]);
             p.quantLabel = uicontrol('Style', 'text', 'String', 'Quantification metric:', 'Units', 'normalized', 'Position', [0.86 0.61 0.07 0.02]);
+            
+            p.selectionTool = uibuttongroup(p.figHandle, 'Units', 'normalized', 'BorderType', 'none', 'Position', [0.87 0.45 0.1111 0.03]);
+            p.selectionButton(1) = uicontrol(p.selectionTool, 'Style','radiobutton', 'String', 'points', 'Units', 'normalized', 'Position', [0.05 0.01 0.4 0.95]);
+            p.selectionButton(2) = uicontrol(p.selectionTool, 'Style','radiobutton', 'String', 'draw' ,'Units', 'normalized', 'Position', [0.55 0.01 0.4 0.95]);
+            p.selectionLabel = uicontrol('Style', 'text', 'String', 'Selection tool:', 'Units', 'normalized', 'Position', [0.885 0.475 0.07 0.02]);
 
             p.nucleiBordersCheckBox = uicontrol('Style', 'checkbox', 'String', 'nuclei (n)', 'Value', true, 'Units', 'normalized', 'Position', [0.65 0.604 0.0722 0.0333]);
             p.cellBordersCheckBox = uicontrol('Style', 'checkbox', 'String', 'cells (c)', 'Value', true, 'Units', 'normalized', 'Position', [0.71 0.604 0.0722 0.0333]);
@@ -135,7 +142,7 @@ classdef d2IFView < handle
         %attach controller
         function startupFcn(p)
 
-            p.mainAxesCntrlr = d2IFController(p, p.scanObj, p.maskObj, p.IFboundaries, p.IFtable);  
+            p.mainAxesCntrlr = d2IFController(p, p.scanObj, p.IFboundaries, p.IFtable);  
             p.attatchMainAxesController(p.mainAxesCntrlr);        
             
             p.thumbAxesCntrlr = d2ThumbnailAxesController(p, p.scanObj, p.IFtable);  

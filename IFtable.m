@@ -210,8 +210,8 @@ classdef IFtable < handle
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
             tmpPoly = polyshape(polyXY+rect(1:2));
             polyBB = d2utils.polyshapeBoundingBox(tmpPoly);
-            cellBoundariesInView = p.IFboundaries.getCellBoundariesInRect(polyBB);
-            nucBoundariesInView = p.IFboundaries.getNucBoundariesInRect(polyBB);
+            cellBoundariesInView = p.IFboundaries.getAllCellBoundariesInRect(polyBB);
+            nucBoundariesInView = p.IFboundaries.getAllNucBoundariesInRect(polyBB);
 
             if isempty(cellBoundariesInView)
                 cellOverlapIdx = false;
@@ -237,7 +237,7 @@ classdef IFtable < handle
                     cellPoly = tmpPoly.polybuffer(p.radius);
                     cellPoly = polyshape(round(cellPoly.Vertices));
                     %Need to subtract neighboring nuclei
-                    tmpNucleiInRect = p.IFboundaries.getNucBoundariesInRect(tmpBB);
+                    tmpNucleiInRect = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
                     cellPoly = subtract(cellPoly,tmpNucleiInRect.nucBoundary);
                 else
 %                     tmpCytoMask = false(size(tmpDapiMask));
@@ -376,8 +376,8 @@ classdef IFtable < handle
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
             tmpPoly = polyshape(polyXY+rect(1:2));
             polyBB = d2utils.polyshapeBoundingBox(tmpPoly);
-            cellBoundariesInView = p.IFboundaries.getCellBoundariesInRect(polyBB);
-            nucBoundariesInView = p.IFboundaries.getNucBoundariesInRect(polyBB);
+            cellBoundariesInView = p.IFboundaries.getAllCellBoundariesInRect(polyBB);
+            nucBoundariesInView = p.IFboundaries.getAllNucBoundariesInRect(polyBB);
             
             if isempty(cellBoundariesInView)
                 cellOverlapIdx = false;
@@ -485,12 +485,18 @@ classdef IFtable < handle
             end
         end
         
-        function p = deleteNuc(p, points, rect)
-            %Get nuclei in view
-            nucsInView = p.IFboundaries.getNucBoundariesInRect(rect);
-            %Which cellIDs have points isinterior
-            nucIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), nucsInView.nucBoundary);
-            cellIDsToDelete = nucsInView.cellID(nucIdx);
+        function p = deleteNuc(p, points, rect, inROI)
+            if inROI
+                tmpPoly = polyshape(points);
+                tmpBB = d2utils.polygonBoundingBox(tmpPoly);
+                nucsInView = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
+                nucIdx = overlaps(tmpPoly, nucsInView.nucBoundary);
+                cellIDsToDelete = nucsInView.cellID(nucIdx);
+            else
+                nucsInView = p.IFboundaries.getAllNucBoundariesInRect(rect);
+                nucIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), nucsInView.nucBoundary);
+                cellIDsToDelete = nucsInView.cellID(nucIdx);
+            end
             %Delete nuc poly, set all channels to false and requant cyto IF. 
             for i = 1:numel(cellIDsToDelete)
                 if p.IFboundaries.cellBoundaries2{p.IFboundaries.cellBoundaries2.cellID == cellIDsToDelete(i), 'cellBoundary'}.NumRegions %Is the polyshape nonempty
@@ -512,14 +518,19 @@ classdef IFtable < handle
                 end
             end
         end
-        
-        function p = deleteCell(p, points, rect)
-            %Get cells in view
-            cellsInView = p.IFboundaries.getCellBoundariesInRect(rect);
-            %Which cellIDs have points isinterior
-            cellIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), cellsInView.cellBoundary);
-            cellIDsToDelete = cellsInView.cellID(cellIdx);
-            %Delete cell poly and set cyto IF to 0.
+
+        function p = deleteCell(p, points, rect, inROI)
+            if inROI
+                tmpPoly = polyshape(points);
+                tmpBB = d2utils.polygonBoundingBox(tmpPoly);
+                cellsInView = p.IFboundaries.getAllCellBoundariesInRect(tmpBB);
+                cellIdx = overlaps(tmpPoly, cellsInView.cellBoundary);
+                cellIDsToDelete = cellsInView.cellID(cellIdx);
+            else
+                cellsInView = p.IFboundaries.getAllCellBoundariesInRect(rect);
+                cellIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), cellsInView.cellBoundary);
+                cellIDsToDelete = cellsInView.cellID(cellIdx);
+            end
             for i = 1:numel(cellIDsToDelete)
                 if p.IFboundaries.nucBoundaries2{p.IFboundaries.nucBoundaries2.cellID == cellIDsToDelete(i), 'nucBoundary'}.NumRegions %Is the polyshape nonempty
                     cellIdx = p.IFboundaries.cellBoundaries2.cellID == cellIDsToDelete(i);
@@ -533,21 +544,24 @@ classdef IFtable < handle
                     p.IFquant(p.IFquant.cellID == cellIDsToDelete(i),:) = [];
                 end
             end
-            
         end
         
-        function p = deleteNucAndCell(p, points, rect)
-            %Get nuclei in view
-            nucsInView = p.IFboundaries.getNucBoundariesInRect(rect);
-            %Which cellIDs have points isinterior
-            nucIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), nucsInView.nucBoundary);
-            nucIDsToDelete = nucsInView.cellID(nucIdx);
-            %Get cells in view
-            cellsInView = p.IFboundaries.getCellBoundariesInRect(rect);
-            %Which cellIDs have points isinterior
-            cellIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), cellsInView.cellBoundary);
-            cellIDsToDelete = cellsInView.cellID(cellIdx);
-            cellIDsToDelete = union(cellIDsToDelete, nucIDsToDelete);
+        function p = deleteNucAndCell(p, points, rect, inROI)
+            if inROI
+                tmpPoly = polyshape(points);
+                tmpBB = d2utils.polygonBoundingBox(tmpPoly);
+                cellsInView = p.IFboundaries.getAllCellBoundariesInRect(tmpBB);
+                cellIdx = overlaps(tmpPoly, cellsInView.cellBoundary);
+                nucsInView = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
+                nucIdx = overlaps(tmpPoly, nucsInView.nucBoundary);
+                cellIDsToDelete = union(nucsInView.cellID(nucIdx), cellsInView.cellID(cellIdx));
+            else
+                nucsInView = p.IFboundaries.getAllNucBoundariesInRect(rect);
+                nucIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), nucsInView.nucBoundary);
+                cellsInView = p.IFboundaries.getAllCellBoundariesInRect(rect);
+                cellIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), cellsInView.cellBoundary);
+                cellIDsToDelete = union(nucsInView.cellID(nucIdx), cellsInView.cellID(cellIdx));
+            end
             %Delete cells entirely.
             p.IFboundaries.nucBoundaries2(ismember(p.IFboundaries.nucBoundaries2.cellID, cellIDsToDelete), :) = [];
             p.IFboundaries.cellBoundaries2(ismember(p.IFboundaries.cellBoundaries2.cellID, cellIDsToDelete), :) = [];
