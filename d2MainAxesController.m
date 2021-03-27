@@ -387,9 +387,9 @@ classdef d2MainAxesController < handle
         function maskSpots(p, roi, channel)
             %tmpPoly = roi.Position;
             set(p.viewObj.masksCheckBox, 'Value', true)
-            p.maskObj.addMaskLocalCoords(roi.Position, channel);
+            newMaskID = p.maskObj.addMaskLocalCoords(roi.Position, channel);
             delete(roi)
-            p.spotTable.addNewMask(channel);
+            p.spotTable.addNewMask(channel, newMaskID);
             p.spotTable.updateSpotStatus(channel);
             p.spotTable.updateCentroidList(channel);
             p.updateCentroidListView();
@@ -411,9 +411,9 @@ classdef d2MainAxesController < handle
         
         function maskCells(p, roi)
             %tmpPoly = roi.Position;
-            p.maskObj.addMaskLocalCoords(roi.Position, 'dapi');
+            newMaskID = p.maskObj.addMaskLocalCoords(roi.Position, 'dapi');
             delete(roi)
-            p.nucleiObj.addNewMask();
+            p.nucleiObj.addNewMask(newMaskID);
             p.spotTable.assignSpotsInRect(p.viewRect); 
             p.spotTable.updateAllSpotStatus();
             p.spotTable.makeCentroidList();
@@ -430,7 +430,7 @@ classdef d2MainAxesController < handle
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
             if ~isempty(x)  
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
-                p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
+                deletedMasks = p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
                 p.nucleiObj.removeMasks();
                 p.spotTable.removeMasks2(channel, p.viewRect);
                 if p.nucleiObj.nucleiChanged %Kinda ugly. Should write something better. Could make separate buttons for cell masks and spot masks

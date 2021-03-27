@@ -67,7 +67,7 @@ classdef maskTable < handle
 
         end
         
-        function p = addMaskLocalCoords(p,maskPoly,channel)
+        function tempMaskID = addMaskLocalCoords(p,maskPoly,channel)
             
             tempMaskID = single(max(p.masks.maskID)+1);
             
@@ -154,13 +154,15 @@ classdef maskTable < handle
             end
         end
         
-        function p = removeMasksByLocalPoints(p, points, rect)
+        function removedMaskIDs = removeMasksByLocalPoints(p, points, rect)
             masksInRect = p.getAllMasksInRect(rect);
             maskIDs = unique(masksInRect.maskID);
             maskIDs(maskIDs==0) = [];
+            removedMaskIDs = [];
             for i = 1:numel(maskIDs)
                 if any(inpolygon(points(:,2), points(:,1), masksInRect{masksInRect.maskID == maskIDs(i), 'x'}, masksInRect{masksInRect.maskID == maskIDs(i), 'y'}))
                     p.removeMasks(maskIDs(i));
+                    removedMaskIDs = [removedMaskIDs, maskIDs(i)];
                 end
             end
         end

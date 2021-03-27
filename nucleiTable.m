@@ -330,8 +330,8 @@ classdef nucleiTable < handle
             p.addEmptyRows(1000);
         end
         
-        function p = addNewMask(p)
-            maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
+        function p = addNewMask(p, maxCellMask)
+%             maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
             maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,{'BB'}}; %Only query nuclei within mask bouding box
             %polyRect = d2utils.boundingCorners2Rect(maskBB);
             

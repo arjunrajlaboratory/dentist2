@@ -1,7 +1,7 @@
 scanSummaryFile = 'scanSummary.txt';
 masksFile = 'masks.csv';
 nucleiFile = 'nuclei.csv';
-spotsFile = 'spots2.csv';
+spotsFile = 'spots.csv';
 stitchedScansFile = 'stitchedScans.mat';
 %----------------------------------------------------------------
 %
@@ -56,16 +56,17 @@ else
     disp('Saving nuclei file.')
     nucleiObj.saveNucleiTable();
 end
-    
+nucleiObj.updateAllMasks();    
 %----------------------------------------------------------------
 % 
 if isfile(spotsFile)
-    spotsObj = spotTable(scanObj, maskObj, nucleiObj, scanSummaryFile, 'spots2.csv');
+    spotsObj = spotTable(scanObj, maskObj, nucleiObj, scanSummaryFile, spotsFile);
 else
     fprintf('Unable to find %s in your current directory. Creating a new spots object\n', spotsFile)
     spotsObj = spotTable(scanObj, maskObj, nucleiObj, scanSummaryFile);
     disp('Finding spots. This may take several minutes.')
     spotsObj.findSpots3();
+    spotsObj.maskBorderSpots();
     disp('Finished finding spots')
     spotsObj.assignSpotsToNuclei();
 end
@@ -75,6 +76,7 @@ if isempty(spotsObj.thresholds)
 end
 
 spotsObj.updateScanSummary();
+spotsObj.updateAllMasks();
 spotsObj.updateAllSpotStatus();
 spotsObj.makeCentroidList();
 

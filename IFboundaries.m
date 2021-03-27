@@ -282,12 +282,12 @@ classdef IFboundaries < handle
             p.cellBoundaries2{cellBoundaryIdx, p.channels} = true(1, numel(p.channels));
         end
         
-        function p = maskCells(p)
-            maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
-            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,'BB'}; %Only query nuclei within mask bouding box
-            tmpMaskPoly = polyshape(p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask,{'x', 'y'}});
-            nucTableTmp = p.getAllNucBoundariesInRect(maskBB);
-            cellTableTmp = p.getAllCellBoundariesInRect(maskBB);
+        function cellIDToMask = addCellMask(p, channel, maskPosition)
+            tmpBB = d2utils.polygonBoundingBox(fliplr(maskPosition));
+            tmpMaskPoly = polyshape(fliplr(maskPosition));
+            
+            nucTableTmp = p.getNucBoundariesInRect(channel, tmpBB)
+            cellTableTmp = p.getCellBoundariesInRect(channel, tmpBB)
             
             nucIDs = nucTableTmp.cellID(overlaps(tmpMaskPoly, nucTableTmp.nucBoundary));
             cellIDs = cellTableTmp.cellID(overlaps(tmpMaskPoly, cellTableTmp.cellBoundary));
@@ -295,11 +295,9 @@ classdef IFboundaries < handle
             
             nucIdx = ismember(p.nucBoundaries2.cellID, cellIDToMask);
             p.nucBoundaries2{nucIdx, channel} = false;
-%             p.nucBoundaries2{nucIdx, 'maskID'} = false;
             
             cellIdx = ismember(p.cellBoundaries2.cellID, cellIDToMask);
             p.cellBoundaries2{cellIdx, channel} = false;
-%             p.cellBoundaries2{cellIdx, 'maskID'} = false;
         end
 
 %         function p = maskCellsInChannel(p, channel)

@@ -165,13 +165,14 @@ classdef d2IFView < handle
             p.dapiCheckBox.Callback = {@controller.updateMainAxes};
             p.IFCheckBox.Callback = {@controller.updateMainAxes};
             p.quantMetric.SelectionChangedFcn = {@controller.quantMetricChanged};
+            p.selectionTool.SelectionChangedFcn = {@controller.selectionToolChanged};
 %             p.masksCheckBox.Callback = {@controller.overlayMasks};
             p.addNucAndCellButton.Callback = {@controller.addNucAndCell};
             p.addNucButton.Callback = {@controller.addEmptyNuc};
             p.addCellButton.Callback = {@controller.addCell};
             p.deleteCellButton.Callback = {@controller.deleteCell};
             p.deleteNucButton.Callback = {@controller.deleteNuc};
-%             p.maskSpotsButton.Callback = {@controller.addSpotMask};
+            p.maskCellButton.Callback = {@controller.addCellMask};
             p.maskImgButton.Callback = {@controller.addImgMask};
 %             p.deleteMaskButton.Callback = {@controller.deleteMask};
             p.zoomAxes.Callback = {@controller.zoomInPressed};

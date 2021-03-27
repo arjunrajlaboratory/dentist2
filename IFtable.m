@@ -487,11 +487,13 @@ classdef IFtable < handle
         
         function p = deleteNuc(p, points, rect, inROI)
             if inROI
-                tmpPoly = polyshape(points);
-                tmpBB = d2utils.polygonBoundingBox(tmpPoly);
+                warning('off', 'MATLAB:polyshape:repairedBySimplify')
+                tmpPoly = polyshape(fliplr(points));
+                tmpBB = d2utils.polyshapeBoundingBox(tmpPoly)
                 nucsInView = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
                 nucIdx = overlaps(tmpPoly, nucsInView.nucBoundary);
-                cellIDsToDelete = nucsInView.cellID(nucIdx);
+                cellIDsToDelete = nucsInView.cellID(nucIdx)
+                warning('on', 'MATLAB:polyshape:repairedBySimplify')
             else
                 nucsInView = p.IFboundaries.getAllNucBoundariesInRect(rect);
                 nucIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), nucsInView.nucBoundary);
@@ -521,11 +523,13 @@ classdef IFtable < handle
 
         function p = deleteCell(p, points, rect, inROI)
             if inROI
-                tmpPoly = polyshape(points);
-                tmpBB = d2utils.polygonBoundingBox(tmpPoly);
+                warning('off', 'MATLAB:polyshape:repairedBySimplify')
+                tmpPoly = polyshape(fliplr(points));
+                tmpBB = d2utils.polyshapeBoundingBox(tmpPoly);
                 cellsInView = p.IFboundaries.getAllCellBoundariesInRect(tmpBB);
                 cellIdx = overlaps(tmpPoly, cellsInView.cellBoundary);
                 cellIDsToDelete = cellsInView.cellID(cellIdx);
+                warning('on', 'MATLAB:polyshape:repairedBySimplify')
             else
                 cellsInView = p.IFboundaries.getAllCellBoundariesInRect(rect);
                 cellIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), cellsInView.cellBoundary);
@@ -548,13 +552,15 @@ classdef IFtable < handle
         
         function p = deleteNucAndCell(p, points, rect, inROI)
             if inROI
-                tmpPoly = polyshape(points);
-                tmpBB = d2utils.polygonBoundingBox(tmpPoly);
+                warning('off', 'MATLAB:polyshape:repairedBySimplify')
+                tmpPoly = polyshape(fliplr(points));
+                tmpBB = d2utils.polyshapeBoundingBox(tmpPoly);
                 cellsInView = p.IFboundaries.getAllCellBoundariesInRect(tmpBB);
                 cellIdx = overlaps(tmpPoly, cellsInView.cellBoundary);
                 nucsInView = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
                 nucIdx = overlaps(tmpPoly, nucsInView.nucBoundary);
                 cellIDsToDelete = union(nucsInView.cellID(nucIdx), cellsInView.cellID(cellIdx));
+                warning('on', 'MATLAB:polyshape:repairedBySimplify')
             else
                 nucsInView = p.IFboundaries.getAllNucBoundariesInRect(rect);
                 nucIdx = arrayfun(@(x) any(isinterior(x, points(:,2), points(:,1))), nucsInView.nucBoundary);
@@ -653,6 +659,30 @@ classdef IFtable < handle
             outTable = p.centroidLists{channelIdx}(centroidIdx,:);
         end
         
+        function p = addCellMask(p, channel, cellIDs, maxCellMask)
+%             maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
+%             maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,{'BB'}}; %Only query nuclei within mask bouding box
+            %polyRect = d2utils.boundingCorners2Rect(maskBB);
+            
+            cellIdx = ismember(p.IFquant.cellID, cellIDs) & p.IFquant{:,channel};
+            p.IFquant{cellIdx, 'status'} = false;
+            p.IFquant{cellIdx, 'maskID'} = maxCellMask;
+        end
+        
+        function p = removeCellMasks(p, cellMaskIDs, channel)
+            idx = ismember(p.IFquant.maskID, cellMaskIDs) & p.IFquant{:,channel};
+            p.IFquant.maskID(idx) = single(0);
+            p.IFquant.status(idx) = true;
+            cellIDs = p.IFquant.cellID(idx);
+            cellBoundaryIdx = ismember(p.IFboundaries.cellBoundaries2.cellID, cellIDs);
+            p.IFboundaries.cellBoundaries2{cellBoundaryIdx,channel} = true;
+            nucBoundaryIdx = ismember(p.IFboundaries.nucBoundaries2.cellID, cellIDs);
+            p.IFboundaries.nucBoundaries2{nucBoundaryIdx,channel} = true;
+        end
+        
+        function p = removeImgMasks(p, removeMask, channel)
+            
+        end
         
         function p = updateAllMasks(p) %This will overwrite previous maskIDs in nuclei. 
             
@@ -671,20 +701,7 @@ classdef IFtable < handle
             p.addEmptyRows(1000);
         end
         
-        function p = addNewMask(p)
-            maxCellMask = max(p.maskObj.masksBB{p.maskObj.masksBB.dapi,'maskID'});
-            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxCellMask,{'BB'}}; %Only query nuclei within mask bouding box
-            %polyRect = d2utils.boundingCorners2Rect(maskBB);
-            
-            nucIdx = p.getNucleiInRectIdx(maskBB);
-            polyIdx = inpolygon(p.nuclei.x(nucIdx), p.nuclei.y(nucIdx),...
-                p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxCellMask, 'y'});
-            
-            nucIdx(nucIdx) = polyIdx; %Only nuclei in polygon remain true
-            p.nuclei.maskID(nucIdx) = maxCellMask;
-            p.nuclei.status(nucIdx) = false;
-            
-        end
+        
        
         function p = updateMasksInRect(p, localRect) 
             %Use for removing masks or if we want to change multiple masks before updating nuclei

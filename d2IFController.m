@@ -87,7 +87,7 @@ classdef d2IFController < handle
                 p.showImage();
                 p.overlayNuclei();
                 p.overlayCells();
-%                 p.overlayMasks();
+                p.overlayMasks();
             end
         end
         
@@ -117,6 +117,15 @@ classdef d2IFController < handle
             newCellIdx = find(p.IFtable.centroidLists{p.channelIdx}.cellID == cellID);
             set(p.viewObj.centroidList, 'Value', newCellIdx);
             p.updateMainAxes();
+        end
+        
+        function selectionToolChanged(p, ~, evt)
+            switch(evt.NewValue.String)
+                case 'draw'
+                    p.deleteROI = true;
+                case 'points' 
+                    p.deleteROI = false;
+            end
         end
         
         function plotScatterMain(p)
@@ -350,20 +359,24 @@ classdef d2IFController < handle
         
         function overlayMasks(p, ~, ~)
             if logical(p.viewObj.masksCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
-                imgMasksTmp = p.IFtable.maskObj.getChannelMasksInRect(p.viewRect, p.spotTable.spotChannels{p.channelIdx});
+                imgMasksTmp = p.IFtable.maskObj.getChannelMasksInRect(p.viewRect, p.IFtable.channels{p.channelIdx});
                 imgMasksTmp(imgMasksTmp.maskID == 0,:) = [];
-                [imgMaskXmat, imgMaskYmat] = d2utils.masktable2patchMats(imgMasksTmp);
-                
-                cellMasksTmp = p.IFboundaries.maskObj.getChannelMasksInRect(p.viewRect, p.spotTable.spotChannels{p.channelIdx});
+                if ~isempty(imgMasksTmp)
+                    [imgMaskXmat, imgMaskYmat] = d2utils.masktable2patchMats(imgMasksTmp);
+                    hold(p.viewObj.mainAxes, 'on')
+                    p.imgMaskH = patch(imgMaskYmat, imgMaskXmat, 'black',...
+                        'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'imgMask');
+                    hold(p.viewObj.mainAxes, 'off')
+                end
+                cellMasksTmp = p.IFboundaries.maskObj.getChannelMasksInRect(p.viewRect, p.IFboundaries.channels{p.channelIdx});
                 cellMasksTmp(cellMasksTmp.maskID == 0,:) = [];
-                [cellMaskXmat, cellMaskYmat] = d2utils.masktable2patchMats(cellMasksTmp);
-                
-                hold(p.viewObj.mainAxes, 'on')
-                p.imgMaskH = patch(imgMaskYmat, imgMaskXmat, 'black',...
-                    'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'imgMask');
-                p.cellMaskH = patch(cellMaskYmat, cellMaskXmat, 'gray',...
-                    'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'cellMask');
-                hold(p.viewObj.mainAxes, 'off')
+                if ~isempty(cellMasksTmp)
+                    [cellMaskXmat, cellMaskYmat] = d2utils.masktable2patchMats(cellMasksTmp);
+                    hold(p.viewObj.mainAxes, 'on')
+                    p.cellMaskH = patch(cellMaskYmat, cellMaskXmat, [0.6 0.6 0.6],...
+                        'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'cellMask');
+                    hold(p.viewObj.mainAxes, 'off')
+                end
 %                 maskIDs(maskIDs == 0) = [];
 %                 for i = 1:numel(maskIDs)
 %                     drawfreehand(p.viewObj.mainAxes, 'Position', maskTableTmp{maskTableTmp.maskID == maskIDs(i), {'y', 'x'}},...
@@ -554,19 +567,36 @@ classdef d2IFController < handle
         
         function maskCellInChannel(p, maskPosition, channel)
             set(p.viewObj.masksCheckBox, 'Value', true)
-            p.IFboundaries.maskObj.addMaskLocalCoords(maskPosition, channel);
+            newMaskID = p.IFboundaries.maskObj.addMaskLocalCoords(maskPosition, channel)
             delete(p.maskH)
-            %Find cells and nuclei in maskBB
-            tmpBB = d2utils.polygonBoundingBox(fliplr(maskPosition));
-            nucTableTmp = p.getNucBoundariesInRect(p.IFboundaries.channels(p.channelIdx), tmpBB);
-            cellTableTmp = p.getCellBoundariesInRect(p.IFboundaries.channels(p.channelIdx), tmpBB);
-            tmpCellIDs = union(nucTableTmp.cellID, cellTableTmp.cellID);
-            %Update IF boundaries channel status
-            %Update IF table status and maskID for cells
-            
+            cellIDs = p.IFboundaries.addCellMask(channel, maskPosition);
+            p.IFtable.addCellMask(channel, cellIDs, newMaskID);
             p.IFtable.updateCentroidList(p.IFtable.channels(p.channelIdx), p.quantMetricDict(p.quantMetric));
             p.updateCentroidListView();
             p.updateMainAxes();
+        end
+        
+        function deleteMask(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
+            [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
+            if ~isempty(x)  
+                ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
+                cellMaskIDs = p.IFboundaries.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
+                if ~isempty(cellMaskIDs)
+                    p.IFtable.removeCellMasks(cellMaskIDs, p.IFboundaries.channel(p.channelIdx));
+                end
+                imgMaskIDs = p.IFtable.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
+                if ~isempty(imgMaskIDs)
+                    p.IFtable.removeImgMasks(imgMaskIDs, p.IFboundaries.channel(p.channelIdx));
+                end
+                p.IFtable.updateCentroidList(p.IFtable.channels(p.channelIdx), p.quantMetricDict(p.quantMetric));
+                p.updateCentroidListView();
+                p.updateMainAxes();
+            end
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'on')
         end
         
         function type = getSelectionType(p)

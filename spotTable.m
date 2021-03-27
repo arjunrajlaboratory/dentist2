@@ -71,6 +71,8 @@ classdef spotTable < handle
             
             [spotsInRect, spotIdx] = p.getAllSpotsInRect(rect);
             nucleiNearRect = p.nucleiObj.getNucleiNearRect(rect, p.maxDistance);
+            if any(spotIdx) && ~isempty(nucleiNearRect)
+            end
             [nucIdx, dist] = knnsearch([nucleiNearRect.x nucleiNearRect.y], [spotsInRect.x spotsInRect.y], 'K', 1, 'Distance', 'euclidean');
             
             p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
@@ -151,9 +153,8 @@ classdef spotTable < handle
             
         end
         
-        function p = addNewMask(p, channel)
-            
-            maxSpotMask = max(p.maskObj.masks{p.maskObj.masks{:,channel},'maskID'});
+        function p = addNewMask(p, channel, maxSpotMask)
+%             maxSpotMask = max(p.maskObj.masks{p.maskObj.masks{:,channel},'maskID'});
             maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxSpotMask,{'BB'}}; %Only query spots within mask bouding box
             %polyRect = d2utils.boundingCorners2Rect(maskBB);
             spotIdx = p.getSpotsInRectIndex(channel, maskBB);
@@ -165,7 +166,6 @@ classdef spotTable < handle
             p.spots.maskID(spotIdx) = maxSpotMask;
             p.spots.status(spotIdx) = false;
             %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
-            
         end
         
         function p = updateMasksInRect(p, channel, localRect) 
