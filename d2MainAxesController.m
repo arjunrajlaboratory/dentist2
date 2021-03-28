@@ -430,7 +430,7 @@ classdef d2MainAxesController < handle
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
             if ~isempty(x)  
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
-                deletedMasks = p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
+                p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
                 p.nucleiObj.removeMasks();
                 p.spotTable.removeMasks2(channel, p.viewRect);
                 if p.nucleiObj.nucleiChanged %Kinda ugly. Should write something better. Could make separate buttons for cell masks and spot masks

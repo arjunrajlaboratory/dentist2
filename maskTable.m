@@ -154,17 +154,21 @@ classdef maskTable < handle
             end
         end
         
-        function removedMaskIDs = removeMasksByLocalPoints(p, points, rect)
+        function varargout = removeMasksByLocalPoints(p, points, rect)
             masksInRect = p.getAllMasksInRect(rect);
             maskIDs = unique(masksInRect.maskID);
             maskIDs(maskIDs==0) = [];
             removedMaskIDs = [];
+            removedMaskBB = {};
             for i = 1:numel(maskIDs)
                 if any(inpolygon(points(:,2), points(:,1), masksInRect{masksInRect.maskID == maskIDs(i), 'x'}, masksInRect{masksInRect.maskID == maskIDs(i), 'y'}))
-                    p.removeMasks(maskIDs(i));
+                    removedMaskBB = [removedMaskBB, p.masksBB{p.masksBB.maskID == maskIDs(i),'BB'}];
                     removedMaskIDs = [removedMaskIDs, maskIDs(i)];
+                    p.removeMasks(maskIDs(i));
                 end
             end
+            varargout{1} = removedMaskIDs;
+            varargout{2} = removedMaskBB;
         end
         
         function p = allMasks2BB(p)

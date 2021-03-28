@@ -82,11 +82,13 @@ classdef IFtable < handle
                 for ii = 1:numel(channelsToQaunt)
                     stitchIdx = ismember(p.channels, channelsToQaunt(ii)); %Redundant in some cases but flexible
                     tmpImage = p.scanObj.stitchedScans.stitches{stitchIdx}(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
-                    tmpMasks = p.maskObj.getChannelMasksInRect([tmpStart, tmpEnd - tmpStart], channelsToQaunt(ii));
+                    tmpSz = tmpEnd - tmpStart;
+                    tmpMasks = p.maskObj.getChannelMasksInRect([tmpStart, tmpSz], channelsToQaunt(ii));
                     if ~isempty(tmpMasks)
+                        tmpMasks = convertvars(tmpMasks, {'x', 'y'}, 'double');
                         maskIDs = unique(tmpMasks.maskID);
                         for iii = 1:numel(maskIDs)
-                            bwmask = poly2mask(tmpMasks{tmpMasks.maskID == maskIDs(iii), 'x'}, tmpMasks{tmpMasks.maskID == maskIDs(iii), 'y'}, size(tmpDapiMask, 1), size(tmpDapiMask, 2));
+                            bwmask = poly2mask(tmpMasks{tmpMasks.maskID == maskIDs(iii), 'y'}-tmpStart(2), tmpMasks{tmpMasks.maskID == maskIDs(iii), 'x'}-tmpStart(1), tmpSz(1), tmpSz(2));
                             tmpDapiMask(bwmask) = false;
                             tmpCytoMask(bwmask) = false;
                         end
@@ -489,10 +491,10 @@ classdef IFtable < handle
             if inROI
                 warning('off', 'MATLAB:polyshape:repairedBySimplify')
                 tmpPoly = polyshape(fliplr(points));
-                tmpBB = d2utils.polyshapeBoundingBox(tmpPoly)
+                tmpBB = d2utils.polyshapeBoundingBox(tmpPoly);
                 nucsInView = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
                 nucIdx = overlaps(tmpPoly, nucsInView.nucBoundary);
-                cellIDsToDelete = nucsInView.cellID(nucIdx)
+                cellIDsToDelete = nucsInView.cellID(nucIdx);
                 warning('on', 'MATLAB:polyshape:repairedBySimplify')
             else
                 nucsInView = p.IFboundaries.getAllNucBoundariesInRect(rect);
@@ -592,14 +594,14 @@ classdef IFtable < handle
         
         function p = requantCellChannel(p, channel, cellIDs)
             for i = 1:numel(cellIDs)
-                nucPoly = p.IFboundaries.nucBoundaries2.nucBoundary(p.IFboundaries.nucBoundaries2.cellID == cellID);
-                cellPoly = p.IFboundaries.cellBoundaries2.cellBoundary(p.IFboundaries.cellBoundaries2.cellID == cellID);
+                nucPoly = p.IFboundaries.nucBoundaries2.nucBoundary(p.IFboundaries.nucBoundaries2.cellID == cellIDs(i));
+                cellPoly = p.IFboundaries.cellBoundaries2.cellBoundary(p.IFboundaries.cellBoundaries2.cellID == cellIDs(i));
                 tmpBB = d2utils.polyshapeBoundingBox(union(nucPoly, cellPoly)); %Union in case nuclei boundary extends beyond cell boundary
                 tmpDapiMask = d2utils.polyvect2mask(tmpBB(3:4), regions(nucPoly), tmpBB(1:2), 'flip', true);
                 tmpCellMask = d2utils.polyvect2mask(tmpBB(3:4), regions(cellPoly), tmpBB(1:2), 'flip', true);
                 tmpCytoMask = tmpCellMask & ~tmpDapiMask;
                 %Update IF quant table
-                cellChannelIdx = p.IFquant.cellID == cellID & p.IFquant{:,channel};
+                cellChannelIdx = p.IFquant.cellID == cellIDs(i) & p.IFquant{:,channel};
                 [meanNuc, meanCyto, sumNuc, sumCyto] = p.quantCellInChannel(tmpDapiMask, tmpCytoMask, tmpBB, channel);
                 p.IFquant{cellChannelIdx,{'meanNuc', 'meanCyto', 'sumNuc', 'sumCyto'}} = [meanNuc, meanCyto, sumNuc, sumCyto];
             end
@@ -609,9 +611,10 @@ classdef IFtable < handle
             tmpImg = p.scanObj.getImageRect(channel, rect);
             tmpMasks = p.maskObj.getChannelMasksInRect(rect, channel);
             if ~isempty(tmpMasks)
+                tmpMasks = convertvars(tmpMasks, {'x', 'y'}, 'double');
                 maskIDs = unique(tmpMasks.maskID);
                 for i = 1:numel(maskIDs)
-                    bwmask = poly2mask(tmpMasks{tmpMasks.maskID == maskIDs(i), 'x'}, tmpMasks{tmpMasks.maskID == maskIDs(i), 'y'}, size(tmpDapiMask, 1), size(tmpDapiMask, 2));
+                    bwmask = poly2mask(tmpMasks{tmpMasks.maskID == maskIDs(i), 'y'}-rect(2), tmpMasks{tmpMasks.maskID == maskIDs(i), 'x'}-rect(1), rect(3), rect(4));
                     dapiMask(bwmask) = false;
                     cytoMask(bwmask) = false;
                 end
@@ -680,8 +683,13 @@ classdef IFtable < handle
             p.IFboundaries.nucBoundaries2{nucBoundaryIdx,channel} = true;
         end
         
-        function p = removeImgMasks(p, removeMask, channel)
-            
+        function p = requantCellsInBB(p, imgMaskBB, channel)
+            for i = 1:numel(imgMaskBB)
+                nucTableTmp = p.IFboundaries.getNucBoundariesInRect(channel, imgMaskBB{i});
+                cellTableTmp = p.IFboundaries.getCellBoundariesInRect(channel, imgMaskBB{i});
+                tmpCellIDs = union(nucTableTmp.cellID, cellTableTmp.cellID);
+                p.requantCellChannel(channel, tmpCellIDs);
+            end
         end
         
         function p = updateAllMasks(p) %This will overwrite previous maskIDs in nuclei. 

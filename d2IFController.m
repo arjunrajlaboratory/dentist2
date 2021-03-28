@@ -538,10 +538,7 @@ classdef d2IFController < handle
             delete(p.maskH)
             %Find cells and nuclei in maskBB
             tmpBB = d2utils.polygonBoundingBox(fliplr(maskPosition));
-            nucTableTmp = p.getNucBoundariesInRect(p.IFboundaries.channels(p.channelIdx), tmpBB);
-            cellTableTmp = p.getCellBoundariesInRect(p.IFboundaries.channels(p.channelIdx), tmpBB);
-            tmpCellIDs = union(nucTableTmp.cellID, cellTableTmp.cellID);
-            p.IFtable.requantCellChannel(p.IFtable.channels(p.channelIdx), tmpCellIDs);
+            p.IFtable.requantCellsInBB({tmpBB}, p.IFtable.channels(p.channelIdx));
             p.IFtable.updateCentroidList(p.IFtable.channels(p.channelIdx), p.quantMetricDict(p.quantMetric));
             p.updateCentroidListView();
             p.updateMainAxes();
@@ -567,7 +564,7 @@ classdef d2IFController < handle
         
         function maskCellInChannel(p, maskPosition, channel)
             set(p.viewObj.masksCheckBox, 'Value', true)
-            newMaskID = p.IFboundaries.maskObj.addMaskLocalCoords(maskPosition, channel)
+            newMaskID = p.IFboundaries.maskObj.addMaskLocalCoords(maskPosition, channel);
             delete(p.maskH)
             cellIDs = p.IFboundaries.addCellMask(channel, maskPosition);
             p.IFtable.addCellMask(channel, cellIDs, newMaskID);
@@ -578,25 +575,26 @@ classdef d2IFController < handle
         
         function deleteMask(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
             if ~isempty(x)  
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
                 cellMaskIDs = p.IFboundaries.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
                 if ~isempty(cellMaskIDs)
-                    p.IFtable.removeCellMasks(cellMaskIDs, p.IFboundaries.channel(p.channelIdx));
+                    p.IFtable.removeCellMasks(cellMaskIDs, p.IFboundaries.channels(p.channelIdx));
                 end
-                imgMaskIDs = p.IFtable.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
-                if ~isempty(imgMaskIDs)
-                    p.IFtable.removeImgMasks(imgMaskIDs, p.IFboundaries.channel(p.channelIdx));
+                [~,imgMaskBB] = p.IFtable.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
+                if ~isempty(imgMaskBB)
+                    p.IFtable.requantCellsInBB(imgMaskBB, p.IFtable.channels(p.channelIdx));
                 end
                 p.IFtable.updateCentroidList(p.IFtable.channels(p.channelIdx), p.quantMetricDict(p.quantMetric));
                 p.updateCentroidListView();
                 p.updateMainAxes();
             end
-            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
-                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'on')
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
         function type = getSelectionType(p)

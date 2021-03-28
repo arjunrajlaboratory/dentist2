@@ -174,7 +174,7 @@ classdef d2IFView < handle
             p.deleteNucButton.Callback = {@controller.deleteNuc};
             p.maskCellButton.Callback = {@controller.addCellMask};
             p.maskImgButton.Callback = {@controller.addImgMask};
-%             p.deleteMaskButton.Callback = {@controller.deleteMask};
+            p.deleteMaskButton.Callback = {@controller.deleteMask};
             p.zoomAxes.Callback = {@controller.zoomInPressed};
             p.panAxes.Callback = {@controller.panViewPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};
