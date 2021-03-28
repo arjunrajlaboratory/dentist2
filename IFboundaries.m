@@ -148,6 +148,7 @@ classdef IFboundaries < handle
             tmpLabelMat = imread(labelMatFile);
             if all(size(tmpLabelMat) ==  p.scanObj.stitchDim)
                 p.dapiLabelMat =  tmpLabelMat;
+                scaleFactor = [1, 1];
             else
                 p.dapiLabelMat = imresize(tmpLabelMat, p.scanObj.stitchDim, 'nearest');
                 scaleFactor = p.scanObj.stitchDim./size(tmpLabelMat);

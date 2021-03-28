@@ -8,13 +8,13 @@ classdef IFtable < handle
         
         IFquant
         IFquant2
+        IFquantFile = 'IFquantTable.csv'
         channels
         centroidLists
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
         paletteIdx = 1;
         minNucleusSize = 1000;
         radius = 20;
-        IFfile
     end
     
     methods
@@ -30,11 +30,19 @@ classdef IFtable < handle
                     'VariableTypes', [repmat({'single'}, 1, 3), repmat({'logical'}, 1, 1+numel(p.channels)), repmat({'single'}, 1, 5)]);
             elseif nargin == 4
                 fprintf('Loading Table\n');
-                p.IFfile = varargin{1};
+                p.IFquantFile = varargin{1};
                 opts = detectImportOptions(varargin{1});
-                opts = setvartype(opts, 'single');
-                p.IFquant = readtable(varargin{1},opts);
-                p.IFquant(:,[{'status'},  p.channels]) = logical(p.cells(:,[{'status'},  p.channels])); %For some reason, when I set 'status' to 'logical' they all go to false. So doing this instead
+                opts = setvartype(opts, {'cellID', 'x', 'y', 'meanNuc', 'meanCyto', 'sumNuc', 'sumCyto', 'maskID'}, 'single');
+                tmpTable = readtable(varargin{1}, opts);
+                %Convert channel names to logical
+                channelLogical = rowfun(@(x) x == string(p.channels), tmpTable(:,'channel'), 'SeparateInputs', false);
+                tmpTable.channel = table2array(channelLogical);
+                tmpTable = splitvars(tmpTable, 'channel', 'NewVariableNames', p.channels);
+                %Convert status to logical.
+                tmpTable = convertvars(tmpTable, 'status', 'logical');
+%                 %Convert double to single.
+%                 tmpTable = convertvars(tmpTable, @(x) isa(x, 'double'), 'single');
+                p.IFquant= tmpTable;
             end
         end
         
@@ -54,7 +62,7 @@ classdef IFtable < handle
                 channelsToQaunt = varargin{1};
             end
             
-            nRows = prod(numel(p.IFboundaries.dapiRP), numel(channelsToQaunt));
+            nRows = numel(p.IFboundaries.dapiRP) * numel(channelsToQaunt);
             meanNuc = zeros(nRows,1);
             meanCyto = zeros(nRows,1);
             sumNuc = zeros(nRows,1);
@@ -136,7 +144,7 @@ classdef IFtable < handle
                 channelsToQaunt = varargin{1};
             end
             
-            nRows = prod(numel(p.IFboundaries.dapiRP), numel(channelsToQaunt));
+            nRows = numel(p.IFboundaries.dapiRP) * numel(channelsToQaunt);
             meanNucArray = zeros(nRows,1);
             meanCytoArray = zeros(nRows,1);
             sumNucArray = zeros(nRows,1);
@@ -692,60 +700,17 @@ classdef IFtable < handle
             end
         end
         
-        function p = updateAllMasks(p) %This will overwrite previous maskIDs in nuclei. 
-            
-            maskTable = p.maskObj.masks(p.maskObj.masks.dapi, :);
-            maskIDs = unique(maskTable.maskID);
-            maskIDs(maskIDs == 0) = [];
-            p.nuclei = p.nuclei(~(p.nuclei.nucID == 0),:);
-            p.nuclei.maskID(:) = single(0);
-            p.nuclei.status(:) = true;
-            for i = 1:numel(maskIDs)
-                idx = inpolygon(p.nuclei.x, p.nuclei.y,...
-                    maskTable{maskTable.maskID == maskIDs(i), 'x'}, maskTable{maskTable.maskID == maskIDs(i), 'y'}) & p.nuclei.status;
-                p.nuclei.maskID(idx) = maskIDs(i);
-                p.nuclei.status(idx) = false;
+        function p = saveTable(p)
+            if isempty(p.IFquant) || ~any(p.IFquant{:,p.channels}, 'all')
+                fprintf("There are no valid cells. Try running quantAllLabelMat2")
+            else
+                outTable = p.IFquant(~p.IFquant.cellID == 0,:); %Remove empty rows but keep masked cells (status = false). 
+                channelsString = string(p.channels);
+                outTable(:,'channel') = rowfun(@(x) channelsString(x), outTable(:,p.channels), 'SeparateInputs', false);
+                outTable(:,p.channels) = [];
+                outTable = movevars(outTable, 'channel', 'After', 'status');
+                writetable(outTable, p.IFquantFile);
             end
-            p.addEmptyRows(1000);
         end
-        
-        
-       
-        function p = updateMasksInRect(p, localRect) 
-            %Use for removing masks or if we want to change multiple masks before updating nuclei
-            %Probably could use some speeding up. 
-            masksInRect = p.maskObj.getChannelMasksInRect(localRect, 'dapi');
-            maskIDsinRect = unique(masksInRect.maskID);
-            [tmpNuclei, nucIdx] = p.getNucleiInRect(localRect); %It might be faster to not subset the nuclei and just run inpolygon on entire nuclei table. 
-            
-            %Resest status for nuclei
-            tmpNuclei.maskID(:) = single(0);
-            tmpNuclei.status(:) = true;
-            tmpNuclei.status(tmpNuclei.nucID == 0) = false;
-            for i = 1:numel(maskIDsinRect)
-                idx = inpolygon(tmpNuclei.x, tmpNuclei.y,...
-                    masksInRect{masksInRect.maskID == maskIDsinRect(i), 'x'}, masksInRect{masksInRect.maskID == maskIDsinRect(i), 'y'}) & tmpNuclei.status;
-                tmpNuclei.maskID(idx) = maskIDsinRect(i);
-                tmpNuclei.status(idx) = false;
-                
-            end
-            p.nuclei.maskID(nucIdx) = tmpNuclei.maskID;
-            p.nuclei.status(nucIdx) = tmpNuclei.status;
- 
-        end
-        
-        function p = removeMasks(p) 
-            
-            masksToRemove = setdiff(p.nuclei.maskID, p.maskObj.masksBB.maskID(p.maskObj.masksBB.dapi));
-            masksToRemove(masksToRemove == 0) = [];
-            if ~isempty(masksToRemove)
-                nucIdx = ismember(p.nuclei.maskID, masksToRemove);
-                p.nuclei.maskID(nucIdx) = single(0);
-                p.nuclei.status(nucIdx) = true;
-                p.nucleiChanged = true;
-            end
-            
-        end
-        
     end
 end
