@@ -513,6 +513,29 @@ classdef d2IFController < handle
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
+        function deleteNucAndCell(p, ~, ~)
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+            %             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
+            %                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
+            if p.deleteROI
+                tmpMask = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
+                if ~isempty(tmpMask.Position)
+                    p.IFtable.deleteNucAndCell(tmpMask.Position, p.viewRect, true);
+                end
+            else
+                [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.
+                if ~isempty(x)
+                    p.IFtable.deleteNucAndCell([x, y], p.viewRect, false);
+                end
+                p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
+                p.updateCentroidListView();
+                p.updateMainAxes();
+            end
+            %             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.addCellButton,...
+            %                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
+        end
+        
         function addImgMask(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
 %             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...

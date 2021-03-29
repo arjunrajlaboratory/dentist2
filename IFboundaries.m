@@ -12,19 +12,43 @@ classdef IFboundaries < handle
        dapiLabelMat
        dapiRP
        randomColors
-       
+       nucBoundariesFile = 'nucBoundariesIF.csv'
+       cellBoundariesFile = 'cellBoundariesIF.csv'
        minNucleusSize = 1000;
        radius = 20;
     end
     
     methods
         function p = IFboundaries(scanObject, maskObj, varargin)
-            p.scanObj = scanObject;
-            p.maskObj = maskObj;
+            n = inputParser;
+            n.addRequired('scanObject', @(x) isa(x, 'scanObject')) 
+            n.addRequired('maskObj', @(x) isa(x, 'maskTable'))
+            n.addOptional('nucleiFile', '', @ischar)
+            n.addOptional('cellsFile', '', @ischar)
+            n.parse(scanObject, maskObj, varargin{:})
+            
+            p.scanObj = n.Results.scanObject;
+            p.maskObj = n.Results.maskObj;
             p.channels = p.scanObj.stitchedScans.labels;
             p.randomColors = single(d2utils.distinguishable_colors(50));
-            if nargin > 3
-                %Load saved boundaries
+            if isfile(n.Results.nucleiFile)
+                p.nucBoundariesFile = n.Results.nucleiFile;
+                tmpNucBoundaries = readtable(p.nucBoundariesFile);
+                tmpNucBoundaries = rowfun(@(x) polyshape(x), tmpNucBoundaries, 'InputVariables', {'x', 'y'}, 'SeparateInputs', false, 'GroupingVariables', [{'cellID'}, p.channels], 'OutputVariableNames', 'nucBoundary');
+                tmpNucBoundaries(:,'GroupCount') = [];
+                tmpNucBoundaries.nucBB = cell2mat(arrayfun(@(x) d2utils.polyshapeBoundingBox(x), tmpNucBoundaries.nucBoundary, 'UniformOutput', false));
+                tmpNucBoundaries = convertvars(tmpNucBoundaries, p.channels,'logical');
+                p.nucBoundaries2 = movevars(tmpNucBoundaries, {'nucBoundary', 'nucBB'}, 'After', 'cellID');
+            end
+            
+            if isfile(n.Results.cellsFile)
+                p.cellBoundariesFile = n.Results.cellsFile;
+                tmpCellBoundaries = readtable(p.cellBoundariesFile);
+                tmpCellBoundaries = rowfun(@(x) polyshape(x), tmpCellBoundaries, 'InputVariables', {'x', 'y'}, 'SeparateInputs', false, 'GroupingVariables', [{'cellID'}, p.channels], 'OutputVariableNames', 'cellBoundary');
+                tmpCellBoundaries(:,'GroupCount') = [];
+                tmpCellBoundaries.cellBB = cell2mat(arrayfun(@(x) d2utils.polyshapeBoundingBox(x), tmpCellBoundaries.cellBoundary, 'UniformOutput', false));
+                tmpCellBoundaries = convertvars(tmpCellBoundaries, p.channels,'logical');
+                p.cellBoundaries2 = movevars(tmpCellBoundaries, {'cellBoundary', 'cellBB'}, 'After', 'cellID');
             end
         end
         
@@ -37,10 +61,6 @@ classdef IFboundaries < handle
             if ismember('colors', p.nucBoundaries2.Properties.VariableNames)
                 newNuclei.colors = zeros(n, 3);
             end
-            disp(head(p.nucBoundaries2))
-            disp(size(p.nucBoundaries2))
-            disp(head(newNuclei))
-            disp(size(newNuclei))
             p.nucBoundaries2 = [p.nucBoundaries2; newNuclei];
             
             newCells = table('Size', [n, width(p.cellBoundaries2)],...
@@ -256,8 +276,11 @@ classdef IFboundaries < handle
             % 2) assigns colors to all cells and nuclei, even if status = false. 
             colorArray = [repmat(p.randomColors, floor(height(p.nucBoundaries2)/height(p.randomColors)), 1);...
                 p.randomColors(1:mod(height(p.nucBoundaries2), height(p.randomColors)), :)];
+           
             p.nucBoundaries2.colors = colorArray;
-            p.cellBoundaries2.colors = colorArray;
+            if ~isempty(p.cellBoundaries2)
+                p.cellBoundaries2.colors = colorArray;
+            end
         end
         
         function p = addNewCell(p, newCellID, nucPoly, cellPoly)
@@ -287,8 +310,8 @@ classdef IFboundaries < handle
             tmpBB = d2utils.polygonBoundingBox(fliplr(maskPosition));
             tmpMaskPoly = polyshape(fliplr(maskPosition));
             
-            nucTableTmp = p.getNucBoundariesInRect(channel, tmpBB)
-            cellTableTmp = p.getCellBoundariesInRect(channel, tmpBB)
+            nucTableTmp = p.getNucBoundariesInRect(channel, tmpBB);
+            cellTableTmp = p.getCellBoundariesInRect(channel, tmpBB);
             
             nucIDs = nucTableTmp.cellID(overlaps(tmpMaskPoly, nucTableTmp.nucBoundary));
             cellIDs = cellTableTmp.cellID(overlaps(tmpMaskPoly, cellTableTmp.cellBoundary));
@@ -299,6 +322,28 @@ classdef IFboundaries < handle
             
             cellIdx = ismember(p.cellBoundaries2.cellID, cellIDToMask);
             p.cellBoundaries2{cellIdx, channel} = false;
+        end
+        
+        function p = saveBoundaries(p)
+            if isempty(p.nucBoundaries2) || ~any(p.nucBoundaries2{:,p.channels}, 'all')
+                fprintf("There are no valid nuclei boundaries to save")
+            else
+                outTable = p.nucBoundaries2(~p.nucBoundaries2.cellID == 0,:); %Remove empty rows but keep masked cells (status = false). 
+                outTable = rowfun(@(x) x.Vertices, outTable, 'InputVariables', 'nucBoundary', 'GroupingVariables', [{'cellID'}, p.channels], 'OutputVariableNames', 'Vertices');
+                outTable(:,'GroupCount') = [];
+                outTable = splitvars(outTable, 'Vertices', 'NewVariableNames', {'x', 'y'});
+                writetable(outTable, p.nucBoundariesFile);
+            end
+            
+            if isempty(p.cellBoundaries2) || ~any(p.cellBoundaries2{:,p.channels}, 'all')
+                fprintf("There are no valid cell boundaries to save")
+            else
+                outTable = p.cellBoundaries2(~p.cellBoundaries2.cellID == 0,:); %Remove empty rows but keep masked cells (status = false). 
+                outTable = rowfun(@(x) x.Vertices, outTable, 'InputVariables', 'cellBoundary', 'GroupingVariables', [{'cellID'}, p.channels], 'OutputVariableNames', 'Vertices');
+                outTable(:,'GroupCount') = [];
+                outTable = splitvars(outTable, 'Vertices', 'NewVariableNames', {'x', 'y'});
+                writetable(outTable, p.cellBoundariesFile);
+            end
         end
 
 %         function p = maskCellsInChannel(p, channel)

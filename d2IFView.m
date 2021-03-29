@@ -36,11 +36,12 @@ classdef d2IFView < handle
         panAxes %Push button
         shuffleColors %Push button
         
-        addNucButton %Toggle button
-        addNucAndCellButton %Toggle button
-        deleteNucButton %Toggle button
-        addCellButton %Toggle button
-        deleteCellButton %Toggle button
+        addNucButton %Push button
+        addNucAndCellButton %Push button
+        addCellButton %Push button
+        deleteNucButton %Push button
+        deleteCellButton %Push button
+        deleteNucAndCellButton %Push button
         maskCellButton %Push button
         maskImgButton %Push button
         deleteMaskButton %Push button
@@ -124,17 +125,18 @@ classdef d2IFView < handle
             p.zoomAxes = uicontrol('Style', 'pushbutton', 'String', 'zoom (z)', 'Units', 'normalized', 'Position', [0.64 0.41 0.1111 0.0367]);
             p.panAxes = uicontrol('Style', 'pushbutton', 'String', 'pan view (p)', 'Units', 'normalized', 'Position', [0.64 0.37 0.1111 0.0367]);
             p.shuffleColors = uicontrol('Style', 'pushbutton', 'String', 'shuffle colors', 'Units', 'normalized', 'Position', [0.64 0.33 0.1111 0.0367]);
-            p.maskImgButton = uicontrol('Style', 'pushbutton', 'String', 'mask image (i)', 'Units', 'normalized', 'Position', [0.64 0.29 0.1111 0.0367]);
-            
+            p.saveButton = uicontrol('Style', 'pushbutton', 'String', 'save/export (S)', 'Units', 'normalized', 'Position', [0.64 0.29 0.1111 0.0367]);
+
             p.addNucAndCellButton = uicontrol('Style', 'pushbutton', 'String', 'add nucleus & cell', 'Units', 'normalized', 'Position', [0.755 0.41 0.1111 0.0367]);
             p.addNucButton = uicontrol('Style', 'pushbutton', 'String', 'add nucleus', 'Units', 'normalized', 'Position', [0.755 0.37 0.1111 0.0367]);
             p.addCellButton = uicontrol('Style', 'pushbutton', 'String', 'add cell', 'Units', 'normalized', 'Position', [0.755 0.33 0.1111 0.0367]);
             p.maskCellButton = uicontrol('Style', 'pushbutton', 'String', 'mask cells (M)', 'Units', 'normalized', 'Position', [0.755 0.29 0.1111 0.0367]);
-            
-            p.deleteNucButton = uicontrol('Style', 'pushbutton', 'String', 'delete nuclei', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
-            p.deleteCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]);
-            p.deleteMaskButton = uicontrol('Style', 'pushbutton', 'String', 'delete masks (d)', 'Units', 'normalized', 'Position', [0.87 0.33 0.1111 0.0367]); 
-            p.saveButton = uicontrol('Style', 'pushbutton', 'String', 'save/export (S)', 'Units', 'normalized', 'Position', [0.87 0.29 0.1111 0.0367]);
+            p.maskImgButton = uicontrol('Style', 'pushbutton', 'String', 'mask image (i)', 'Units', 'normalized', 'Position', [0.755 0.25 0.1111 0.0367]);
+
+            p.deleteNucAndCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete nuclei & cells', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
+            p.deleteNucButton = uicontrol('Style', 'pushbutton', 'String', 'delete nuclei', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]);
+            p.deleteCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.87 0.33 0.1111 0.0367]);
+            p.deleteMaskButton = uicontrol('Style', 'pushbutton', 'String', 'delete masks (d)', 'Units', 'normalized', 'Position', [0.87 0.29 0.1111 0.0367]); 
 %             p.exportButton = uicontrol('Style', 'pushbutton', 'String', 'export (E)', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
             p.figHandle.Visible = 'on';
         end
@@ -166,29 +168,28 @@ classdef d2IFView < handle
             p.IFCheckBox.Callback = {@controller.updateMainAxes};
             p.quantMetric.SelectionChangedFcn = {@controller.quantMetricChanged};
             p.selectionTool.SelectionChangedFcn = {@controller.selectionToolChanged};
-%             p.masksCheckBox.Callback = {@controller.overlayMasks};
+            p.masksCheckBox.Callback = {@controller.overlayMasks};
             p.addNucAndCellButton.Callback = {@controller.addNucAndCell};
             p.addNucButton.Callback = {@controller.addEmptyNuc};
             p.addCellButton.Callback = {@controller.addCell};
+%             p.deleteNucAndCellButton.Callback = {@controller.addCell};
             p.deleteCellButton.Callback = {@controller.deleteCell};
             p.deleteNucButton.Callback = {@controller.deleteNuc};
+            p.deleteMaskButton.Callback = {@controller.deleteMask};
             p.maskCellButton.Callback = {@controller.addCellMask};
             p.maskImgButton.Callback = {@controller.addImgMask};
-            p.deleteMaskButton.Callback = {@controller.deleteMask};
             p.zoomAxes.Callback = {@controller.zoomInPressed};
             p.panAxes.Callback = {@controller.panViewPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};
             p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
 %             p.saveButton.Callback = {@p.saveButtonPressed};
-%             p.exportButton.Callback = {@p.exportButtonPressed};
             p.shuffleColors.Callback = {@controller.shuffleColorsInView};
 %             
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
             p.figHandle.KeyPressFcn = {@controller.keyPressFunctions};
 %             p.figHandle.CloseRequestFcn = {@p.closeFigFcn}; 
-%             
-%             %Set KeyPressFcn for all uicontrols. Change this if you want
-%             %some uicontrols to have unique KeyPressFcn (e.g. arrow keys) 
+            
+            %Set KeyPressFcn for all uicontrols. 
 %             set(findobj(p.figHandle, 'Type', 'UIControl'), 'KeyPressFcn', {@controller.keyPressFunctions})
         end
         
