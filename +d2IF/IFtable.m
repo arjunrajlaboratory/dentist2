@@ -24,7 +24,7 @@ classdef IFtable < handle
             p.IFboundaries = IFboundaries;
             p.channels = p.scanObj.stitchedScans.labels;
             if nargin == 3
-                fprintf('New Table\n');
+                fprintf('New IFquant Table\n');
                 p.IFquant = table('size', [0,numel(p.channels)+ 9],... %Possibly unnecessary since new table created with p.findNuclei. 
                     'VariableNames', [{'cellID', 'x', 'y', 'status'}, p.channels, {'meanNuc', 'meanCyto',  'sumNuc', 'sumCyto','maskID'}],...
                     'VariableTypes', [repmat({'single'}, 1, 3), repmat({'logical'}, 1, 1+numel(p.channels)), repmat({'single'}, 1, 5)]);
@@ -243,12 +243,24 @@ classdef IFtable < handle
             elseif any(nucOverlapIdx)
                 p.addNucToNuc(tmpPoly, nucBoundariesInView(nucOverlapIdx,:));
             else
+                %remove holes, add to img mask
+%                 if tmpPoly.NumHoles > 0
+%                     tmpHoles = holes(tmpPoly);
+%                     for i = numel(tmpHoles)
+%                         p.maskObj.addMaskLocalCoords(fliplr(tmpHoles(i).Vertices), 'dapi')
+%                     end
+%                     tmpPoly = rmholes(tmpPoly);
+%                 end
+                tmpPoly = rmholes(tmpPoly);
                 if andCyto
-                    cellPoly = tmpPoly.polybuffer(p.radius);
+                    cellPoly = polybuffer(tmpPoly, p.radius);
                     cellPoly = polyshape(round(cellPoly.Vertices));
                     %Need to subtract neighboring nuclei
+                    tmpBB = d2utils.polyshapeBoundingBox(cellPoly);
                     tmpNucleiInRect = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
-                    cellPoly = subtract(cellPoly,tmpNucleiInRect.nucBoundary);
+                    if ~isempty(tmpNucleiInRect)
+                        cellPoly = subtract(cellPoly,union(tmpNucleiInRect.nucBoundary));
+                    end
                 else
 %                     tmpCytoMask = false(size(tmpDapiMask));
                     cellPoly = polyshape();
@@ -265,8 +277,8 @@ classdef IFtable < handle
                 tmpBB = varargin{3};
             else
                 tmpBB = d2utils.polyshapeBoundingBox(union(nucPoly, cellPoly)); %Union in case nuclei boundary extends beyond cell boundary
-                tmpDapiMask = d2utils.polyshape2mask(nucPoly, tmpBB(1:2), tmpBB(3:4), 'flip', true);
-                tmpCellMask = d2utils.polyshape2mask(cellPoly, tmpBB(1:2), tmpBB(3:4), 'flip', true);
+                tmpDapiMask = d2utils.polyvect2mask(tmpBB(3:4), regions(nucPoly), tmpBB(1:2), 'flip', true);
+                tmpCellMask = d2utils.polyvect2mask(tmpBB(3:4), regions(cellPoly), tmpBB(1:2), 'flip', true);
                 tmpCytoMask = tmpCellMask & ~tmpDapiMask;
             end
             nRows = numel(p.channels);
@@ -283,13 +295,13 @@ classdef IFtable < handle
                 meanCytoArray(i) = meanCyto;
                 sumNucArray(i) = sumNuc;
                 sumCytoArray(i) = sumCyto;
-                channelStatus(i,:) = ismember(p.channels(i), p.channels);
+                channelStatus(i,:) = ismember(p.channels, p.channels(i));
             end
             status = true(nRows,1);
             maskID = single(zeros(nRows,1));
-            newCellID = max(p.IFquant.cellID)+1;
+            newCellID = max(p.IFquant.cellID)+1
             cellIDs = repelem(newCellID, nRows, 1);
-            newCell = array2table([cellIDs, cellCoords, status, channelStatus, meanNuc, meanCyto, sumNuc, sumCyto, maskID],...
+            newCell = array2table([cellIDs, cellCoords, status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
                 'VariableNames', [{'cellID', 'x', 'y', 'status'}, p.channels, {'meanNuc', 'meanCyto',  'sumNuc', 'sumCyto','maskID'}]);
             newCell =  convertvars(newCell, [{'status'}, p.channels], 'logical');
             startIdx = find(p.IFquant.cellID == 0, 1, 'first');
@@ -298,11 +310,13 @@ classdef IFtable < handle
             p.IFboundaries.addNewCell(newCellID, nucPoly, cellPoly); 
         end
         
-        function p = addNucToCell(p, nucPoly, cellID, cellBoundariesInView)
+        function p = addNucToCell(p, tmpNucPoly, cellID, cellBoundariesInView)
             tmpCellBoundary = cellBoundariesInView{cellBoundariesInView.cellID == cellID, 'cellBoundary'};
             priorNuclei = p.IFboundaries.nucBoundaries2(p.IFboundaries.nucBoundaries2.cellID == cellID, :);
-            tmpNucPoly = intersect(tmpCellBoundary, nucPoly);
+%             tmpNucPoly = intersect(tmpCellBoundary, tmpNucPoly); %If we want to restrict nuclei to within cell boundaries
             tmpNucPoly = union([priorNuclei.nucBoundary; tmpNucPoly]);
+            tmpNucPoly = rmholes(tmpNucPoly); %Remove holes
+
             tmpBB = d2utils.polyshapeBoundingBox(union(tmpCellBoundary, tmpNucPoly)); %Union in case nuclei boundary extends beyond cell boundary
             tmpCellMask = d2utils.polyvect2mask(tmpBB(3:4), regions(tmpCellBoundary), tmpBB(1:2), 'flip', true);
             
@@ -335,6 +349,7 @@ classdef IFtable < handle
             %to create cellpoly from nucpoly, then take union of cellpoly
             %with prior cellboundaries. 
             tmpNucPoly = union(nucPoly, nucBoundaries.nucBoundary);
+            tmpNucPoly = rmholes(tmpNucPoly);
             tmpCellIdx = ismember(p.IFboundaries.cellBoundaries2.cellID, nucBoundaries.cellID);
             tmpCellBoundary = union(p.IFboundaries.cellBoundaries2.cellBoundary(tmpCellIdx));
             cellID = nucBoundaries.cellID(1);
@@ -408,6 +423,15 @@ classdef IFtable < handle
                  tempCellIDs = nucBoundariesInView.cellID(nucOverlapIdx);
                  p.addCellToNuc(tmpPoly, tempCellIDs, nucBoundariesInView);
             else
+                %Remove holes
+%                 if tmpPoly.NumHoles > 0
+%                     tmpHoles = holes(tmpPoly);
+%                     for i = numel(tmpHoles)
+%                         p.maskObj.addMaskLocalCoords(fliplr(tmpHoles(i).Vertices), 'dapi')
+%                     end
+%                     tmpPoly = rmholes(tmpPoly);
+%                 end
+                tmpPoly = rmholes(tmpPoly);
                 emptyNuc = polyshape();
                 p.addNewCell(emptyNuc, tmpPoly);
             end
@@ -416,12 +440,13 @@ classdef IFtable < handle
         
         function p = addCellToCell(p, cellPoly, tempCellIDs, cellBoundariesInView)
             tmpCellBoundary = union([cellBoundariesInView{ismember(cellBoundariesInView.cellID, tempCellIDs), 'cellBoundary'};cellPoly]); %Consider searching all cell boundaries if new poly somehow extend beyond the view rect. 
-            tmpNucleiIdx = ismember(p.IFboundaries.nucBoundaries2, tempCellIDs);
-            tmpNucBoundary = union(p.IFboundaries.nucBoundaries2.nucBoundary(tmpNucleiIdx));
+            tmpCellBoundary = rmholes(tmpCellBoundary);
+            tmpNucleiIdx = ismember(p.IFboundaries.nucBoundaries2.cellID, tempCellIDs);
+            tmpNucPoly = union(p.IFboundaries.nucBoundaries2.nucBoundary(tmpNucleiIdx));
             cellID = tempCellIDs(1);
             
-            tmpBB = d2utils.polyshapeBoundingBox(union(tmpCellBoundary, tmpNucBoundary)); %Union in case nuclei boundary extends beyond cell boundary
-            tmpNucPoly = intersect(tmpNucBoundary, tmpCellBoundary);
+            tmpBB = d2utils.polyshapeBoundingBox(union(tmpCellBoundary, tmpNucPoly)); %Union in case nuclei boundary extends beyond cell boundary
+%             tmpNucPoly = intersect(tmpNucPoly, tmpCellBoundary); %If we want to restrict nuclei to within cell boundaries
             tmpCellMask = d2utils.polyvect2mask(tmpBB(3:4), regions(tmpCellBoundary), tmpBB(1:2), 'flip', true);
 
             tmpDapiMask = d2utils.polyvect2mask(tmpBB(3:4), regions(tmpNucPoly), tmpBB(1:2), 'flip', true);
@@ -457,11 +482,12 @@ classdef IFtable < handle
         end
         
         function p = addCellToNuc(p, tmpPoly, tempCellIDs, nucBoundariesInView)
-            tmpNucBoundary = union(nucBoundariesInView{ismember(nucBoundariesInView.cellID, tempCellIDs), 'nucBoundary'}); %Consider searching all cell boundaries if new poly somehow extend beyond the view rect. 
+            tmpPoly = rmholes(tmpPoly);
+            tmpNucPoly = union(nucBoundariesInView{ismember(nucBoundariesInView.cellID, tempCellIDs), 'nucBoundary'}); %Consider searching all cell boundaries if new poly somehow extend beyond the view rect. 
             cellID = tempCellIDs(1);
 
-            tmpBB = d2utils.polyshapeBoundingBox(union(tmpPoly, tmpNucBoundary)); %Union in case nuclei boundary extends beyond cell boundary
-            tmpNucPoly = intersect(tmpNucBoundary, tmpPoly);
+            tmpBB = d2utils.polyshapeBoundingBox(union(tmpPoly, tmpNucPoly)); %Union in case nuclei boundary extends beyond cell boundary
+%             tmpNucPoly = intersect(tmpNucBoundary, tmpPoly); %If we want to restrict nuclei to within cell boundaries 
             tmpCellMask = d2utils.polyvect2mask(tmpBB(3:4), regions(tmpPoly), tmpBB(1:2), 'flip', true);
             tmpDapiMask = d2utils.polyvect2mask(tmpBB(3:4), regions(tmpNucPoly), tmpBB(1:2), 'flip', true);
             tmpCytoMask = tmpCellMask & ~tmpDapiMask;

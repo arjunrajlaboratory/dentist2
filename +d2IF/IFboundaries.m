@@ -243,6 +243,21 @@ classdef IFboundaries < handle
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
         end
         
+        function p = removeNucHoles(p)
+            numHoles = [p.nucBoundaries2.nucBoundary.NumHoles];
+            p.addEmptyRows(sum(numHoles)); %Technically don't need to add rows to cell boundaries.
+            tmpNuc = p.nucBoundaries2(numHoles>0, :);
+            for i = height(tmpNuc)
+                tmpHoles = holes(tmpNuc.nucBoundary(i));
+                for ii = 1:numel(p.channels)
+                    for iii = numel(tmpHoles)
+                        p.maskObj.addMaskLocalCoords(fliplr(tmpHoles(iii).Vertices), p.channels{ii})
+                    end
+                end
+                tmpNuc.nucBoundary(i) = rmholes(tmpNuc.nucBoundary(i));    
+            end
+        end
+        
         function outCellBoundaries = getCellBoundariesInRect(p, channel, rect) %rect specified as [x y nrows ncols]
             
             idx = rectint(p.cellBoundaries2.cellBB,rect)>0 & p.cellBoundaries2{:,channel};
@@ -278,8 +293,11 @@ classdef IFboundaries < handle
                 p.randomColors(1:mod(height(p.nucBoundaries2), height(p.randomColors)), :)];
            
             p.nucBoundaries2.colors = colorArray;
+            [~, cellIdx] = ismember(p.nucBoundaries2.cellID, p.cellBoundaries2.cellID);
             if ~isempty(p.cellBoundaries2)
-                p.cellBoundaries2.colors = colorArray;
+%                 p.cellBoundaries2.colors = colorArray;
+                p.cellBoundaries2.colors = zeros(numel(p.cellBoundaries2.cellID), 3);
+                p.cellBoundaries2.colors(cellIdx,:) = colorArray;
             end
         end
         

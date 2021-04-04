@@ -6,7 +6,7 @@ function outMask = polyshape2mask(polyIn, shift, sz, varargin)
     p.addParameter('flip', false, @islogical);
     p.parse(polyIn, shift, sz, varargin{:});
     
-    polyHoles = holes(p.Results.polyIn);
+    polyHoles = holes(p.Results.polyIn); %Not necessary if we don't allows for holes... 
     polyIn = rmholes(p.Results.polyIn);
     if p.Results.flip
         tmpVertices = fliplr(polyIn.Vertices - p.Results.shift);

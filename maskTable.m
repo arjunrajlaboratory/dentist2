@@ -134,6 +134,13 @@ classdef maskTable < handle
            
             outMasks = p.masks(ismember(p.masks.maskID, p.masksBB.maskID(idx)) ,:);
         end
+        
+        function outMasks = getDapiAndChannelMasksInRect(p, rect, channel)
+            
+            idx = rectint(p.masksBB.BB, rect) > 0 & (p.masksBB{:, channel} | p.masksBB{:, 'dapi'});
+           
+            outMasks = p.masks(ismember(p.masks.maskID, p.masksBB.maskID(idx)) ,:);
+        end
                 
         function outMaskIDs = getChannelMaskIDsInRect(p, rect, channel)
             

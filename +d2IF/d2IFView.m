@@ -111,9 +111,9 @@ classdef d2IFView < handle
             p.nucleiBordersCheckBox = uicontrol('Style', 'checkbox', 'String', 'nuclei (n)', 'Value', true, 'Units', 'normalized', 'Position', [0.65 0.604 0.0722 0.0333]);
             p.cellBordersCheckBox = uicontrol('Style', 'checkbox', 'String', 'cells (c)', 'Value', true, 'Units', 'normalized', 'Position', [0.71 0.604 0.0722 0.0333]);
             p.masksCheckBox = uicontrol('Style', 'checkbox', 'String', 'masks', 'Value', true, 'Units', 'normalized', 'Position', [0.76 0.604 0.0722 0.0333]);
-            p.dapiCheckBox = uicontrol('Style', 'checkbox', 'String', 'DAPI', 'Value', true, 'Units', 'normalized', 'Position', [0.65 0.58 0.0722 0.0333]);
-            p.IFCheckBox = uicontrol('Style', 'checkbox', 'String', p.IFtable.channels{1}, 'Value', true, 'Units', 'normalized', 'Position', [0.71 0.58 0.0722 0.0333]);
-            p.scatterCheckBox = uicontrol('Style', 'checkbox', 'String', 'scatter (s)', 'Value', true, 'Units', 'normalized', 'Position', [0.76 0.58 0.0722 0.0333]);
+            p.dapiCheckBox = uicontrol('Style', 'checkbox', 'String', 'DAPI (d)', 'Value', true, 'Units', 'normalized', 'Position', [0.65 0.58 0.0722 0.0333]);
+            p.IFCheckBox = uicontrol('Style', 'checkbox', 'String', sprintf('%s (f)', p.IFtable.channels{1}),  'Value', true, 'Units', 'normalized', 'Position', [0.71 0.58 0.0722 0.0333]);
+            p.scatterCheckBox = uicontrol('Style', 'checkbox', 'String', 'scatter', 'Value', true, 'Units', 'normalized', 'Position', [0.76 0.58 0.0722 0.0333]);
 
             p.upperContrastSlider = uicontrol('Style', 'slider', 'Value', 0.5, 'Units', 'normalized', 'Position', [0.65 0.56 0.1233 0.0050]);
             p.lowerContrastSlider = uicontrol('Style', 'slider', 'Units', 'normalized', 'Position', [0.65 0.53 0.1233 0.0050]);
@@ -124,19 +124,19 @@ classdef d2IFView < handle
             
             p.zoomAxes = uicontrol('Style', 'pushbutton', 'String', 'zoom (z)', 'Units', 'normalized', 'Position', [0.64 0.41 0.1111 0.0367]);
             p.panAxes = uicontrol('Style', 'pushbutton', 'String', 'pan view (p)', 'Units', 'normalized', 'Position', [0.64 0.37 0.1111 0.0367]);
-            p.shuffleColors = uicontrol('Style', 'pushbutton', 'String', 'shuffle colors', 'Units', 'normalized', 'Position', [0.64 0.33 0.1111 0.0367]);
+            p.shuffleColors = uicontrol('Style', 'pushbutton', 'String', 'shuffle colors (s)', 'Units', 'normalized', 'Position', [0.64 0.33 0.1111 0.0367]);
             p.saveButton = uicontrol('Style', 'pushbutton', 'String', 'save/export (S)', 'Units', 'normalized', 'Position', [0.64 0.29 0.1111 0.0367]);
 
-            p.addNucAndCellButton = uicontrol('Style', 'pushbutton', 'String', 'add nucleus & cell', 'Units', 'normalized', 'Position', [0.755 0.41 0.1111 0.0367]);
-            p.addNucButton = uicontrol('Style', 'pushbutton', 'String', 'add nucleus', 'Units', 'normalized', 'Position', [0.755 0.37 0.1111 0.0367]);
-            p.addCellButton = uicontrol('Style', 'pushbutton', 'String', 'add cell', 'Units', 'normalized', 'Position', [0.755 0.33 0.1111 0.0367]);
-            p.maskCellButton = uicontrol('Style', 'pushbutton', 'String', 'mask cells (M)', 'Units', 'normalized', 'Position', [0.755 0.29 0.1111 0.0367]);
+            p.addNucAndCellButton = uicontrol('Style', 'pushbutton', 'String', 'add nucleus & cell (a)', 'Units', 'normalized', 'Position', [0.755 0.41 0.1111 0.0367]);
+            p.addNucButton = uicontrol('Style', 'pushbutton', 'String', 'add nucleus (w)', 'Units', 'normalized', 'Position', [0.755 0.37 0.1111 0.0367]);
+            p.addCellButton = uicontrol('Style', 'pushbutton', 'String', 'add cell (e)', 'Units', 'normalized', 'Position', [0.755 0.33 0.1111 0.0367]);
+            p.maskCellButton = uicontrol('Style', 'pushbutton', 'String', 'mask cells (m)', 'Units', 'normalized', 'Position', [0.755 0.29 0.1111 0.0367]);
             p.maskImgButton = uicontrol('Style', 'pushbutton', 'String', 'mask image (i)', 'Units', 'normalized', 'Position', [0.755 0.25 0.1111 0.0367]);
 
-            p.deleteNucAndCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete nuclei & cells', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
-            p.deleteNucButton = uicontrol('Style', 'pushbutton', 'String', 'delete nuclei', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]);
-            p.deleteCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.87 0.33 0.1111 0.0367]);
-            p.deleteMaskButton = uicontrol('Style', 'pushbutton', 'String', 'delete masks (d)', 'Units', 'normalized', 'Position', [0.87 0.29 0.1111 0.0367]); 
+            p.deleteNucAndCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete nuclei & cells (h)', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
+            p.deleteNucButton = uicontrol('Style', 'pushbutton', 'String', 'delete nuclei (j)', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]);
+            p.deleteCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete cells (k)', 'Units', 'normalized', 'Position', [0.87 0.33 0.1111 0.0367]);
+            p.deleteMaskButton = uicontrol('Style', 'pushbutton', 'String', 'delete masks (l)', 'Units', 'normalized', 'Position', [0.87 0.29 0.1111 0.0367]); 
 %             p.exportButton = uicontrol('Style', 'pushbutton', 'String', 'export (E)', 'Units', 'normalized', 'Position', [0.87 0.41 0.1111 0.0367]);
             p.figHandle.Visible = 'on';
         end
@@ -144,7 +144,7 @@ classdef d2IFView < handle
         %attach controller
         function startupFcn(p)
 
-            p.mainAxesCntrlr = d2IFController(p, p.scanObj, p.IFboundaries, p.IFtable);  
+            p.mainAxesCntrlr = d2IF.d2IFController(p, p.scanObj, p.IFboundaries, p.IFtable);  
             p.attatchMainAxesController(p.mainAxesCntrlr);        
             
             p.thumbAxesCntrlr = d2ThumbnailAxesController(p, p.scanObj, p.IFtable);  
@@ -172,7 +172,7 @@ classdef d2IFView < handle
             p.addNucAndCellButton.Callback = {@controller.addNucAndCell};
             p.addNucButton.Callback = {@controller.addEmptyNuc};
             p.addCellButton.Callback = {@controller.addCell};
-%             p.deleteNucAndCellButton.Callback = {@controller.addCell};
+            p.deleteNucAndCellButton.Callback = {@controller.deleteNucAndCell};
             p.deleteCellButton.Callback = {@controller.deleteCell};
             p.deleteNucButton.Callback = {@controller.deleteNuc};
             p.deleteMaskButton.Callback = {@controller.deleteMask};
@@ -182,7 +182,7 @@ classdef d2IFView < handle
             p.panAxes.Callback = {@controller.panViewPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};
             p.lowerContrastSlider.Callback = {@controller.updateMainAxes};
-%             p.saveButton.Callback = {@p.saveButtonPressed};
+            p.saveButton.Callback = {@p.saveButtonPressed};
             p.shuffleColors.Callback = {@controller.shuffleColorsInView};
 %             
             p.figHandle.WindowButtonDownFcn = {@controller.figWindowDown};
@@ -196,22 +196,20 @@ classdef d2IFView < handle
         function p = attachThumbnailController(p, controller)
             p.thumbAxes.ButtonDownFcn = {@controller.thumbAxesButtonDown};
         end
-%         function saveButtonPressed(p, ~, ~)
-%             p.nucleiObj.saveNucleiTable;
-%             p.spotTable.updateScanSummary;
-%             p.spotTable.saveSpotsTable;
-%             p.maskObj.saveMasksTable;
-%         end
-%         
-%         function exportButtonPressed(p, ~, ~)
-%             p.spotTable.exportSpotsSummary
-%         end
-%         
-%         function relaunchGUI(p)
-%             createComponents(p)
-%             startupFcn(p)
-%         end
-%         
+        
+        function saveButtonPressed(p, ~, ~)
+            fprintf('Saving IF table, IF boundaries, and masks.\nThis may take a minute\n')
+            p.IFtable.saveTable;
+            p.IFtable.maskObj.saveMasksTable;
+            p.IFboundaries.saveBoundaries;
+            p.IFboundaries.maskObj.saveMasksTable;
+        end
+
+        function relaunchGUI(p)
+            createComponents(p)
+            startupFcn(p)
+        end
+        
 %         function closeFigFcn(p, ~, ~)
 %             delete(p.figHandle)
 %             fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
