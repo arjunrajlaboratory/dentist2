@@ -10,6 +10,7 @@ classdef IFboundaries < handle
        channels
        dapiMask
        dapiLabelMat
+       cytoLabelMat
        dapiRP
        randomColors
        nucBoundariesFile = 'nucBoundariesIF.csv'
@@ -195,32 +196,48 @@ classdef IFboundaries < handle
 %             p.nucBoundaries = array2table([single(nucIDArray'), vertcat(nucBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
             %Try storying boundaries as polyshape.
             status = true(numel(nucBoundariesArray),numel(p.channels));
-            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
-%             p.nucBoundaries.status = true(numel(nucBoundariesArray), 1);
-%             
-            polyVectDilated = polybuffer(polyVect, p.radius);
-            cellBoundariesArray = num2cell(polyVectDilated);
-            tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), cellBoundariesArray, 'UniformOutput', false);
-%             cellBoundariesArray = cellfun(@(x) x.Vertices, cellBoundariesArray, 'UniformOutput', false);
-%             cellBoundariesHeight = cellfun(@(x) height(x), cellBoundariesArray, 'UniformOutput', true);
-%             cellIDArray = repelem(1:numel(cellBoundariesHeight), cellBoundariesHeight);
-%             p.cellBoundaries = array2table([single(cellIDArray'), vertcat(cellBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
-            status = true(numel(cellBoundariesArray),numel(p.channels));
-            p.cellBoundaries = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
-            p.cellBoundaries.status = true(numel(cellBoundariesArray), 1);
-%             warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
+            warning('on', 'MATLAB:polyshape:repairedBySimplify')
             warning('on', 'MATLAB:polyshape:boundary3Points')
         end
         
-        function p = labelMat2nucTable(p, varargin)
-            if nargin == 2
-                tmpLabelMat = imread(labelMatFile);
-                if all(size(tmpLabelMat) ==  p.scanObj.stitchDim)
-                    p.dapiLabelMat =  tmpLabelMat;
-                else
-                    p.dapiLabelMat = imresize(tmpLabelMat, p.scanObj.stitchDim, 'nearest');
-                end
+        function p = loadCellPoseCyto(p, labelMatFile, outlineFile)
+            tmpLabelMat = imread(labelMatFile);
+            if all(size(tmpLabelMat) ==  p.scanObj.stitchDim)
+                p.cytoLabelMat =  tmpLabelMat;
+                scaleFactor = [1, 1];
+            else
+                p.cytoLabelMat = imresize(tmpLabelMat, p.scanObj.stitchDim, 'nearest');
+                scaleFactor = p.scanObj.stitchDim./size(tmpLabelMat);
             end
+            
+            warning('off', 'MATLAB:polyshape:repairedBySimplify')
+            warning('off', 'MATLAB:polyshape:boundary3Points')
+            polyVect = d2utils.parseCellposeOutlines(outlineFile, 'scaleFactor', scaleFactor, 'flip', true);
+            polyVect = scale(polyVect, scaleFactor);
+
+%             tmpArea = num2cell([polyVect.area]);
+%             [tmpX, tmpY] = centroid(polyVect);
+%             tmpCentroid = num2cell([tmpX', tmpY'],2);
+            cellBoundariesArray = num2cell(polyVect);
+            tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), cellBoundariesArray, 'UniformOutput', false);
+%             tmpArea = cellfun(@(x) polyarea(x(:,1), x(:,2))*scaleFactor,polyArray, 'UniformOutput', false);
+%             tmpCentroid = cellfun(@(x) d2utils.poly2centroid(x)*scaleFactor,polyArray, 'UniformOutput', false);
+%             tmpBB = cellfun(@(x) d2utils.polygonBoundingBox2(x)*scaleFactor,polyArray, 'UniformOutput', false);
+%             p.dapiRP = cell2struct([tmpArea', tmpCentroid, tmpBB'], {'Area', 'Centroid', 'BoundingBox'}, 2);
+            
+%             nucBoundariesArray = cellfun(@(x) single(x.Vertices), nucBoundariesArray, 'UniformOutput', false);
+%             nucBoundariesHeight = cellfun(@(x) height(x), nucBoundariesArray, 'UniformOutput', true);
+%             nucIDArray = repelem(1:numel(nucBoundariesHeight), nucBoundariesHeight);
+%             p.nucBoundaries = array2table([single(nucIDArray'), vertcat(nucBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
+            %Try storying boundaries as polyshape.
+            status = true(numel(cellBoundariesArray),numel(p.channels));
+            p.cellBoundaries2 = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
+            warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            warning('on', 'MATLAB:polyshape:boundary3Points')
+        end
+        
+        function p = labelMat2nucTable(p)
             nucBoundariesTmp = cell(0, numel(p.dapiRP));
             for i = 1:numel(p.dapiRP) %can make this parfor?
                 tmpBB = p.dapiRP(i).BoundingBox;
@@ -241,6 +258,78 @@ classdef IFboundaries < handle
             status = true(numel(nucBoundariesArray), numel(p.channels));
             p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
+        end
+        
+        function p = labelMat2cytoTable(p)
+            cytoBoundariesTmp = cell(0, height(p.cellBoundaries2));
+            for i = 1:height(p.cellBoundaries2) %can make this parfor?
+                tmpBB = p.cellBoundaries2.cellBB(i,:);
+                %Create buffer
+                tmpShift = ceil(tmpBB(3:4)*0.1);
+                tmpStart = max([1,1], tmpBB(1:2)-tmpShift);
+                tmpEnd = min(tmpStart+tmpBB(3:4)+(tmpShift*2), size(p.cytoLabelMat)); %Could make this stitchDim
+                
+                tmpRegionMask = p.cytoLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
+                tmpCellMask = tmpRegionMask == i;
+                tmpCellBoundary = bwboundaries(tmpCellMask, 'noholes');
+                cytoBoundariesTmp{i} = cellfun(@(x) x+tmpStart-1, tmpCellBoundary, 'UniformOutput', false);
+            end
+            %Update cellBoundaries
+            warning('off', 'MATLAB:polyshape:repairedBySimplify')
+            cellBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), cytoBoundariesTmp, 'UniformOutput', false); 
+            tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), cellBoundariesArray, 'UniformOutput', false);
+            status = true(numel(cellBoundariesArray), numel(p.channels));
+            p.cellBoundaries2 = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
+            warning('on', 'MATLAB:polyshape:repairedBySimplify')
+        end
+        
+        function p = assignNucToCyto(p)
+            p.nucBoundaries2(p.nucBoundaries2.cellID == 0, :) =[]; %Delete emptry rows
+            p.cellBoundaries2(p.cellBoundaries2.cellID == 0, :) =[]; %Delete emptry rows
+            newNuclei = table('Size', [height(p.cellBoundaries2), width(p.nucBoundaries2)],...
+                'VariableNames', p.nucBoundaries2.Properties.VariableNames,...
+                'VariableTypes', varfun(@class, p.nucBoundaries2, 'output','cell'));
+            newNuclei.cellID = p.cellBoundaries2.cellID;
+            extraNuclei = {};
+            extraNucleiBB = {};
+            for i = 1:height(p.nucBoundaries2)
+                tmpCytoInRect = p.getAllCellBoundariesInRect(p.nucBoundaries2.nucBB(i, :));
+                overlapIdx = overlaps(p.nucBoundaries2.nucBoundary(i),tmpCytoInRect.cellBoundary);
+                overlapN = sum(overlapIdx);
+                if overlapN == 0
+                    extraNuclei = [extraNuclei, {p.nucBoundaries2.nucBoundary(i)}];
+                    extraNucleiBB = [extraNucleiBB, p.nucBoundaries2.nucBB(i,:)];
+                elseif overlapN == 1
+                    newNucleiIdx = newNuclei.cellID == tmpCytoInRect.cellID(overlapIdx);
+                    newNuclei{newNucleiIdx, 'nucBoundary'} = union(newNuclei{newNucleiIdx, 'nucBoundary'}, p.nucBoundaries2.nucBoundary(i));
+%                     newNuclei{newNucleiIdx, 'nucBB'} = union(p.nucBoundaries2.nucBB(i));
+                elseif overlapN > 1
+                    tmpCyto = tmpCytoInRect(overlapIdx, :);
+                    for ii = 1:height(tmpCyto)
+                        nucInCyto = intersect(tmpCyto.cellBoundary(ii), p.nucBoundaries2.nucBoundary(i));
+                        nucInCytoIdx = newNuclei.cellID == tmpCyto.cellID(ii);
+                        newNuclei{nucInCytoIdx, 'nucBoundary'} = union(newNuclei{nucInCytoIdx, 'nucBoundary'}, nucInCyto);
+                    end
+                end
+            end
+            %Add nucBB
+            tmpBB = arrayfun(@(x) d2utils.polyshapeBoundingBox(x), newNuclei.nucBoundary, 'UniformOutput', false);
+            newNuclei.nucBB = cell2mat(tmpBB);
+            %if there are extraNuclei, add to newNuclei and cellBoundaries2 (with empty polyshape)
+            if ~isempty(extraNuclei)
+                startCellID = max(newNuclei.cellID) + 1;
+                extraNucleiN = numel(extraNuclei);
+                status = true(extraNucleiN,numel(p.channels));
+                disp(size(extraNucleiBB))
+                extraNucleiTable = cell2table([num2cell((startCellID:startCellID+extraNucleiN-1)'), extraNuclei', extraNucleiBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
+                newNuclei = [newNuclei; extraNucleiTable];
+                
+                emptyPoly = repmat({polyshape}, extraNucleiN, 1);
+                emptyBB = repmat({zeros(1,4)}, extraNucleiN, 1);
+                extraCytoTable = cell2table([num2cell((startCellID:startCellID+extraNucleiN-1)'), emptyPoly, emptyBB, num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
+                p.cellBoundaries2 = [p.cellBoundaries2; extraCytoTable];
+            end
+            p.nucBoundaries2 = newNuclei;
         end
         
         function p = removeNucHoles(p)

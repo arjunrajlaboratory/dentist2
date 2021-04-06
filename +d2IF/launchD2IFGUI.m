@@ -9,6 +9,7 @@ function guiHandle = launchD2IFGUI(varargin)
     n.addParameter('preStitchedScan', '', @ischar);
     n.addParameter('cellPoseNuclei', '', @ischar);
     n.addParameter('cellPoseCyto', '', @ischar);
+    n.addParameter('whichNuc', 'some', @(x)mustBeMember({'none', 'some', 'all'}));
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
     
