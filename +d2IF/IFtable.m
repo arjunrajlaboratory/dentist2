@@ -207,8 +207,8 @@ classdef IFtable < handle
             n.parse(varargin{:});
             channelsToQaunt = n.Results.channels;
             
+            p.IFboundaries.deleteEmptyRows;
             cellIDs = p.IFboundaries.cellBoundaries2.cellID;
-            cellIDs(cellIDs==0) = [];
             nRows = numel(cellIDs) * numel(channelsToQaunt);
             meanCytoArray = zeros(nRows,1);
             sumCytoArray = zeros(nRows,1);
@@ -221,9 +221,10 @@ classdef IFtable < handle
             for i = 1:numel(cellIDs)
                 tmpCellPoly = p.IFboundaries.cellBoundaries2.cellBoundary(p.IFboundaries.cellBoundaries2.cellID == cellIDs(i)); 
                 tmpBB = d2utils.polyshapeBoundingBox(tmpCellPoly, p.scanObj.stitchDim);
-                if n.Results.withNuc
-                    tmpNucInRect = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
-                    tmpNucPoly = intersect(union(tmpNucInRect.nucBoundary), tmpCellPoly);
+                tmpNucInRect = p.IFboundaries.getAllNucBoundariesInRect(tmpBB);
+                if n.Results.withNuc && ~isempty(tmpNucInRect)
+                    tmpNucInRect = union(tmpNucInRect.nucBoundary);
+                    tmpNucPoly = intersect(tmpNucInRect, tmpCellPoly);
                     tmpDapiMask = d2utils.polyvect2mask(tmpBB(3:4), regions(tmpNucPoly), tmpBB(1:2), 'flip', true);
                     tmpCellMask = d2utils.polyvect2mask(tmpBB(3:4), regions(tmpCellPoly), tmpBB(1:2), 'flip', true);
                     tmpCytoMask = tmpCellMask & ~ tmpDapiMask;
@@ -251,17 +252,20 @@ classdef IFtable < handle
             p.IFboundaries.nucBoundaries2 = cell2table([num2cell(cellIDs), nucBoundariesTmp', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
             p.IFboundaries.addColors();
             %Update IFquant
-            if n.Results.withNuc
-                [cellCoordsX, cellCoordsY]  = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.nucBoundaries2.nucBoundary, 'UniformOutput', false);
-            else
-                [cellCoordsX, cellCoordsY]  = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.cellBoundaries2.cellBoundary, 'UniformOutput', false);
-            end
-            cellCoords = cellfun(@(x) single(round(mean(x, 1))), [cellCoordsX, cellCoordsY], 'UniformOutput', false); 
+            %Find centroid of nuclei. If no nuclei, find centroid of cyto.
+            %Note, assumes nucBoundaries2 and cellBoundaries2 have same cellID order   
+            cellCoordsTmp = cell(numel(cellIDs), 2);
+            withNucIdx = [p.IFboundaries.nucBoundaries2.nucBoundary.NumRegions] > 0;
+            [nucCoordsX, nucCoordsY] = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.nucBoundaries2.nucBoundary(withNucIdx), 'UniformOutput', false);
+            cellCoordsTmp(withNucIdx, :) = [nucCoordsX, nucCoordsY];
+            [cellCoordsX, cellCoordsY] = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.cellBoundaries2.cellBoundary(~withNucIdx), 'UniformOutput', false);
+            cellCoordsTmp(~withNucIdx,:) = [cellCoordsX, cellCoordsY];
+            cellCoords = cellfun(@(x) single(round(mean(x, 1))), cellCoordsTmp, 'UniformOutput', false); 
             cellCoords = repelem(cellCoords, numel(p.channels), 1);
             status = true(nRows,1);
             maskID = single(zeros(nRows,1));
             cellIDs = repelem(cellIDs, numel(p.channels));
-            p.IFquant = array2table([cellIDs',cell2mat(cellCoords), status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
+            p.IFquant = array2table([cellIDs,cell2mat(cellCoords), status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
                 'VariableNames', [{'cellID', 'x', 'y', 'status'}, p.channels, {'meanNuc', 'meanCyto',  'sumNuc', 'sumCyto','maskID'}]);
             p.IFquant = convertvars(p.IFquant, [{'status'}, p.channels], 'logical');
             p.IFboundaries.addEmptyRows(1000);
@@ -275,8 +279,8 @@ classdef IFtable < handle
                 channelsToQaunt = varargin{1};
             end
             
+            p.IFboundaries.deleteEmptyRows;
             cellIDs = p.IFboundaries.cellBoundaries2.cellID;
-            cellIDs(cellIDs==0) = [];
             nRows = numel(cellIDs) * numel(channelsToQaunt);
             meanNucArray = zeros(nRows,1);
             meanCytoArray = zeros(nRows,1);
@@ -302,17 +306,20 @@ classdef IFtable < handle
                 end
             end
             %Update IFquant
-            if ~isempty(p.IFboundaries.nucBoundaries2.nucBoundary(1).Vertices) %Probably a nicer way to do this
-                [cellCoordsX, cellCoordsY]  = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.nucBoundaries2.nucBoundary, 'UniformOutput', false);
-            else
-                [cellCoordsX, cellCoordsY]  = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.cellBoundaries2.cellBoundary, 'UniformOutput', false);
-            end
-            cellCoords = cellfun(@(x) single(round(mean(x, 1))), [cellCoordsX, cellCoordsY], 'UniformOutput', false); 
+            %Find centroid of nuclei. If no nuclei, find centroid of cyto. 
+            %Note, assumes nucBoundaries2 and cellBoundaries2 have same cellID order   
+            cellCoordsTmp = cell(numel(cellIDs), 2);
+            withNucIdx = [p.IFboundaries.nucBoundaries2.nucBoundary.NumRegions] > 0;
+            [nucCoordsX, nucCoordsY] = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.nucBoundaries2.nucBoundary(withNucIdx), 'UniformOutput', false);
+            cellCoordsTmp(withNucIdx, :) = [nucCoordsX, nucCoordsY];
+            [cellCoordsX, cellCoordsY] = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.cellBoundaries2.cellBoundary(~withNucIdx), 'UniformOutput', false);
+            cellCoordsTmp(~withNucIdx,:) = [cellCoordsX, cellCoordsY];
+            cellCoords = cellfun(@(x) single(round(mean(x, 1))), cellCoordsTmp, 'UniformOutput', false); 
             cellCoords = repelem(cellCoords, numel(p.channels), 1);
             status = true(nRows,1);
             maskID = single(zeros(nRows,1));
             cellIDs = repelem(cellIDs, numel(p.channels));
-            p.IFquant = array2table([cellIDs',cell2mat(cellCoords), status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
+            p.IFquant = array2table([cellIDs,cell2mat(cellCoords), status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
                 'VariableNames', [{'cellID', 'x', 'y', 'status'}, p.channels, {'meanNuc', 'meanCyto',  'sumNuc', 'sumCyto','maskID'}]);
             p.IFquant = convertvars(p.IFquant, [{'status'}, p.channels], 'logical');
             p.IFboundaries.addEmptyRows(1000);
@@ -419,7 +426,7 @@ classdef IFtable < handle
             end
             status = true(nRows,1);
             maskID = single(zeros(nRows,1));
-            newCellID = max(p.IFquant.cellID)+1
+            newCellID = max(p.IFquant.cellID)+1;
             cellIDs = repelem(newCellID, nRows, 1);
             newCell = array2table([cellIDs, cellCoords, status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
                 'VariableNames', [{'cellID', 'x', 'y', 'status'}, p.channels, {'meanNuc', 'meanCyto',  'sumNuc', 'sumCyto','maskID'}]);

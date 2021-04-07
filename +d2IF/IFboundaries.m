@@ -75,6 +75,11 @@ classdef IFboundaries < handle
             p.cellBoundaries2 = [p.cellBoundaries2; newCells];
         end
         
+        function p = deleteEmptyRows(p)
+            p.nucBoundaries2(p.nucBoundaries2.cellID == 0, :) = [];
+            p.cellBoundaries2(p.cellBoundaries2.cellID == 0, :) = [];
+        end
+        
         function p = stitchDAPImask(p, varargin)  
             tileTable = p.scanObj.tilesTable;
             tilesTmp = transpose(p.scanObj.scanMatrix);
@@ -284,8 +289,7 @@ classdef IFboundaries < handle
         end
         
         function p = assignNucToCyto(p)
-            p.nucBoundaries2(p.nucBoundaries2.cellID == 0, :) =[]; %Delete emptry rows
-            p.cellBoundaries2(p.cellBoundaries2.cellID == 0, :) =[]; %Delete emptry rows
+            p.deleteEmptyRows; %Delete empty rows
             newNuclei = table('Size', [height(p.cellBoundaries2), width(p.nucBoundaries2)],...
                 'VariableNames', p.nucBoundaries2.Properties.VariableNames,...
                 'VariableTypes', varfun(@class, p.nucBoundaries2, 'output','cell'));
