@@ -507,7 +507,8 @@ classdef spotTable < handle
         function outTable = tabulateAllChannels(p)
             tmpSpots = groupsummary(p.spots(p.spots.status,:), {'channel', 'nearestNucID'}, 'IncludeEmptyGroups', true);
             spotLessCells = setdiff(p.nucleiObj.nuclei.nucID(p.nucleiObj.nuclei.status), tmpSpots.nearestNucID);
-            spotLessTable = table(repmat(p.spotChannels', numel(spotLessCells), 1), repelem(spotLessCells, 3), zeros(numel(spotLessCells)*3, 1),...
+            nSpots = numel(p.spotChannels);
+            spotLessTable = table(repelem(p.spotChannels', numel(spotLessCells)), repmat(spotLessCells, nSpots, 1), zeros(numel(spotLessCells)*nSpots, 1),...
                 'VariableNames', tmpSpots.Properties.VariableNames);
             tmpSpots = [tmpSpots; spotLessTable];
             outTable = outerjoin(p.nucleiObj.nuclei(p.nucleiObj.nuclei.status,{'nucID', 'x', 'y'}), tmpSpots, 'Type', 'left', 'LeftKeys', 'nucID', 'RightKeys', 'nearestNucID');
