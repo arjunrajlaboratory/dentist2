@@ -71,14 +71,13 @@ classdef spotTable < handle
             
             [spotsInRect, spotIdx] = p.getAllSpotsInRect(rect);
             nucleiNearRect = p.nucleiObj.getNucleiNearRect(rect, p.maxDistance);
-            if any(spotIdx) && ~isempty(nucleiNearRect)
+            if ~isempty(nucleiNearRect) && any(spotIdx)
+                [nucIdx, dist] = knnsearch([nucleiNearRect.x nucleiNearRect.y], [spotsInRect.x spotsInRect.y], 'K', 1, 'Distance', 'euclidean');
+                p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
+                p.spots.distanceToNuc(spotIdx) = single(dist);
+                p.spots.colors(spotIdx, :) = nucleiNearRect.colors(nucIdx, :);
+                p.allIntensities(); %Because there could be new valid spots to count.
             end
-            [nucIdx, dist] = knnsearch([nucleiNearRect.x nucleiNearRect.y], [spotsInRect.x spotsInRect.y], 'K', 1, 'Distance', 'euclidean');
-            
-            p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
-            p.spots.distanceToNuc(spotIdx) = single(dist);
-            p.spots.colors(spotIdx, :) = nucleiNearRect.colors(nucIdx, :);
-            p.allIntensities(); %Because there could be new valid spots to count.
         end
         
         function [outSpots,idx] = getAllSpotsInRect(p,rect) %rect specified as [x y nrows ncols]
