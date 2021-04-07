@@ -9,7 +9,8 @@ function guiHandle = launchD2IFGUI(varargin)
     n.addParameter('preStitchedScan', '', @ischar);
     n.addParameter('cellPoseNuclei', '', @ischar);
     n.addParameter('cellPoseCyto', '', @ischar);
-    n.addParameter('whichNuc', 'some', @(x)mustBeMember({'none', 'some', 'all'}));
+    n.addParameter('withNuc', 'some', @(x)mustBeMember({'none', 'some', 'all'}));
+    n.addParameter('withCyto', true, @islogical);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
     
@@ -76,25 +77,57 @@ function guiHandle = launchD2IFGUI(varargin)
         IFboundariesObj.addColors();
         IFboundariesObj.addEmptyRows(1000);
         IFquantObj.addEmptyRows(1000);
-    else
-        disp('Making new IFboundaries and IFquant objects.')
-        IFboundariesObj = d2IF.IFboundaries(scanObj, maskObjBoundaries);
-        IFquantObj = d2IF.IFtable(scanObj, maskObjImg, IFboundariesObj);
-        if isfile(n.Results.cellPoseNuclei) %Load pre-stitched cellpose mask
-            disp('Loading cellpose nuclei boundaries.')
-            IFboundariesObj.loadCellPoseDapi(sprintf('%s_masks.tif', n.Results.cellPose), sprintf('%s_outlines.txt',  n.Results.cellPose));
-            IFboundariesObj.labelMat2nucTable();
-        else
-            disp('Calculating nuclei boundaries.')
-            IFboundariesObj.makeNucleiLabelMat();
-            IFboundariesObj.labelMat2nucTable();
+    else %There may be a more effient way to code the conditions below
+        if ~strcmp(n.Results.withNuc, 'none')
+            disp('Making new IFboundaries and IFquant objects.')
+            IFboundariesObj = d2IF.IFboundaries(scanObj, maskObjBoundaries);
+            IFquantObj = d2IF.IFtable(scanObj, maskObjImg, IFboundariesObj);
+            if isfile(n.Results.cellPoseNuclei) %Load pre-stitched cellpose nuclei mask
+                disp('Loading cellpose nuclei boundaries.')
+                IFboundariesObj.loadCellPoseDapi(sprintf('%s_masks.tif', n.Results.cellPoseNuclei), sprintf('%s_outlines.txt',  n.Results.cellPoseNuclei));
+                IFboundariesObj.labelMat2nucTable();
+            else
+                disp('Finding nuclei boundaries.')
+                IFboundariesObj.makeNucleiLabelMat();
+                IFboundariesObj.labelMat2nucTable();
+            end
         end
         
-        if isfile(n.Results.cellPoseCyto)
+        if n.Results.withCyto
+            if isfile(n.Results.cellPoseCyto)
+                disp('Loading cellpose cytoplasmic boundaries.')
+                IFboundariesObj.loadCellPoseCyto(sprintf('%s_masks.tif', n.Results.cellPoseCyto), sprintf('%s_outlines.txt',  n.Results.cellPoseCyto));
+                IFboundariesObj.labelMat2cytoTable();
+                disp('Quantifying nuclei and cytoplasmic IF signal.')
+                switch n.Results.withNuc
+                    case 'some'
+                        IFquantObj.quantAllCytoBoundaries(true);
+                    case 'all'
+                        IFboundariesObj.assignNucToCyto();
+                        IFboundariesObj.addColors();
+                        IFquantObj.quantBoundaries();
+                    case 'none'
+                        %Make empty nuclei boundaries
+                        IFboundariesObj.addColors();
+                        IFquantObj.quantBoundaries();
+                end
+            elseif ~strcmp(n.Results.withNuc, 'none')
+                disp('Quantifying nuclei and cytoplasmic donut.')
+                IFquantObj.quantAllLabelMat2();
+            else
+                disp('If withNuc = none and withCyto = true, then you need to specify cellpose cytoplasmic boundaries')
+                return
+            end
         else
-            disp('Quantifying nuclear and cytoplasmic signal.')
-            IFquantObj.quantAllLabelMat2();
+            if ~strcmp(n.Results.withNuc, 'none')
+                %Make empty cyto boundaries
+                IFboundariesObj.addColors();
+                IFquantObj.quantBoundaries();
+            else
+                disp('You specified withNuc = none and withCyto = false. Boundaries and quant tables will start out empty')
+            end
         end
+        
     end
     IFquantObj.makeCentroidList('meanNuc');
 %----------------------------------------------------------------
