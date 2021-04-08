@@ -54,12 +54,18 @@ classdef d2IFController < handle
         
         function startup(p)
             p.channelIdx = p.viewObj.channelPopup.Value;
-            p.plotScatterMain();
+            p.updateImageInView();
             p.quantMetricDict = containers.Map({'mean nucleus', 'mean cytoplasm', 'sum nucleus', 'sum cytoplasm'},...
                             {'meanNuc', 'meanCyto', 'sumNuc', 'sumCyto'}); %Hard-coded for now. Can make this more functional in the future
             p.quantMetric = get(p.viewObj.quantMetric.SelectedObject, 'String');
-            p.updateImageInView();
+%             p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
             p.numCells = height(p.IFtable.centroidLists{p.channelIdx});
+            if isempty(p.IFtable.centroidLists{p.channelIdx})
+                p.showImage();
+                p.overlayMasks();
+            else
+                p.plotScatterMain();
+            end
         end
         
         function p = changeChannel(p, ~, ~)

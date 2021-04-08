@@ -25,7 +25,7 @@ classdef IFtable < handle
             p.channels = p.scanObj.stitchedScans.labels;
             if nargin == 3
                 fprintf('New IFquant Table\n');
-                p.IFquant = table('size', [0,numel(p.channels)+ 9],... %Possibly unnecessary since new table created with p.findNuclei. 
+                p.IFquant = table('size', [0,numel(p.channels)+ 9],...
                     'VariableNames', [{'cellID', 'x', 'y', 'status'}, p.channels, {'meanNuc', 'meanCyto',  'sumNuc', 'sumCyto','maskID'}],...
                     'VariableTypes', [repmat({'single'}, 1, 3), repmat({'logical'}, 1, 1+numel(p.channels)), repmat({'single'}, 1, 5)]);
             elseif nargin == 4
@@ -812,7 +812,11 @@ classdef IFtable < handle
         function outTable = sortChannel(p, channel, var)
             outTable = sortrows(p.IFquant(p.IFquant{:,channel}, {'cellID', 'x', 'y', var}), var, 'descend', 'MissingPlacement', 'last');
             outTable{:,var} = round(outTable{:,var});
-            outTable.expression_color =  d2utils.expressionToColors(outTable{:,var}, p.expressionColorPal{p.paletteIdx});
+            if ~isempty(outTable)
+                outTable.expression_color =  d2utils.expressionToColors(outTable{:,var}, p.expressionColorPal{p.paletteIdx});
+            else
+                outTable.expression_color = zeros(0);
+            end
         end
         
         function outTable = centroidTableInRect(p, channelIdx, rect)

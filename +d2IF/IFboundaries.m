@@ -40,6 +40,12 @@ classdef IFboundaries < handle
                 tmpNucBoundaries.nucBB = cell2mat(arrayfun(@(x) d2utils.polyshapeBoundingBox(x), tmpNucBoundaries.nucBoundary, 'UniformOutput', false));
                 tmpNucBoundaries = convertvars(tmpNucBoundaries, p.channels,'logical');
                 p.nucBoundaries2 = movevars(tmpNucBoundaries, {'nucBoundary', 'nucBB'}, 'After', 'cellID');
+            else
+                cellID = zeros(0,1);
+                nucBoundary = repmat(polyshape, 0,1);
+                nucBB = single(zeros(0,4));
+                p.nucBoundaries2 = table(cellID, nucBoundary, nucBB);
+                p.nucBoundaries2(:,p.channels) = num2cell(true(0,numel(p.channels)));
             end
             
             if isfile(n.Results.cellsFile)
@@ -50,6 +56,12 @@ classdef IFboundaries < handle
                 tmpCellBoundaries.cellBB = cell2mat(arrayfun(@(x) d2utils.polyshapeBoundingBox(x), tmpCellBoundaries.cellBoundary, 'UniformOutput', false));
                 tmpCellBoundaries = convertvars(tmpCellBoundaries, p.channels,'logical');
                 p.cellBoundaries2 = movevars(tmpCellBoundaries, {'cellBoundary', 'cellBB'}, 'After', 'cellID');
+            else
+                cellID = zeros(0,1);
+                cellBoundary = repmat(polyshape, 0,1);
+                cellBB = single(zeros(0,4));
+                p.cellBoundaries2 = table(cellID, cellBoundary, cellBB);
+                p.cellBoundaries2(:,p.channels) = num2cell(true(0,numel(p.channels)));
             end
         end
         
@@ -78,6 +90,22 @@ classdef IFboundaries < handle
         function p = deleteEmptyRows(p)
             p.nucBoundaries2(p.nucBoundaries2.cellID == 0, :) = [];
             p.cellBoundaries2(p.cellBoundaries2.cellID == 0, :) = [];
+        end
+        
+        function p = makeNucEmpty(p)
+            tmpCellIDs = p.cellBoundaries2.cellID;
+            tmpBoundaries = repmat({polyshape}, numel(tmpCellIDs), 1);
+            tmpBB = zeros(numel(tmpCellIDs), 4);
+            tmpStatus = true(numel(tmpCellIDs),numel(p.channels));
+            p.nucBoundaries2 = cell2table([num2cell(tmpCellIDs), tmpBoundaries, num2cell(tmpBB, 2), num2cell(tmpStatus)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
+        end
+        
+        function p = makeCytoEmpty(p)
+            tmpCellIDs = p.nucBoundaries2.cellID;
+            tmpBoundaries = repmat({polyshape}, numel(tmpCellIDs), 1);
+            tmpBB = zeros(numel(tmpCellIDs), 4);
+            tmpStatus = true(numel(tmpCellIDs),numel(p.channels));
+            p.cellBoundaries2 = cell2table([num2cell(tmpCellIDs), tmpBoundaries, num2cell(tmpBB, 2), num2cell(tmpStatus)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
         end
         
         function p = stitchDAPImask(p, varargin)  
@@ -380,18 +408,14 @@ classdef IFboundaries < handle
         end
         
         function p = addColors(p)
-            %Note: 1) assumes equal number and order of cellIDs in nucBoundaries2 and cellBoundaries2 and 
-            % 2) assigns colors to all cells and nuclei, even if status = false. 
+            %Note: assigns colors to all cells and nuclei, even if status = false. 
             colorArray = [repmat(p.randomColors, floor(height(p.nucBoundaries2)/height(p.randomColors)), 1);...
                 p.randomColors(1:mod(height(p.nucBoundaries2), height(p.randomColors)), :)];
            
             p.nucBoundaries2.colors = colorArray;
-            [~, cellIdx] = ismember(p.nucBoundaries2.cellID, p.cellBoundaries2.cellID);
-            if ~isempty(p.cellBoundaries2)
-%                 p.cellBoundaries2.colors = colorArray;
-                p.cellBoundaries2.colors = zeros(numel(p.cellBoundaries2.cellID), 3);
-                p.cellBoundaries2.colors(cellIdx,:) = colorArray;
-            end
+            [~, cellIdx] = ismember(p.nucBoundaries2.cellID, p.cellBoundaries2.cellID); %in case there is variable # or order of cellID (there shouldn't be). 
+            p.cellBoundaries2.colors = single(zeros(numel(p.cellBoundaries2.cellID), 3));
+            p.cellBoundaries2.colors(cellIdx,:) = colorArray;
         end
         
         function p = addNewCell(p, newCellID, nucPoly, cellPoly)

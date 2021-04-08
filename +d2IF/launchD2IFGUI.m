@@ -9,7 +9,7 @@ function guiHandle = launchD2IFGUI(varargin)
     n.addParameter('preStitchedScan', '', @ischar);
     n.addParameter('cellPoseNuclei', '', @ischar);
     n.addParameter('cellPoseCyto', '', @ischar);
-    n.addParameter('withNuc', 'some', @(x)mustBeMember({'none', 'some', 'all'}));
+    n.addParameter('withNuc', 'some', @(x)mustBeMember(x, {'none', 'some', 'all'}));
     n.addParameter('withCyto', true, @islogical);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
@@ -78,10 +78,13 @@ function guiHandle = launchD2IFGUI(varargin)
         IFboundariesObj.addEmptyRows(1000);
         IFquantObj.addEmptyRows(1000);
     else %There may be a more effient way to code the conditions below
+        disp('Making new IFboundaries and IFquant objects.')
+        IFboundariesObj = d2IF.IFboundaries(scanObj, maskObjBoundaries);
+        IFquantObj = d2IF.IFtable(scanObj, maskObjImg, IFboundariesObj);
+        IFboundariesObj.nucBoundariesFile = n.Results.nucBoundariesFile;
+        IFboundariesObj.cellBoundariesFile = n.Results.cellBoundariesFile;
+        IFquantObj.IFquantFile = n.Results.IFquantFile;
         if ~strcmp(n.Results.withNuc, 'none')
-            disp('Making new IFboundaries and IFquant objects.')
-            IFboundariesObj = d2IF.IFboundaries(scanObj, maskObjBoundaries);
-            IFquantObj = d2IF.IFtable(scanObj, maskObjImg, IFboundariesObj);
             if isfile(n.Results.cellPoseNuclei) %Load pre-stitched cellpose nuclei mask
                 disp('Loading cellpose nuclei boundaries.')
                 IFboundariesObj.loadCellPoseDapi(sprintf('%s_masks.tif', n.Results.cellPoseNuclei), sprintf('%s_outlines.txt',  n.Results.cellPoseNuclei));
@@ -107,7 +110,7 @@ function guiHandle = launchD2IFGUI(varargin)
                         IFboundariesObj.addColors();
                         IFquantObj.quantBoundaries();
                     case 'none'
-                        %Make empty nuclei boundaries
+                        IFboundariesObj.makeNucEmpty();
                         IFboundariesObj.addColors();
                         IFquantObj.quantBoundaries();
                 end
@@ -125,9 +128,9 @@ function guiHandle = launchD2IFGUI(varargin)
                 IFquantObj.quantBoundaries();
             else
                 disp('You specified withNuc = none and withCyto = false. Boundaries and quant tables will start out empty')
+                IFboundariesObj.addColors();
             end
         end
-        
     end
     IFquantObj.makeCentroidList('meanNuc');
 %----------------------------------------------------------------
