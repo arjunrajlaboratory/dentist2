@@ -307,6 +307,9 @@ classdef d2IFController < handle
         end
         
         function overlayCells(p, ~, ~)
+            %Unlike overlayNuclei, overlayCells does not plot disconnected
+            %boundaries. To plot disconnected cells, change
+            %polyvect2patchMats to polyvect2patchMats2 as in overlayNuclei.
             if logical(p.viewObj.cellBordersCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
                 cellsInView = p.IFboundaries.getCellBoundariesInRect(p.IFboundaries.channels(p.channelIdx), p.viewRect);
                 [cellXmat, cellYmat] = d2utils.polyvect2patchMats(cellsInView.cellBoundary); 
@@ -705,7 +708,7 @@ classdef d2IFController < handle
                         set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
                     case 'uparrow'
                         cellIdx = max(1, get(p.viewObj.centroidList, 'Value')-1);
-                        cellPos = p.spotTable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
+                        cellPos = p.IFtable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
                         p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.stitchDim);
                         set(p.viewObj.scatterCheckBox, 'Value', 0)
                         p.updateImageInView();
@@ -713,7 +716,7 @@ classdef d2IFController < handle
                         p.thumbCntrlr.overlayThumbnailRect();
                     case 'downarrow'
                         cellIdx = min(get(p.viewObj.centroidList, 'Value')+1, p.numCells);
-                        cellPos = p.spotTable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
+                        cellPos = p.IFtable.centroidLists{p.channelIdx}{cellIdx, {'x', 'y'}};
                         p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.stitchDim);
                         set(p.viewObj.scatterCheckBox, 'Value', 0)
                         p.updateImageInView();

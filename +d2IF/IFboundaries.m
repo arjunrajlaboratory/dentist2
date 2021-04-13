@@ -15,8 +15,9 @@ classdef IFboundaries < handle
        randomColors
        nucBoundariesFile = 'nucBoundariesIF.csv'
        cellBoundariesFile = 'cellBoundariesIF.csv'
-       minNucleusSize = 1000;
+       minNucArea = 1000;
        radius = 20;
+       strelRadius = 40;
     end
     
     methods
@@ -138,7 +139,7 @@ classdef IFboundaries < handle
             reader.close()
             tmpCC = bwconncomp(tmpStitch);
             tmpArea = regionprops(tmpCC, 'area');
-            schmutzIdx = [tmpArea.Area] < p.minNucleusSize;
+            schmutzIdx = [tmpArea.Area] < p.minNucArea;
             schmutz = tmpCC.PixelIdxList(schmutzIdx);
             for i = 1:numel(schmutz)
                 tmpStitch(schmutz{i}) = false;
@@ -150,7 +151,7 @@ classdef IFboundaries < handle
             
             n = inputParser;
             n.addParameter('sensitivity', 0.1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>=',0,'<=',1.0}));    
-            n.addParameter('blockSize', [1500 1500], @(x)validateattributes(x,{'numeric'}, {'size', [1 2]}));    
+            n.addParameter('blockSize', [1000 1000], @(x)validateattributes(x,{'numeric'}, {'size', [1 2]}));    
             n.parse(varargin{:});
             %Should maybe check that the block size is >[1 1] and < scanDim.
             s = n.Results.sensitivity;
@@ -162,7 +163,7 @@ classdef IFboundaries < handle
             tmpStitch = blockproc(p.scanObj.dapiStitch, block, function_mask, 'BorderSize', [0 0], 'UseParallel', true);
             tmpCC = bwconncomp(tmpStitch);
             tmpArea = regionprops(tmpCC, 'area');
-            schmutzIdx = [tmpArea.Area] < p.minNucleusSize;
+            schmutzIdx = [tmpArea.Area] < p.minNucArea;
             schmutz = tmpCC.PixelIdxList(schmutzIdx);
             for i = 1:numel(schmutz)
                 tmpStitch(schmutz{i}) = false;
@@ -175,27 +176,28 @@ classdef IFboundaries < handle
             %label matrix
             tmpBoundaries = bwboundaries(p.dapiMask);
             tmpBoundariesArea = cellfun(@(x) polyarea(x(:,1), x(:,2)), tmpBoundaries);
-            tmpBoundaries = tmpBoundaries(tmpBoundariesArea>= 1000); 
+            tmpBoundaries = tmpBoundaries(tmpBoundariesArea>= p.minNucArea); 
             
             boundaryStitch = zeros(size(p.dapiMask)); %Could make this max of boundaryArray. Or stitchDim
            
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
-            for i = 1:numel(tmpBoundaries)
+            for i = 1:numel(tmpBoundaries) %This could probably be parfor
                 [tmpXlim,tmpYlim]  = boundingbox(polyshape(tmpBoundaries{i}));
                 tmpMask = poly2mask(tmpBoundaries{i}(:,2)-tmpYlim(1), tmpBoundaries{i}(:,1)-tmpXlim(1), diff(tmpXlim)+1, diff(tmpYlim)+1);
-                boundaryStitch(tmpXlim(1):tmpXlim(2), tmpYlim(1):tmpYlim(2)) = imclose(tmpMask, strel('disk', 30)); %Consider adjusting operation or strel. 
+                boundaryStitch(tmpXlim(1):tmpXlim(2), tmpYlim(1):tmpYlim(2)) = imclose(tmpMask, strel('disk', p.strelRadius)); %Consider adjusting operation or strel. 
             end
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
             dapiCC = bwconncomp(boundaryStitch);
             p.dapiRP = regionprops(dapiCC);
             p.dapiLabelMat = labelmatrix(dapiCC);
             
-            tmpBoundaries = bwboundaries(boundaryStitch);
+            tmpBoundaries = bwboundaries(boundaryStitch, 'noholes');
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
-            nucBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), tmpBoundaries, 'UniformOutput', false); 
+            nucBoundariesArray = cellfun(@(x) polyshape(x), tmpBoundaries, 'UniformOutput', false);
+            nucBoundariesArray = cellfun(@(x) union(rmholes(x)), nucBoundariesArray, 'UniformOutput', false); %Remove holes to simplify plotting. May not be necessary.
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), nucBoundariesArray, 'UniformOutput', false);
             status = true(numel(nucBoundariesArray),numel(p.channels));
-            p.nucBoundaries = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
+            p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray, tmpBB, num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
         end
         
         function p = loadCellPoseDapi(p, labelMatFile, outlineFile)
@@ -287,6 +289,7 @@ classdef IFboundaries < handle
             %Update nucBoundaries
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
             nucBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), nucBoundariesTmp, 'UniformOutput', false); 
+            nucBoundariesArray = cellfun(@(x) union(rmholes(x)), nucBoundariesArray, 'UniformOutput', false); %Remove holes to simplify plotting
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), nucBoundariesArray, 'UniformOutput', false);
             status = true(numel(nucBoundariesArray), numel(p.channels));
             p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
@@ -309,7 +312,9 @@ classdef IFboundaries < handle
             end
             %Update cellBoundaries
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
-            cellBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), cytoBoundariesTmp, 'UniformOutput', false); 
+            cellBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), cytoBoundariesTmp, 'UniformOutput', false);
+            cellBoundariesArray = cellfun(@(x) union(rmholes(x)), cellBoundariesArray, 'UniformOutput', false); %Remove holes to simplify plotting
+            cellBoundariesArray = cellfun(@(x) d2utils.largestPolyRegion(x), cellBoundariesArray, 'UniformOutput', false); %Keep only largest region to simplify plotting. To keep disconnected regions, need to update overlayCells in IFcontroller 
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), cellBoundariesArray, 'UniformOutput', false);
             status = true(numel(cellBoundariesArray), numel(p.channels));
             p.cellBoundaries2 = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
@@ -352,7 +357,6 @@ classdef IFboundaries < handle
                 startCellID = max(newNuclei.cellID) + 1;
                 extraNucleiN = numel(extraNuclei);
                 status = true(extraNucleiN,numel(p.channels));
-                disp(size(extraNucleiBB))
                 extraNucleiTable = cell2table([num2cell((startCellID:startCellID+extraNucleiN-1)'), extraNuclei', extraNucleiBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
                 newNuclei = [newNuclei; extraNucleiTable];
                 

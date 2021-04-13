@@ -144,7 +144,9 @@ classdef IFtable < handle
                 channelsToQaunt = varargin{1};
             end
             
-            nRows = numel(p.IFboundaries.dapiRP) * numel(channelsToQaunt);
+            p.IFboundaries.deleteEmptyRows;
+            cellIDs = p.IFboundaries.nucBoundaries2.cellID;
+            nRows = numel(cellIDs) * numel(channelsToQaunt);
             meanNucArray = zeros(nRows,1);
             meanCytoArray = zeros(nRows,1);
             sumNucArray = zeros(nRows,1);
@@ -152,8 +154,8 @@ classdef IFtable < handle
             channelStatus = false(nRows,numel(p.channels));
             cellBoundariesTmp = cell(0, numel(p.IFboundaries.dapiRP));
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
-            for i = 1:numel(p.IFboundaries.dapiRP) %can make this parfor?
-                tmpNucPoly = p.IFboundaries.nucBoundaries2.nucBoundary(p.IFboundaries.nucBoundaries2.cellID == i); %Not how this assumes cellID are continuous. If some are deleted, this may create errors
+            for i = 1:numel(cellIDs) %can make this parfor?
+                tmpNucPoly = p.IFboundaries.nucBoundaries2.nucBoundary(p.IFboundaries.nucBoundaries2.cellID == i); %Note how this assumes cellID are continuous. If some are deleted, this may create errors
                 tmpCellPoly = tmpNucPoly.polybuffer(p.radius); %What happens if disjoint nuclei? 
                 tmpCellPoly = polyshape(round(tmpCellPoly.Vertices));
                 tmpBB = d2utils.polyshapeBoundingBox(tmpCellPoly, p.scanObj.stitchDim);
@@ -190,8 +192,8 @@ classdef IFtable < handle
             cellCoords = repelem(cellCoords, numel(p.channels), 1);
             status = true(nRows,1);
             maskID = single(zeros(nRows,1));
-            cellIDs = repelem(1:numel(p.IFboundaries.dapiRP), numel(p.channels));
-            p.IFquant = array2table([cellIDs',cell2mat(cellCoords), status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
+            cellIDs = repelem(cellIDs, numel(p.channels));
+            p.IFquant = array2table([cellIDs,cell2mat(cellCoords), status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
                 'VariableNames', [{'cellID', 'x', 'y', 'status'}, p.channels, {'meanNuc', 'meanCyto',  'sumNuc', 'sumCyto','maskID'}]);
             p.IFquant = convertvars(p.IFquant, [{'status'}, p.channels], 'logical');
             p.IFboundaries.addEmptyRows(1000);
