@@ -4,7 +4,8 @@ function [X, Y, spotInt] = findSpotsaTrous(img, varargin)
     p.addParameter('numLevels', 3, @(x)validateattributes(x,{'numeric'}, {'scaler', '>',0})); 
     p.addParameter('sigma', 2, @(x)validateattributes(x,{'numeric'}, {'scaler', '>',0}));
     p.addParameter('shift', [0, 0], @(x)validateattributes(x,{'numeric'}, {'size', [1,2]}))
-    
+    p.addParameter('threshFactor', 2, @(x)validateattributes(x,{'uint16'}, {'scalar', '>', 0}))
+
     p.parse(img, varargin{:});
     
     img = p.Results.img;
@@ -27,8 +28,8 @@ function [X, Y, spotInt] = findSpotsaTrous(img, varargin)
         threshold = max(regionalMaxValues) + 1; %beyond max
     end
 
-    spotInds = regionalMaxIndices(regionalMaxValues>(threshold/2));
-    spotInt = regionalMaxValues(regionalMaxValues>(threshold/2));
+    spotInds = regionalMaxIndices(regionalMaxValues>(threshold/p.Results.threshFactor));
+    spotInt = regionalMaxValues(regionalMaxValues>(threshold/p.Results.threshFactor));
 
     [X, Y] = ind2sub(size(bw),spotInds);  % convert 1D to 2D
     if any(shift)

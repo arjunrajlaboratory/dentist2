@@ -380,10 +380,15 @@ classdef spotTable < handle
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
-        function p = findSpots4(p) 
+        function p = findSpots4(p, varargin) 
             %Find spots on stitched image.
             %Do not run on auto-contrasted stitches. 
             %Only run on non-contrasted stitches. 
+            if nargin == 1
+                threshFactor = 2;
+            else
+                threshFactor = varargin{1};
+            end
             x = [];
             y = [];
             intensity = [];
@@ -405,12 +410,37 @@ classdef spotTable < handle
                 %parpool('threads')
                 parfor ii = 1:numel(splitMat)
                     %Consider changing connectivity to 4 to find more spots in dense areas. 
-                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:));
+                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', threshFactor);
                 end
                 x = [x ; cell2mat(tempX)];
                 y = [y ; cell2mat(tempY)];
                 intensity = [intensity ; cell2mat(tempIntensity)];
                 channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
+            end 
+            
+            spotID = single((1:length(x)))';
+            nearestNucID = single(zeros(length(x),1));
+            maskID = single(zeros(length(x),1));
+            status = true(length(x),1);
+            dist =  single(zeros(length(x),1));
+            p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
+                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
+        end
+        
+        function p = findSpots5(p) 
+            %Find spots on stitched image.
+            %Do not run on auto-contrasted stitches. 
+            %Only run on non-contrasted stitches. 
+            x = [];
+            y = [];
+            intensity = [];
+            channel = [];
+            for i = 1:numel(p.spotChannels)
+                
+                
+                %parfor stitch aTrous
+                %parfor findSpots as above
+                
             end 
             
             spotID = single((1:length(x)))';
