@@ -8,7 +8,9 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('cellPose', '', @ischar);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
-    
+    n.addParameter('aTrousMinThreshFactor', 2, @(x)validateattributes(x,{'uint16'}, {'scalar', '>', 0}));
+    n.addParameter('subtractBackground', false, @islogical);
+
     n.parse(varargin{:});
 %----------------------------------------------------------------
 %
@@ -34,8 +36,12 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         else
             disp('Stitching DAPI channel. This may take a few minutes.')
             scanObj.stitchDAPI();
+            if n.Results.subtractBackground
+                disp('Measuring background fluorescence. This may take a few minutes.')
+                scanObj.measureBackground;
+            end
             disp('Stitching FISH channels. This may take a few minutes.')
-            scanObj.stitchChannels();
+            scanObj.stitchChannels(n.Results.subtractBackground);
             disp('Saving stitched scans. This may take several minutes.')
             scanObj.saveStitches();
         end
@@ -43,7 +49,9 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         fprintf('Loading pre-stitched scans.\nThis may take several minutes.\n')
         scanObj = scanObject('scanFile', n.Results.preStitchedScan);
         scanObj.scanSummaryFile = n.Results.scanSummary;
-        scanObj.saveScanSummary();
+        if ~isfile(n.Results.scanSummary)
+            scanObj.saveScanSummary();
+        end
     end
 %----------------------------------------------------------------
 %
@@ -103,7 +111,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         spotsObj = spotTable(scanObj, maskObj, nucleiObj);
         spotsObj.spotsFile = n.Results.spotsFile;
         disp('Finding spots. This may take several minutes.')
-        spotsObj.findSpots4(); %Only run findSpots4 on non-contrasted stitched scans!
+        spotsObj.findSpots4(n.Results.aTrousMinThreshFactor); %Only run findSpots4 on non-contrasted stitched scans!
         spotsObj.maskBorderSpots();
         disp('Finished finding spots')
         spotsObj.assignSpotsToNuclei();

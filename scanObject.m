@@ -22,6 +22,7 @@ classdef scanObject < handle
         resizeFactor = 4
         rowTransformCoords
         columnTransformCoords
+        backgroundMats
         %Including imRotation in case the image acquired by Elements is flipped or somehow
         %rotated. Consider deleting. Also, height and width 
         %may need to be switched for rotated images. I'm not sure if 
@@ -158,6 +159,37 @@ classdef scanObject < handle
 %             p.stitchDim = size(tmpStitch);
         end
         
+        function p = measureChannelBackground(p, channel)
+            if isempty(p.backgroundMats)
+                p.backgroundMats.labels = p.stitchedScans.labels;
+                p.backgroundMats.mats = cell(0, numel(p.backgroundMats.labels));
+            end
+            channelIdx = find(ismember(p.backgroundMats.labels, channel));
+            reader = bfGetReader(p.scanFile);
+            tmpStack = zeros(p.tileSize(1), p.tileSize(2), prod(p.scanDim));
+            iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+            
+            for i = 1:size(tmpStack, 3)
+                reader.setSeries(i-1); 
+                tmpStack(:,:,i) = bfGetPlane(reader, iPlane);
+            end
+            backgroundMat = min(tmpStack, [], 3);
+            filt = fspecial('disk',100);
+            p.backgroundMats.mats{channelIdx} = uint16(imfilter(backgroundMat,filt,'replicate'));
+        end
+        
+        function p = measureBackground(p, varargin)
+            n = inputParser;
+            n.addOptional('channels',  p.channels(~ismember(p.channels,{'dapi','trans'})), @(x) mustBeMember(x, p.channels))
+            n.parse(varargin{:});
+            
+            p.backgroundMats.labels = n.Results.channels;
+            p.backgroundMats.mats = cell(0, numel(p.backgroundMats.labels));
+            for i = 1:numel(p.backgroundMats.labels)
+                p.measureChannelBackground(p.backgroundMats.labels{i});
+            end
+        end
+        
         function p = contrastDAPIstitch(p)
             function_scale =  @(block_struct) im2uint16(scale(block_struct.data));
             
@@ -169,6 +201,12 @@ classdef scanObject < handle
             for i = 1:numel(p.stitchedScans.stitches)
                 p.stitchedScans.stitches{i} = blockproc(p.stitchedScans.stitches{i}, [1000 1000], function_contrast, 'BorderSize', [0 0], 'UseParallel', true);
             end
+        end
+        
+        function p = contrastStitchedScanChannel(p, channel, percentiles, scaleFactor)  %Can modify this function for different default contrast
+            function_contrast =  @(block_struct) im2uint16(d2utils.percentileScaleImage(block_struct.data, percentiles, scaleFactor));
+            channelIdx = find(ismember(channel, p.stitchedScans.labels));
+            p.stitchedScans.stitches{channelIdx} = blockproc(p.stitchedScans.stitches{channelIdx}, [1000 1000], function_contrast, 'BorderSize', [0 0], 'UseParallel', true);
         end
         
         function p = resizeStitchedScans(p)
@@ -184,7 +222,18 @@ classdef scanObject < handle
 %             p.smallDapiStitch = blockproc(p.dapiStitch, [5000 5000], function_resize, 'BorderSize', [0 0]);
         end
         
-        function tmpStitch = stitchChannel(p, channel) %Maybe unnecessary
+        function p = resizeStitchedScanChannel(p, channel)
+            channelIdx = find(ismember(channel, p.smallStitchedScans.labels));
+            p.smallStitchedScans.stitches{channelIdx} = imresize(p.stitchedScans.stitches{channelIdx}, 1/p.resizeFactor);
+        end
+        
+        function tmpStitch = stitchChannel(p, channel, varargin)
+            n = inputParser;
+            n.addRequired('channel', @(x) mustBeMember(x, p.channels));
+            n.addOptional('subtractBackground', false, @islogical)
+            n.parse(channel, varargin{:});
+            
+            channel = n.Results.channel;
             tileTable = p.tilesTable;
             tilesTmp = transpose(p.scanMatrix);
             tiles = tilesTmp(:);
@@ -194,19 +243,25 @@ classdef scanObject < handle
             c = find(ismember(p.channels,channel));
             reader = bfGetReader(p.scanFile);
             iPlane = reader.getIndex(0, c - 1, 0) + 1;
+            if n.Results.subtractBackground
+                idx = ismember(p.backgroundMats.labels, channel);
+                backgroundMat = p.backgroundMats.mats{idx};
+            else
+                backgroundMat = zeros(p.tileSize);
+            end
             if logical(p.imRotation) %In case the image acquired by Elements is flipped or somehow rotated. Consider deleting. 
-                for i = 1:numel(tiles)
+                for i = 1:numel(tiles) %Can this be paralelized? 
                     reader.setSeries(tiles(i)-1);
-                    tmpPlane  = bfGetPlane(reader, iPlane);
-
+                    tmpPlane = bfGetPlane(reader, iPlane);
+                    tmpPlane = tmpPlane - backgroundMat;
                     tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
                     tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = rot90(tmpPlane, p.imRotation);
                 end
             else
                 for i = 1:numel(tiles)
                     reader.setSeries(tiles(i)-1);
-                    tmpPlane  = bfGetPlane(reader, iPlane);
-
+                    tmpPlane = bfGetPlane(reader, iPlane);
+                    tmpPlane = tmpPlane - backgroundMat;
                     tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
                     tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tmpPlane;
                 end
@@ -215,11 +270,11 @@ classdef scanObject < handle
         end
 
         function p = stitchChannels(p, varargin)
-            if nargin == 1
-                channelsToStitch = p.channels(~ismember(p.channels,{'dapi','trans'}));
-            elseif nargin == 2
-                channelsToStitch = varargin{1};
-            end
+            n = inputParser;
+            n.addOptional('subtractBackground', false, @islogical)
+            n.addOptional('channelsToStitch', p.channels(~ismember(p.channels,{'dapi','trans'})), @(x) mustBeMember(x, p.channels));
+            n.parse(varargin{:});
+            channelsToStitch = n.Results.channelsToStitch;
             tileTable = p.tilesTable;
             tilesTmp = transpose(p.scanMatrix);
             tiles = tilesTmp(:);
@@ -227,15 +282,26 @@ classdef scanObject < handle
             width = p.tileSize(2);
             stitches = cell(1,numel(channelsToStitch));
             channelIdx = find(ismember(p.channels, channelsToStitch));
+            tmpBackgroundMats = zeros(height, width, numel(channelsToStitch), 'uint16');
+            if n.Results.subtractBackground
+                if ~isempty(p.backgroundMats)
+                    for i = 1:numel(channelsToStitch)
+                        idx = ismember(p.backgroundMats.labels, channelsToStitch{i});
+                        tmpBackgroundMats(:,:,i) = p.backgroundMats.mats{idx};
+                    end
+                else
+                    disp('Unable to subtract background. Please run measureBackground and try again')
+                end
+            end
             reader = bfGetReader(p.scanFile);
-            for i = 1:numel(channelsToStitch)
+            for i = 1:numel(channelsToStitch) %Consider making this parfor by using bfreader memoizer
                 tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
                 iPlane = reader.getIndex(0, channelIdx(i) - 1, 0) + 1;
                 if logical(p.imRotation) %In case the image acquired by Elements is flipped or somehow rotated. Consider deleting.
                     for ii = 1:numel(tiles)
                         reader.setSeries(tiles(ii)-1);
                         tmpPlane  = bfGetPlane(reader, iPlane);
-                    
+                        tmpPlane = tmpPlane - tmpBackgroundMats(:,:,i);
                         tmpStitch(tileTable{tiles(ii),'left'}:tileTable{tiles(ii),'left'}+height-1, ...
                             tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = rot90(tmpPlane, p.imRotation);
                     end
@@ -244,7 +310,7 @@ classdef scanObject < handle
                     for ii = 1:numel(tiles)
                         reader.setSeries(tiles(ii)-1);
                         tmpPlane  = bfGetPlane(reader, iPlane);
-                    
+                        tmpPlane = tmpPlane - tmpBackgroundMats(:,:,i);
                         tmpStitch(tileTable{tiles(ii),'left'}:tileTable{tiles(ii),'left'}+height-1, ...
                             tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = tmpPlane;
                     end
@@ -395,8 +461,12 @@ classdef scanObject < handle
             end
             
             if ~isempty(p.dapiStitch) && ~isempty(p.stitchedScans) 
-                d2StitchedScans = {p.dapiStitch, p.stitchedScans};
-                save(outFileName, 'd2StitchedScans', '-v7.3')
+                dapi = p.dapiStitch;
+                save(outFileName, 'dapi', '-v7.3')
+                fishLabels = p.stitchedScans.labels;
+                save(outFileName, 'fishLabels', '-append')
+                fishScans = p.stitchedScans.stitches;
+                save(outFileName, 'fishScans', '-append')
             else
                 if isempty(p.dapiStitch)
                     fprintf("dapiStitch is empty. Run stitchDAPI and try again\n")
@@ -405,12 +475,37 @@ classdef scanObject < handle
                     fprintf("stitchedScans is empty. Run stitchChannels and try again\n")
                 end
             end
+                
+%             if ~isempty(p.dapiStitch) && ~isempty(p.stitchedScans) 
+%                 d2StitchedScans = {p.dapiStitch, p.stitchedScans};
+%                 save(outFileName, 'd2StitchedScans', '-v7.3')
+%             else
+%                 if isempty(p.dapiStitch)
+%                     fprintf("dapiStitch is empty. Run stitchDAPI and try again\n")
+%                 end
+%                 if isempty(p.stitchedScans)
+%                     fprintf("stitchedScans is empty. Run stitchChannels and try again\n")
+%                 end
+%             end
        end
        
        function p = loadStitches(p)
-           load('stitchedScans.mat', 'd2StitchedScans');
-           p.dapiStitch = d2StitchedScans{1};
-           p.stitchedScans = d2StitchedScans{2};
+           tmpMat = matfile('stitchedScans.mat');
+           p.dapiStitch = tmpMat.dapi;
+           p.stitchedScans = struct;
+           p.stitchedScans.labels = tmpMat.fishLabels;
+           p.stitchedScans.stitches = tmpMat.fishScans;
+%            load('stitchedScans.mat', 'd2StitchedScans');
+%            p.dapiStitch = d2StitchedScans{1};
+%            p.stitchedScans = d2StitchedScans{2};
+       end
+       
+       function p = reloadChannelStitch(p, channel)
+           tmpMat = matfile('stitchedScans.mat');
+           fishLabels = tmpMat.fishLabels;
+           idx = find(ismember(channel, fishLabels));
+           tmpStitch = tmpMat.fishScans(1,idx);
+           p.stitchedScans.stitches{idx} = tmpStitch{:};
        end
         
     end

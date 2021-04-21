@@ -59,7 +59,7 @@ classdef spotTable < handle
 
             validNuclei = p.nucleiObj.nuclei(p.nucleiObj.nuclei.status, :); %There may be a more efficient way fo doing this using only index arrays and not creating a new table. 
             
-            [idx, dist] = knnsearch([validNuclei.x, validNuclei.y], [p.spots.x, p.spots.y], 'K', 1, 'Distance', 'euclidean');
+            [idx, dist] = knnsearch(validNuclei{:,{'x', 'y'}}, p.spots{:,{'x', 'y'}}, 'K', 1, 'Distance', 'euclidean');
             
             p.spots.nearestNucID = validNuclei.nucID(idx);
             p.spots.distanceToNuc = single(dist);
@@ -67,12 +67,28 @@ classdef spotTable < handle
             
         end
         
+        function p = assignSpotsToNucleiChannel(p, channel)
+            %At the moment, assigning spots to nearest valid nucleus (i.e. not masked). 
+            %If we want to assign spots to nearest ncleus even if that
+            %nucleus is masked (status = false). Then change below to 
+            %validNuclei = p.nucleiObj.nuclei(~p.nucleiObj.nuclei.nucID == 0,:)
+            %below to validNuclei = p.nucleiObj.nuclei(p.nucleiObj.nuclei.status, :);
+
+            validNuclei = p.nucleiObj.nuclei(p.nucleiObj.nuclei.status, :); %There may be a more efficient way fo doing this using only index arrays and not creating a new table. 
+            spotIdx = p.spots.channel == channel;
+            [nucIdx, dist] = knnsearch(validNuclei{:,{'x', 'y'}}, p.spots{spotIdx, {'x', 'y'}}, 'K', 1, 'Distance', 'euclidean');
+            
+            p.spots{spotIdx,'nearestNucID'} = validNuclei.nucID(nucIdx);
+            p.spots{spotIdx, 'distanceToNuc'} = single(dist);
+            p.spots{spotIdx , 'colors'} = validNuclei.colors(nucIdx, :);
+        end
+        
         function p = assignSpotsInRect(p, rect) %Maybe useful for reassigning spots after add/removing cells 
             
             [spotsInRect, spotIdx] = p.getAllSpotsInRect(rect);
             nucleiNearRect = p.nucleiObj.getNucleiNearRect(rect, p.maxDistance);
             if ~isempty(nucleiNearRect) && any(spotIdx)
-                [nucIdx, dist] = knnsearch([nucleiNearRect.x nucleiNearRect.y], [spotsInRect.x spotsInRect.y], 'K', 1, 'Distance', 'euclidean');
+                [nucIdx, dist] = knnsearch(nucleiNearRect{:,{'x', 'y'}}, spotsInRect{:,{'x','y'}}, 'K', 1, 'Distance', 'euclidean');
                 p.spots.nearestNucID(spotIdx) = nucleiNearRect.nucID(nucIdx);
                 p.spots.distanceToNuc(spotIdx) = single(dist);
                 p.spots.colors(spotIdx, :) = nucleiNearRect.colors(nucIdx, :);
@@ -125,31 +141,33 @@ classdef spotTable < handle
         end
                 
         function p = updateAllMasks(p)  %Note, this will overwrite previous maskIDs in spotTable. 
-            
             for i = 1:numel(p.spotChannels)
                 channel = p.spotChannels{i};
+                p = updateChannelMasks(p, channel);
+            end 
+        end
+        
+        function p = updateChannelMasks(p, channel)  %Note, this will overwrite previous maskIDs in spotTable. 
+            
                 channelIdx = p.maskObj.masks{:, channel};
                 maskTable = p.maskObj.masks(channelIdx,:);
                 maskIDs = unique(maskTable.maskID);
                 maskIDs(maskIDs == 0) = [];
                 spotIdx = p.spots.channel == channel;
                 p.spots.maskID(spotIdx) =  single(0);
-                p.updateSpotStatus(p.spotChannels{i});
+                p.updateSpotStatus(channel);
                 
                 validSpotIdx = p.spots.channel == channel & p.spots.status;
                 spotTable = p.spots(validSpotIdx,:);
                 
-                for ii = 1:numel(maskIDs)
+                for i = 1:numel(maskIDs)
                     idx = inpolygon(spotTable.x, spotTable.y,...
-                        maskTable{maskTable.maskID == maskIDs(ii), 'x'}, maskTable{maskTable.maskID == maskIDs(ii), 'y'}) & spotTable.status;
-                    spotTable.maskID(idx) = maskIDs(ii); 
+                        maskTable{maskTable.maskID == maskIDs(i), 'x'}, maskTable{maskTable.maskID == maskIDs(i), 'y'}) & spotTable.status;
+                    spotTable.maskID(idx) = maskIDs(i); 
                     spotTable.status(idx) = false; 
                 end
                 p.spots.maskID(validSpotIdx) = spotTable.maskID;
                 p.spots.status(validSpotIdx) = spotTable.status;
-                %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
-            end 
-            
         end
         
         function p = addNewMask(p, channel, maxSpotMask)
@@ -418,13 +436,54 @@ classdef spotTable < handle
                 channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
             end 
             
-            spotID = single((1:length(x)))';
-            nearestNucID = single(zeros(length(x),1));
-            maskID = single(zeros(length(x),1));
-            status = true(length(x),1);
-            dist =  single(zeros(length(x),1));
+            n = length(x);
+            spotID = single((1:n))';
+            nearestNucID = single(zeros(n,1));
+            maskID = single(zeros(n,1));
+            status = true(n,1);
+            dist =  single(zeros(n,1));
             p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
+        end
+        
+        function p = findSpotsChannel(p, channel, threshFactor) 
+            %Use to refind spots with new threshold.
+            %Do not run on auto-contrasted stitches. 
+            %Only run on non-contrasted stitches. 
+            channelIdx = ismember(p.scanObj.stitchedScans.labels, channel);
+            fprintf('Finding %s spots\n',channel);
+            %Below, setting block size to 1000 pixels. Can make this larger if you have very even illumination/spot intensities. Just beware of number of bits.
+            rowSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(1)/1000)), mod(p.scanObj.stitchDim(1),1000)];
+            colSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(2)/1000)), mod(p.scanObj.stitchDim(2),1000)];
+            splitMat = mat2cell(p.scanObj.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
+            nRowSplit = size(splitMat, 1);
+            nColSplit = size(splitMat, 2);
+            startCoords = combvec(linspace(0, (nColSplit-1)*1000, nColSplit), linspace(0, (nColSplit-1)*1000, nRowSplit))';
+            tempX = cell(numel(splitMat), 1);
+            tempY = cell(numel(splitMat), 1);
+            tempIntensity = cell(numel(splitMat), 1);
+            %parpool('threads')
+            parfor ii = 1:numel(splitMat)
+                %Consider changing connectivity to 4 to find more spots in dense areas.
+                [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', threshFactor);
+            end
+            x = cell2mat(tempX);
+            y = cell2mat(tempY);
+            intensity = cell2mat(tempIntensity);
+            n = height(x);
+            channelMat = repmat(channel,n,1);
+            
+            spotID = single((1:n))';
+            nearestNucID = single(zeros(n,1));
+            maskID = single(zeros(n,1));
+            status = true(n,1);
+            dist =  single(zeros(n,1));
+            colors = single(zeros(n,3));
+            newSpots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channelMat, dist, colors,...
+                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc', 'colors'});
+            %Replace spots for channel
+            p.spots(p.spots.channel == channel, :) = [];
+            p.spots = [p.spots; newSpots];
         end
         
         function p = findSpots5(p) 

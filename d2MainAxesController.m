@@ -376,8 +376,10 @@ classdef d2MainAxesController < handle
             channel = p.spotTable.spotChannels{p.channelIdx};
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             %addlistener(p.maskH, 'DrawingFinished', @p.maskSpots);
-            if ~isempty(p.maskH.Position) && isvalid(p.maskH) %Allows 'escape' from ROI
+            if ~isempty(p.maskH.Position) && isvalid(p.maskH) %Allows 'escape' from ROI. Consider making mask area > threshold
                 p.maskSpots(p.maskH, channel)
+            else
+                delete(p.maskH)
             end
             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
                 p.viewObj.maskCellButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
@@ -403,6 +405,8 @@ classdef d2MainAxesController < handle
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             if ~isempty(p.maskH.Position) %Allows 'escape' from ROI
                 p.maskCells(p.maskH)
+            else
+                delete(p.maskH)
             end
             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
@@ -485,6 +489,31 @@ classdef d2MainAxesController < handle
                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
         end
         
+        function p = changeSpotFilterThreshold(p, channel, threshFactor)
+            %Check that channel and filter are valid
+            mustBeMember(channel, p.spotTable.spotChannels)
+            mustBeInRange(threshFactor, 1, 65535)
+            %reload non-contrast scan
+            fprintf('Loading stitched scan.\nThis may take several minutes.\n')
+            p.scanObj.reloadChannelStitch(channel);
+            %refind spots
+            p.spotTable.findSpotsChannel(channel, threshFactor);
+            %assign new spots to cells
+            p.spotTable.assignSpotsToNucleiChannel(channel);
+            %mask new spots. This will also update status. 
+            p.spotTable.updateChannelMasks(channel);
+            %update centroid list
+            p.spotTable.updateCentroidList(channel);
+            %re-contrast scans
+            disp('Auto-contrasting stitched scan. This may take several minutes.')
+            p.scanObj.contrastStitchedScanChannel(channel, [1 99], [0.9 3]);
+            disp('Resizing stitched scans')
+            p.scanObj.resizeStitchedScanChannel(channel);
+            p.updateCentroidListView();
+            p.updateMainAxes();
+            p.threshCntrlr.plotIntensityHistogram();
+            p.threshCntrlr.plotIntensityThreshold();
+        end
         function type = getSelectionType(p)
             type = get(p.viewObj.figHandle, 'SelectionType');
         end
