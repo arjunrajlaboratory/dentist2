@@ -376,7 +376,7 @@ classdef d2MainAxesController < handle
             channel = p.spotTable.spotChannels{p.channelIdx};
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             %addlistener(p.maskH, 'DrawingFinished', @p.maskSpots);
-            if ~isempty(p.maskH.Position) && isvalid(p.maskH) %Allows 'escape' from ROI. Consider making mask area > threshold
+            if ~isempty(p.maskH.Position) && isvalid(p.maskH) && polyarea(p.maskH.Position(:,1), p.maskH.Position(:,2)) > 3 %min mask area
                 p.maskSpots(p.maskH, channel)
             else
                 delete(p.maskH)
@@ -403,7 +403,7 @@ classdef d2MainAxesController < handle
             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
-            if ~isempty(p.maskH.Position) %Allows 'escape' from ROI
+            if ~isempty(p.maskH.Position) && isvalid(p.maskH) && polyarea(p.maskH.Position(:,1), p.maskH.Position(:,2)) > 3 %min mask area
                 p.maskCells(p.maskH)
             else
                 delete(p.maskH)
