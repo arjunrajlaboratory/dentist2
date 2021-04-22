@@ -8,7 +8,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('cellPose', '', @ischar);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
-    n.addParameter('aTrousMinThreshFactor', 2, @(x)validateattributes(x,{'uint16'}, {'scalar', '>', 0}));
+    n.addParameter('aTrousMinThreshFactor', 2, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('subtractBackground', false, @islogical);
 
     n.parse(varargin{:});
