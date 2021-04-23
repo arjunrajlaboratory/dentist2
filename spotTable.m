@@ -14,7 +14,7 @@ classdef spotTable < handle
         maxDistance = 200;  
         theFilter
         percentileToKeep = 98;
-        threshFactor
+        threshFactor = 4; %Consider adding this to scanSummary.txt 
         spotsIntensitiesWithMasked
         spotsIntensitiesNoMasked
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
@@ -403,10 +403,8 @@ classdef spotTable < handle
             %Find spots on stitched image.
             %Do not run on auto-contrasted stitches. 
             %Only run on non-contrasted stitches. 
-            if nargin == 1
-                p.threshFactor = 2; %Global threshFactor set when launching GUI.
-            else
-                p.threshFactor = varargin{1};
+            if nargin == 2
+                p.threshFactor = varargin{1}; %Global threshFactor set when launching GUI.
             end
             x = [];
             y = [];
@@ -449,9 +447,9 @@ classdef spotTable < handle
         
         function p = findSpotsChannel(p, channel, varargin)
             if nargin == 3
-                tmpThreshFactor = varargin{1};
+                tmpThreshFactor = varargin{1}; %Channel specific threshFactor
             else
-                tmpThreshFactor = p.threshFactor; %Channel specific threshFactor
+                tmpThreshFactor = p.threshFactor; 
             end
             %Use to refind spots with new threshold.
             %Do not run on auto-contrasted stitches. 
@@ -490,31 +488,6 @@ classdef spotTable < handle
             %Replace spots for channel
             p.spots(p.spots.channel == channel, :) = [];
             p.spots = [p.spots; newSpots];
-        end
-        
-        function p = findSpots5(p) 
-            %Find spots on stitched image.
-            %Do not run on auto-contrasted stitches. 
-            %Only run on non-contrasted stitches. 
-            x = [];
-            y = [];
-            intensity = [];
-            channel = [];
-            for i = 1:numel(p.spotChannels)
-                
-                
-                %parfor stitch aTrous
-                %parfor findSpots as above
-                
-            end 
-            
-            spotID = single((1:length(x)))';
-            nearestNucID = single(zeros(length(x),1));
-            maskID = single(zeros(length(x),1));
-            status = true(length(x),1);
-            dist =  single(zeros(length(x),1));
-            p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
-                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
         function maskBorderSpots(p)

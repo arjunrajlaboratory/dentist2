@@ -534,7 +534,7 @@ classdef d2MainAxesController < handle
             save('stitchedScans.mat', 'fishScans', '-append')
             %Find spots
             fprintf('Refinding spots.\nThis may take several minutes.\n')
-            p.spotTable.findSpotsChannel(channel); %Should we update default threshold as well? 
+            p.spotTable.findSpotsChannel(channel);  
             %assign new spots to cells
             p.spotTable.assignSpotsToNucleiChannel(channel);
             %mask new spots. This will also update status. 
