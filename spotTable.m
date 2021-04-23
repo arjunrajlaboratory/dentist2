@@ -14,6 +14,7 @@ classdef spotTable < handle
         maxDistance = 200;  
         theFilter
         percentileToKeep = 98;
+        threshFactor
         spotsIntensitiesWithMasked
         spotsIntensitiesNoMasked
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
@@ -403,9 +404,9 @@ classdef spotTable < handle
             %Do not run on auto-contrasted stitches. 
             %Only run on non-contrasted stitches. 
             if nargin == 1
-                threshFactor = 2;
+                p.threshFactor = 2; %Global threshFactor set when launching GUI.
             else
-                threshFactor = varargin{1};
+                p.threshFactor = varargin{1};
             end
             x = [];
             y = [];
@@ -428,7 +429,7 @@ classdef spotTable < handle
                 %parpool('threads')
                 parfor ii = 1:numel(splitMat)
                     %Consider changing connectivity to 4 to find more spots in dense areas. 
-                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', threshFactor);
+                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', p.threshFactor);
                 end
                 x = [x ; cell2mat(tempX)];
                 y = [y ; cell2mat(tempY)];
@@ -446,7 +447,12 @@ classdef spotTable < handle
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
-        function p = findSpotsChannel(p, channel, threshFactor) 
+        function p = findSpotsChannel(p, channel, varargin)
+            if nargin == 3
+                tmpThreshFactor = varargin{1};
+            else
+                tmpThreshFactor = p.threshFactor; %Channel specific threshFactor
+            end
             %Use to refind spots with new threshold.
             %Do not run on auto-contrasted stitches. 
             %Only run on non-contrasted stitches. 
@@ -465,7 +471,7 @@ classdef spotTable < handle
             %parpool('threads')
             parfor ii = 1:numel(splitMat)
                 %Consider changing connectivity to 4 to find more spots in dense areas.
-                [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', threshFactor);
+                [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', tmpThreshFactor);
             end
             x = cell2mat(tempX);
             y = cell2mat(tempY);
