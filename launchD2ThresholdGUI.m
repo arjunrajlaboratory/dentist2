@@ -8,7 +8,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('cellPose', '', @ischar);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
-    n.addParameter('aTrousMinThreshFactor', 2, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
+    n.addParameter('aTrousMinThreshFactor', 4, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('subtractBackground', false, @islogical);
 
     n.parse(varargin{:});
@@ -39,9 +39,12 @@ function guiHandle = launchD2ThresholdGUI(varargin)
             if n.Results.subtractBackground
                 disp('Measuring background fluorescence. This may take a few minutes.')
                 scanObj.measureBackground;
+                disp('Stitching FISH channels. This may take a few minutes.')
+                scanObj.stitchChannels2(n.Results.subtractBackground);
+            else
+                disp('Stitching FISH channels. This may take a few minutes.')
+                scanObj.stitchChannels();
             end
-            disp('Stitching FISH channels. This may take a few minutes.')
-            scanObj.stitchChannels(n.Results.subtractBackground);
             disp('Saving stitched scans. This may take several minutes.')
             scanObj.saveStitches();
         end

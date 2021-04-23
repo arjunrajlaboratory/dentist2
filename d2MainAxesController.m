@@ -497,6 +497,7 @@ classdef d2MainAxesController < handle
             fprintf('Loading stitched scan.\nThis may take several minutes.\n')
             p.scanObj.reloadChannelStitch(channel);
             %refind spots
+            fprintf('Refinding spots.\nThis may take several minutes.\n')
             p.spotTable.findSpotsChannel(channel, threshFactor);
             %assign new spots to cells
             p.spotTable.assignSpotsToNucleiChannel(channel);
@@ -513,7 +514,45 @@ classdef d2MainAxesController < handle
             p.updateMainAxes();
             p.threshCntrlr.plotIntensityHistogram();
             p.threshCntrlr.plotIntensityThreshold();
+            disp('done')
         end
+        
+        function p = subtractBackground(p, channel, value)
+            %Check that channel and value
+            mustBeMember(channel, p.spotTable.spotChannels)
+            mustBeA(value, 'logical')
+            if value
+                fprintf('Measuring %s background.\nThis may take several minutes.\n', channel)
+                p.scanObj.measureChannelBackground(channel);
+            end
+            fprintf('Stitching channel %s.\nThis may take several minutes.\n', channel)
+            %Restitch channel
+            p.scanObj.restitchChannel(channel, value);
+            %Save stitch
+            fprintf('Saving stitched scans.\nThis may take several minutes.\n')
+            fishScans = p.scanObj.stitchedScans.stitches;
+            save('stitchedScans.mat', 'fishScans', '-append')
+            %Find spots
+            fprintf('Refinding spots.\nThis may take several minutes.\n')
+            p.spotTable.findSpotsChannel(channel); %Should we update default threshold as well? 
+            %assign new spots to cells
+            p.spotTable.assignSpotsToNucleiChannel(channel);
+            %mask new spots. This will also update status. 
+            p.spotTable.updateChannelMasks(channel);
+            %update centroid list
+            p.spotTable.updateCentroidList(channel);
+            %re-contrast scans
+            disp('Auto-contrasting stitched scan.')
+            p.scanObj.contrastStitchedScanChannel(channel, [1 99], [0.9 3]);
+            disp('Resizing stitched scans')
+            p.scanObj.resizeStitchedScanChannel(channel);
+            p.updateCentroidListView();
+            p.updateMainAxes();
+            p.threshCntrlr.plotIntensityHistogram();
+            p.threshCntrlr.plotIntensityThreshold();
+            disp('done')
+        end
+        
         function type = getSelectionType(p)
             type = get(p.viewObj.figHandle, 'SelectionType');
         end
