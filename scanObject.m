@@ -240,14 +240,14 @@ classdef scanObject < handle
             height = p.tileSize(1);
             width = p.tileSize(2);
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
-            c = find(ismember(p.channels,channel));
+            channelIdx = find(ismember(p.channels,channel));
             reader = bfGetReader(p.scanFile);
-            iPlane = reader.getIndex(0, c - 1, 0) + 1;
+            iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
             if n.Results.subtractBackground
                 idx = ismember(p.backgroundMats.labels, channel);
                 backgroundMat = p.backgroundMats.mats{idx};
             else
-                backgroundMat = zeros(p.tileSize);
+                backgroundMat = zeros(p.tileSize, 'uint16');
             end
             if logical(p.imRotation) %In case the image acquired by Elements is flipped or somehow rotated. Consider deleting. 
                 for i = 1:numel(tiles) %Can this be paralelized? 
@@ -270,6 +270,47 @@ classdef scanObject < handle
         end
 
         function p = stitchChannels(p, varargin)
+            n = inputParser;
+            n.addOptional('channelsToStitch', p.channels(~ismember(p.channels,{'dapi','trans'})), @(x) mustBeMember(x, p.channels));
+            n.parse(varargin{:});
+            channelsToStitch = n.Results.channelsToStitch;
+            tileTable = p.tilesTable;
+            tilesTmp = transpose(p.scanMatrix);
+            tiles = tilesTmp(:);
+            height = p.tileSize(1);
+            width = p.tileSize(2);
+            stitches = cell(1,numel(channelsToStitch));
+            channelIdx = find(ismember(p.channels, channelsToStitch));
+            reader = bfGetReader(p.scanFile);
+            for i = 1:numel(channelsToStitch) %Consider making this parfor by using bfreader memoizer
+                tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
+                iPlane = reader.getIndex(0, channelIdx(i) - 1, 0) + 1;
+                if logical(p.imRotation) %In case the image acquired by Elements is flipped or somehow rotated. Consider deleting.
+                    for ii = 1:numel(tiles)
+                        reader.setSeries(tiles(ii)-1);
+                        tmpPlane  = bfGetPlane(reader, iPlane);
+                        tmpStitch(tileTable{tiles(ii),'left'}:tileTable{tiles(ii),'left'}+height-1, ...
+                            tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = rot90(tmpPlane, p.imRotation);
+                    end
+                    stitches{i} = tmpStitch;
+                else
+                    for ii = 1:numel(tiles)
+                        reader.setSeries(tiles(ii)-1);
+                        tmpPlane  = bfGetPlane(reader, iPlane);
+                        tmpStitch(tileTable{tiles(ii),'left'}:tileTable{tiles(ii),'left'}+height-1, ...
+                            tileTable{tiles(ii),'top'}:tileTable{tiles(ii),'top'}+width-1) = tmpPlane;
+                    end
+                    stitches{i} = tmpStitch;
+                end
+            end
+            reader.close()
+            p.stitchedScans.labels = channelsToStitch;
+            p.stitchedScans.stitches = stitches;
+        end
+        
+        function p = stitchChannels2(p, varargin)
+            %Making this a seperate methods since the background
+            %subtraction step adds ~10% more time. 
             n = inputParser;
             n.addOptional('subtractBackground', false, @islogical)
             n.addOptional('channelsToStitch', p.channels(~ismember(p.channels,{'dapi','trans'})), @(x) mustBeMember(x, p.channels));
@@ -320,6 +361,17 @@ classdef scanObject < handle
             reader.close()
             p.stitchedScans.labels = channelsToStitch;
             p.stitchedScans.stitches = stitches;
+        end
+        
+        function p = restitchChannel(p, channel, varargin)
+            n = inputParser;
+            n.addRequired('channel', @(x) mustBeMember(x, p.channels));
+            n.addOptional('subtractBackground', false, @islogical)
+            n.parse(channel, varargin{:});
+            
+            channel = n.Results.channel;
+            channelIdx = ismember(p.stitchedScans.labels, channel);
+            p.stitchedScans.stitches{channelIdx} = p.stitchChannel(channel, n.Results.subtractBackground);
         end
         
         function outIm = stitchTiles(p, rows, cols, channel, varargin) %Option to specify transformCoords - used with stitchingGUI
