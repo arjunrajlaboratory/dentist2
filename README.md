@@ -30,8 +30,8 @@ Before running Dentist2, please download bfmatlab and rajlabimagetools and add t
 >>addpath('~/path/to/rajlabimagetools/')
 >>savepath
 ```
-Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not tested Dentist2 using versions prior to 2018b.  
-
+Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not tested Dentist2 using versions prior to 2018b. In addition, Dentist2 uses functions from a variety of built-in MATLAB toolboxes. We recommend installing all available toolboxes when downloading/updating MATLAB. 
+ 
 Expected input
 ==============
 Dentist2 expects images from a **tiled rectangular scan** in a **single z-plane**. There should be one DAPI channel and one or more FISH channels. The FISH channels may be named 'YFP', 'GFP', 'CY3', 'A594', 'CY5', 'A647' '700' or 'CY7'. If you'd like to process other fluorescence channels, you may need to modify the map in +d2utils/readND2Channels.m. 
@@ -153,7 +153,7 @@ Description of objects and default parameters
 Troubleshooting
 ===============
 
-* Problem: Spots are clear in the image but are not called by dentis (not called by dentist2). 
+* Problem: Spots are clear in the image but are not called by dentist (not called by dentist2). 
   * Possible Reasons: 
   * Possible Solutions: 
 
