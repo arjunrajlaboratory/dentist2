@@ -223,6 +223,7 @@ classdef d2ThresholdView2 < handle
             delete(p.figHandle)
             fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
             p.saveButtonPressed;
+            disp('done')
         end
         
     end
