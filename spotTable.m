@@ -277,7 +277,8 @@ classdef spotTable < handle
             for i = 1:numel(p.spotChannels)
                 currChannel = p.spotChannels{i};
                 fprintf('Finding %s spots\n',currChannel);
-                iPlane = reader.getIndex(0, i - 1, 0) + 1;
+                channelIdx = find(ismember(p.scanObj.channels,currChannel));
+                iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
                 channelCount = 0;
                 for ii = 1:numel(tiles)
                     reader.setSeries(tiles(ii)-1);
@@ -305,11 +306,14 @@ classdef spotTable < handle
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
-        function p = findSpots2(p) 
+        function p = findSpots2(p, varargin) 
+            %Find spots tile by tile
             %Try using aTrous function for finding spots
+            if nargin == 2
+                p.threshFactor = varargin{1}; %Global threshFactor set when launching GUI.
+            end
             tilesTable = p.scanObj.tilesTable;
-            scanMatrix = p.scanObj.scanMatrix;
-            tilesTmp = transpose(scanMatrix);
+            tilesTmp = transpose(p.scanObj.scanMatrix);
             tiles = tilesTmp(:);
             
             x = [];
@@ -321,12 +325,13 @@ classdef spotTable < handle
             for i = 1:numel(p.spotChannels)
                 currChannel = p.spotChannels{i};
                 fprintf('Finding %s spots\n',currChannel);
-                iPlane = reader.getIndex(0, i - 1, 0) + 1;
+                channelIdx = find(ismember(p.scanObj.channels,currChannel));
+                iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
                 channelCount = 0;
                 for ii = 1:numel(tiles)
                     reader.setSeries(tiles(ii)-1);
                     tmpPlane  = bfGetPlane(reader, iPlane);
-                    [tempX, tempY, tempIntensity] = d2utils.findSpotsaTrous(tmpPlane);
+                    [tempX, tempY, tempIntensity] = d2utils.findSpotsaTrous(tmpPlane, 'threshFactor', p.threshFactor);
                     %Adjust local to global coordinates
                     tempX = tempX + tilesTable.left(tiles(ii));
                     tempY = tempY + tilesTable.top(tiles(ii)); 
@@ -340,11 +345,12 @@ classdef spotTable < handle
             end
             reader.close()
             
-            spotID = single((1:length(x)))';
-            nearestNucID = single(zeros(length(x),1));
-            maskID = single(zeros(length(x),1));
-            status = true(length(x),1);
-            dist =  single(zeros(length(x),1));
+            n = length(x);
+            spotID = single((1:n))';
+            nearestNucID = single(zeros(n,1));
+            maskID = single(zeros(n,1));
+            status = true(n,1);
+            dist =  single(zeros(n,1));
             p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
