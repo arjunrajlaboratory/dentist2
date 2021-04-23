@@ -18,7 +18,7 @@ function outColors = expressionToColors(expressionVector, palette)
     
     maxCount = max(expressionVector);
     if maxCount == 0
-        outColors = repmat(sampleColors(1,:), numel(expressionVector));
+        outColors = repmat(sampleColors(1), numel(expressionVector), 1);
     elseif maxCount < height(sampleColors)
         outColors = interp1(0:maxCount, sampleColors(1:maxCount+1), expressionVector);
     else
