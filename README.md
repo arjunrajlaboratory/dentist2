@@ -153,8 +153,14 @@ Description of objects and default parameters
 Troubleshooting
 ===============
 
-* Problem: Spots are clear in the image but are not called by dentist (not called by dentist2). 
-  * Possible Reasons: 
-  * Possible Solutions: 
+* Problem: Dentist2 is missing FISH spots that are clearly present in the image. Oddly, this is happening in blocks like so: 
+![]()  
+  * Possible Reason: When finding spots, dentist2 automatically sets a minimum intensity threshold in order to limit the size of the spotsTable (see the function d2utils.findSpotsaTrous.m). The default is max(spotIntensity)/4. If your FISH signal intensity is low and there is bright schmutz in your images, then your FISH signal may fall below the minimum intensity threshold. Also note that denists2 finds spots in blocks in parallel to speed up processing. Thus different blocks may have different max(spotIntensity) values. 
+  * Possible Solution: You can decrease the minimum intensity threshold for a specific channel using the method changeSpotFilterThreshold in the d2MainAxesController. For example, by typing `h.mainAxesCntrlr.changeSpotFilterThreshold('cy', 10);`  into your MATLAB console, you can set the minimum intensity threshold for 'cy' to max(spotIntensity)/10 (assuming h is your GUI object). Alternatively, you can change the minimum intensity threshold using the 'aTrousMinThreshFactor' parameter in the launchD2ThresholdGUI.m function, for example: `h = launchD2ThresholdGUI('aTrousMinThreshFactor', 10)`. 
+    * Note that if you close the GUI and rerun `h = launchD2ThresholdGUI()` it will set the minimum intensity threshold to it's default max(spotIntensity)/4. If available, `h = launchD2ThresholdGUI()` will load the spots.csv table even if those spots were found using a different intensity threshold. However, if you try to refind spots (because spots.csv is missing or because you ran subtractBackground as described below), dentist2 will use the default threshold (or whatever value is stored in h.spotTable.threshFactor).
 
+* Problem: Dentist2 is calling extra spots. Oddly, these spots are falling in straight lines in what appears to be the boundary between tiles like so:
+![]()
+  * Possible Reason:
+  * Possible Solution:
 
