@@ -560,6 +560,8 @@ classdef spotTable < handle
             for i = 1:numel(p.spotChannels)
                 p.centroidLists{i} = sortrows(p.tabulateChannel(p.spotChannels{i}), 'GroupCount', 'descend');
                 p.centroidLists{i}.expression_color = d2utils.expressionToColors(p.centroidLists{i}.GroupCount, p.expressionColorPal{p.paletteIdx});
+                %Note that d2utils.expressionToColors assumed
+                %min(GroupCount) = 0. If not, may need to update.
             end
         end
         
