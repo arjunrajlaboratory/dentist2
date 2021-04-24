@@ -114,7 +114,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         spotsObj = spotTable(scanObj, maskObj, nucleiObj);
         spotsObj.spotsFile = n.Results.spotsFile;
         disp('Finding spots. This may take several minutes.')
-        spotsObj.findSpots4(n.Results.aTrousMinThreshFactor); %Only run findSpots4 on non-contrasted stitched scans!
+        spotsObj.findSpots4(n.Results.aTrousMinThreshFactor); %Run before contrasting scans
         spotsObj.maskBorderSpots();
         disp('Finished finding spots')
         spotsObj.assignSpotsToNuclei();

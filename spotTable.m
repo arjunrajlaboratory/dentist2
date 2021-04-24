@@ -371,17 +371,10 @@ classdef spotTable < handle
             intensity = [];
             channel = [];
             threshPercentile = p.percentileToKeep;
+            [splitMats, startCoords] = p.scanObj.splitStitch(p.spotChannels);
             for i = 1:numel(p.spotChannels)
-                
-                channelIdx = ismember(p.scanObj.stitchedScans.labels, p.spotChannels{i});
                 fprintf('Finding %s spots\n',p.spotChannels{i});
-                %Below, setting block size to 1000 pixels. Can make this larger if you have very even illumination/spot intensities. Just beware of number of bits.
-                rowSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(1)/1000)), mod(p.scanObj.stitchDim(1),1000)]; 
-                colSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(2)/1000)), mod(p.scanObj.stitchDim(2),1000)];
-                splitMat = mat2cell(p.scanObj.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
-                nRowSplit = size(splitMat, 1);
-                nColSplit = size(splitMat, 2);
-                startCoords = combvec(linspace(0, (nColSplit-1)*1000, nColSplit), linspace(0, (nColSplit-1)*1000, nRowSplit))';
+                splitMat = splitMats(:,i);
                 tempX = cell(numel(splitMat), 1);
                 tempY = cell(numel(splitMat), 1);
                 tempIntensity = cell(numel(splitMat), 1);
@@ -405,6 +398,52 @@ classdef spotTable < handle
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
+%         function p = findSpots4(p, varargin) 
+%             %Find spots on stitched image.
+%             %Do not run on auto-contrasted stitches. 
+%             %Only run on non-contrasted stitches. 
+%             if nargin == 2
+%                 p.threshFactor = varargin{1}; %Global threshFactor set when launching GUI.
+%             end
+%             x = [];
+%             y = [];
+%             intensity = [];
+%             channel = [];
+%             for i = 1:numel(p.spotChannels)
+%                 
+%                 channelIdx = ismember(p.scanObj.stitchedScans.labels, p.spotChannels{i});
+%                 fprintf('Finding %s spots\n',p.spotChannels{i});
+%                 %Below, setting block size to 1000 pixels. Can make this larger if you have very even illumination/spot intensities. Just beware of number of bits.
+%                 rowSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(1)/1000)), mod(p.scanObj.stitchDim(1),1000)]; 
+%                 colSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(2)/1000)), mod(p.scanObj.stitchDim(2),1000)];
+%                 splitMat = mat2cell(p.scanObj.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
+%                 nRowSplit = size(splitMat, 1);
+%                 nColSplit = size(splitMat, 2);
+%                 startCoords = combvec(linspace(0, (nColSplit-1)*1000, nColSplit), linspace(0, (nColSplit-1)*1000, nRowSplit))';
+%                 tempX = cell(numel(splitMat), 1);
+%                 tempY = cell(numel(splitMat), 1);
+%                 tempIntensity = cell(numel(splitMat), 1);
+%                 %parpool('threads')
+%                 parfor ii = 1:numel(splitMat)
+%                     %Consider changing connectivity to 4 to find more spots in dense areas. 
+%                     [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', p.threshFactor);
+%                 end
+%                 x = [x ; cell2mat(tempX)];
+%                 y = [y ; cell2mat(tempY)];
+%                 intensity = [intensity ; cell2mat(tempIntensity)];
+%                 channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
+%             end 
+%             
+%             n = length(x);
+%             spotID = single((1:n))';
+%             nearestNucID = single(zeros(n,1));
+%             maskID = single(zeros(n,1));
+%             status = true(n,1);
+%             dist =  single(zeros(n,1));
+%             p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
+%                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
+%         end
+        
         function p = findSpots4(p, varargin) 
             %Find spots on stitched image.
             %Do not run on auto-contrasted stitches. 
@@ -412,28 +451,24 @@ classdef spotTable < handle
             if nargin == 2
                 p.threshFactor = varargin{1}; %Global threshFactor set when launching GUI.
             end
+            
             x = [];
             y = [];
             intensity = [];
             channel = [];
+            
+            spotThreshFactor = p.threshFactor;
+            [splitMats, startCoords] = p.scanObj.splitStitch(p.spotChannels);
             for i = 1:numel(p.spotChannels)
-                
-                channelIdx = ismember(p.scanObj.stitchedScans.labels, p.spotChannels{i});
                 fprintf('Finding %s spots\n',p.spotChannels{i});
-                %Below, setting block size to 1000 pixels. Can make this larger if you have very even illumination/spot intensities. Just beware of number of bits.
-                rowSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(1)/1000)), mod(p.scanObj.stitchDim(1),1000)]; 
-                colSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(2)/1000)), mod(p.scanObj.stitchDim(2),1000)];
-                splitMat = mat2cell(p.scanObj.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
-                nRowSplit = size(splitMat, 1);
-                nColSplit = size(splitMat, 2);
-                startCoords = combvec(linspace(0, (nColSplit-1)*1000, nColSplit), linspace(0, (nColSplit-1)*1000, nRowSplit))';
+                splitMat = splitMats(:,i);
                 tempX = cell(numel(splitMat), 1);
                 tempY = cell(numel(splitMat), 1);
                 tempIntensity = cell(numel(splitMat), 1);
                 %parpool('threads')
                 parfor ii = 1:numel(splitMat)
                     %Consider changing connectivity to 4 to find more spots in dense areas. 
-                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', p.threshFactor);
+                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', spotThreshFactor);
                 end
                 x = [x ; cell2mat(tempX)];
                 y = [y ; cell2mat(tempY)];
@@ -460,15 +495,10 @@ classdef spotTable < handle
             %Use to refind spots with new threshold.
             %Do not run on auto-contrasted stitches. 
             %Only run on non-contrasted stitches. 
-            channelIdx = ismember(p.scanObj.stitchedScans.labels, channel);
+            [splitMats, startCoords] = p.scanObj.splitStitch(channel);
             fprintf('Finding %s spots\n',channel);
             %Below, setting block size to 1000 pixels. Can make this larger if you have very even illumination/spot intensities. Just beware of number of bits.
-            rowSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(1)/1000)), mod(p.scanObj.stitchDim(1),1000)];
-            colSplit = [repmat(1000,1, floor(p.scanObj.stitchDim(2)/1000)), mod(p.scanObj.stitchDim(2),1000)];
-            splitMat = mat2cell(p.scanObj.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
-            nRowSplit = size(splitMat, 1);
-            nColSplit = size(splitMat, 2);
-            startCoords = combvec(linspace(0, (nColSplit-1)*1000, nColSplit), linspace(0, (nColSplit-1)*1000, nRowSplit))';
+            splitMat = splitMats(:,1);
             tempX = cell(numel(splitMat), 1);
             tempY = cell(numel(splitMat), 1);
             tempIntensity = cell(numel(splitMat), 1);
@@ -497,7 +527,7 @@ classdef spotTable < handle
         end
         
         function maskBorderSpots(p)
-            %Only run this after findSpots3 and with stitchedScans available
+            %Only run this with stitchedScans available
             mask = p.scanObj.stitchedScans.stitches{1} == 0;	
             clearBorder = imclearborder(mask);
             mask = xor(mask, clearBorder);

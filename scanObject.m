@@ -123,6 +123,7 @@ classdef scanObject < handle
                  p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
              end
              reader.close()
+             p.scanDim = [1 1];
              p.stitchDim = size(p.dapiStitch);
          end
          
@@ -444,6 +445,50 @@ classdef scanObject < handle
             smallRect = ceil(rect/p.resizeFactor);
             %smallRect(1:2) = max([1, 1], smallRect(1:2));
             outIm = p.smallDapiStitch(smallRect(1):smallRect(1)+smallRect(3)-1, smallRect(2):smallRect(2)+smallRect(4)-1);
+        end
+        
+        function [splitTiles, startPositions] = splitStitch(p, channels, varargin)
+            if nargin == 2
+                blockSize = min([1345, p.stitchDim/2]); %Default chunk size
+            elseif narging == 3
+                blockSize = varargin{1};
+            end
+            if all(p.scanDim == 1) %If pre-stitched scan or single tile
+                rowSplit = [repmat(blockSize,1, floor(p.stitchDim(1)/blockSize)), mod(p.stitchDim(1), blockSize)]; 
+                colSplit = [repmat(blockSize,1, floor(p.stitchDim(2)/blockSize)), mod(p.stitchDim(2), blockSize)];
+                splitTiles = cell(numel(rowSplit) * numel(colSplit), numel(channels));
+                for i = 1:numel(channels)
+                    channelIdx = ismember(p.stitchedScans.labels, channels{i});
+                    tmpMat =  mat2cell(p.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
+                    splitTiles(:,i) = reshape(tmpMat, 1,[]);
+                end
+                startPositions = combvec(1:blockSize:p.stitchDim(1), 1:blockSize:p.stitchDim(2))';
+%                 startPositions = combvec(linspace(0, (nRowSplit-1)*blockSize, nRowSplit), linspace(0, (colSplit-1)*blockSize, nColSplit))';
+            else %stitched scan
+                splitTiles = cell(numel(p.scanMatrix), numel(channels));
+                startPositions = zeros(numel(p.scanMatrix),2);
+                for i = 1:numel(p.scanMatrix)
+                    [r, c] = find(p.scanMatrix == i);
+                    pos = p.tilesTable{i, {'left', 'top'}};
+                    startPositions(i, :) = pos;
+                    if c < p.scanDim(2)
+                        rightTile = p.scanMatrix(r, c+1);
+                        colEnd = p.tilesTable{rightTile, 'top'}-1;
+                    else
+                        colEnd = pos(2) + p.tileSize(2)-1;
+                    end
+                    if r < 12
+                        bottomTile = p.scanMatrix(r+1, c);
+                        rowEnd = p.tilesTable{bottomTile, 'left'}-1;
+                    else
+                        rowEnd = pos(1) + p.tileSize(1)-1;
+                    end
+                    for ii = 1:numel(channels)
+                        channelIdx = ismember(p.stitchedScans.labels, channels{ii});
+                        splitTiles{i, ii} = p.stitchedScans.stitches{channelIdx}(pos(1):rowEnd, pos(2):colEnd);
+                    end
+                end
+            end
         end
         
         function saveTilesTable(p)
