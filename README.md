@@ -152,9 +152,14 @@ Description of objects and default parameters
 
 Troubleshooting
 ===============
-
+* Problem: "Error using X (line #). Undefined function 'A' for input arguments of type 'B'." 
+  * Possible Reason: Some MATLAB toolkit is missing. Your MATLAB installation is trying to use a different function named 'A' than what was used for writing Dentist2. 
+  * Possible Solution: If you can figure out which toolkit is missing, you can install that toolkit. Alternatively, you can try reinstalling MATLAB with all available toolkits.
+* Problem: "Java exception occured: java.lang.OutOfMemoryError: Java heap space". 
+  * Possible Reason: You are trying to read a very large image or scan into MATLAB using bfmatlab functions and your Java heap size is set too low. 
+  * Possible Solution: Increase your Java heap size by selecting Preferences > MATLAB > General > Java Heap Memory. Instructions available ![here](https://www.mathworks.com/help/matlab/matlab_external/java-heap-memory-preferences.html). 
 * Problem: Dentist2 is missing FISH spots that are clearly present in the image. Oddly, this is happening in blocks like so: 
-![]()  
+![missingSpotsExample1](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/missingSpotsExample1.png).
   * Possible Reason: When finding spots, dentist2 automatically sets a minimum intensity threshold in order to limit the size of the spotsTable (see the function d2utils.findSpotsaTrous.m). The default is max(spotIntensity)/4. If your FISH signal intensity is low and there is bright schmutz in your images, then your FISH signal may fall below the minimum intensity threshold. Also note that denists2 finds spots in blocks in parallel to speed up processing. Thus different blocks may have different max(spotIntensity) values. 
   * Possible Solution: You can decrease the minimum intensity threshold for a specific channel using the method changeSpotFilterThreshold in the d2MainAxesController. For example, by typing `h.mainAxesCntrlr.changeSpotFilterThreshold('cy', 10);`  into your MATLAB console, you can set the minimum intensity threshold for 'cy' to max(spotIntensity)/10 (assuming h is your GUI object). Alternatively, you can change the minimum intensity threshold using the 'aTrousMinThreshFactor' parameter in the launchD2ThresholdGUI.m function, for example: `h = launchD2ThresholdGUI('aTrousMinThreshFactor', 10)`. 
     * Note that if you close the GUI and rerun `h = launchD2ThresholdGUI()` it will set the minimum intensity threshold to it's default max(spotIntensity)/4. If available, `h = launchD2ThresholdGUI()` will load the spots.csv table even if those spots were found using a different intensity threshold. However, if you try to refind spots (because spots.csv is missing or because you ran subtractBackground as described below), dentist2 will use the default threshold (or whatever value is stored in h.spotTable.threshFactor).
