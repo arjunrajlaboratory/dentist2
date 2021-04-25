@@ -120,8 +120,12 @@ When toggling off the scatterplot, the main axes will show an overlay of DAPI an
 Thumbnail axes
 ---------------
 
+For the thumbnail axis &#9313; the color of each square reflects the density of nuclei in the corresponding region of the scan. The black rectangle marks the zoomed-in region plotted in the main axis &#9312;. You can click and drag the black rectangle to move around the scan. Alternatively, you can double-click to center the view around the selected position. 
+
 Threshold axes
 --------------
+
+The threshold axis &#9323; plots spot fluorescence intensity (x-axis) vs the rank of the intensity values (y-axis; log-scale). The blue vertical line indicates the brightness threshold for valid spots. Only spots whose brightness is ≥ this threshold are plotted as open circles in the main axis and exported to spotsSummary.csv. ...
 
 Masks
 -----
