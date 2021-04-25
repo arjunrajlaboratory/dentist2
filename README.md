@@ -14,7 +14,7 @@ Table of contents
   * [Thumbnail axes](#thumbnail-axes)
   * [Threshold axes](#threshold-axes)
   * [Masks](#masks)
-* [Importing CellPose masks](#importing-cellpose-masks)
+* [Importing CellPose nuclei masks](#importing-cellpose-nuclei-masks)
 * [Description of objects and default parameters](#description-of-objects-and-default-parameters)
 * [Troubleshooting](#troubleshooting)
 
