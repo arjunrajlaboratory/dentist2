@@ -125,10 +125,15 @@ For the thumbnail axis &#9313; the color of each square reflects the density of 
 Threshold axes
 --------------
 
-The threshold axis &#9323; plots spot fluorescence intensity (x-axis) vs the rank of the intensity values (y-axis; log-scale). The blue vertical line indicates the brightness threshold for valid spots. Only spots whose brightness is ≥ this threshold are plotted as open circles in the main axis and exported to spotsSummary.csv. ...
+The threshold axis &#9323; plots spot fluorescence intensity (x-axis) vs the rank of the intensity values (y-axis; log-scale). The blue vertical line indicates the brightness threshold for valid spots. The brightness threshold is also written in the text box in the upper right of the plot. Only spots whose brightness is ≥ this threshold are plotted as open circles in the main axis and exported to spotsSummary.csv. 
+
+You can manually adjust the spot brightness threshold by dragging the blue vertical line or by typing an integer value into the text box in the upper right of the plot. To zoom into the plot, click the "zoom" button in the upper right then click on the plot and drag horizontally. To zoom-out, double click on the plot. 
+
+By default, the plot includes all identified spots, even those which you mask. To exclude masked spots, click the "filter masked spots" button in the top right. Click the button again to return to the default plotting function.
 
 Masks
 -----
+Dentist2 uses two types of masks 
 
 Importing CellPose masks
 ========================
