@@ -204,14 +204,18 @@ classdef d2ThresholdView2 < handle
         end
         
         function saveButtonPressed(p, ~, ~)
+            fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
             p.nucleiObj.saveNucleiTable;
             p.spotTable.updateScanSummary;
             p.spotTable.saveSpotsTable;
             p.maskObj.saveMasksTable;
+            disp('done')
         end
         
         function exportButtonPressed(p, ~, ~)
+            disp('Saving scanSummary.csv')
             p.spotTable.exportSpotsSummary
+            disp('done')
         end
         
         function relaunchGUI(p)
@@ -221,9 +225,7 @@ classdef d2ThresholdView2 < handle
         
         function closeFigFcn(p, ~, ~)
             delete(p.figHandle)
-            fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
             p.saveButtonPressed;
-            disp('done')
         end
         
     end

@@ -602,13 +602,9 @@ classdef d2MainAxesController < handle
                     case 'm'
                         p.addCellMask();
                     case 's'
-                        fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
-                        p.nucleiObj.saveNucleiTable;
-                        p.spotTable.updateScanSummary;
-                        p.spotTable.saveSpotsTable;
-                        p.maskObj.saveMasksTable;
+                        p.viewObj.saveButtonPressed;
                     case 'e'
-                        p.spotTable.exportSpotsSummary;
+                        p.viewObj.exportButtonPressed;
                 end
             end
         end
