@@ -13,7 +13,7 @@ Table of contents
   * [Main axes](#main-axes)
   * [Thumbnail axes](#thumbnail-axes)
   * [Threshold axes](#threshold-axes)
-  * [Adding/deleting masks and nuclei](#Adding-deleting-masks-and-nuclei)
+  * [Adding and deleting masks and nuclei](#Adding-and-deleting-masks-and-nuclei)
 * [Importing CellPose nuclei masks](#importing-cellpose-nuclei-masks)
 * [Troubleshooting](#troubleshooting)
 
@@ -130,15 +130,15 @@ You can manually adjust the spot brightness threshold by dragging the blue verti
 
 By default, the plot includes all identified spots, even those which you mask. To exclude masked spots, click the "filter masked spots" button in the top right. Click the button again to return to the default plotting function.
 
-Adding/deleting masks and nuclei
+Adding and deleting masks and nuclei
 ---------------------------------
 ### Spot masks
 Use spot masks to filter erroneously labeled FISH spots. To add a spot mask, click the "add spot mask" button, draw a mask around the spots you wish to mask, then press Enter. To delete the mask, click the "delete mask" button, click inside each mask you wish to delete, then press Enter.
 
 ### Cell masks
 
-Importing CellPose masks
-========================
+Importing CellPose nuclei masks
+===============================
 If you use CellPose to segment nuclei, Dentist2 can use these outlines instead of it's default algorithm to identify cells. If you have a single CellPose outlines file (i.e. you ran cellpose on the pre-stitched scan), include the file name when running launchD2ThresholdGUI() as below:
 ```matlab
 >>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_outlines.txt');
