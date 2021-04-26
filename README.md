@@ -13,9 +13,8 @@ Table of contents
   * [Main axes](#main-axes)
   * [Thumbnail axes](#thumbnail-axes)
   * [Threshold axes](#threshold-axes)
-  * [Masks](#masks)
+  * [Adding/deleting masks and nuclei](#Adding/deleting-masks-and-nuclei)
 * [Importing CellPose nuclei masks](#importing-cellpose-nuclei-masks)
-* [Description of objects and default parameters](#description-of-objects-and-default-parameters)
 * [Troubleshooting](#troubleshooting)
 
 Dependencies
@@ -131,9 +130,12 @@ You can manually adjust the spot brightness threshold by dragging the blue verti
 
 By default, the plot includes all identified spots, even those which you mask. To exclude masked spots, click the "filter masked spots" button in the top right. Click the button again to return to the default plotting function.
 
-Masks
------
-Dentist2 uses two types of masks 
+Adding/deleting masks and nuclei
+---------------------------------
+### Spot masks
+Use spot masks to filter erroneously labeled FISH spots. To add a spot mask, click the "add spot mask" button, draw a mask around the spots you wish to mask, then press Enter. To delete the mask, click the "delete mask" button, click inside each mask you wish to delete, then press Enter.
+
+### Cell masks
 
 Importing CellPose masks
 ========================
@@ -155,9 +157,6 @@ or
 ```matlab
 >>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv', 'maskResizeFactor', 4);
 ```
-
-Description of objects and default parameters
-=============================================
 
 Troubleshooting
 ===============
