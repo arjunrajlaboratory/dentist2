@@ -13,7 +13,7 @@ Table of contents
   * [Main axes](#main-axes)
   * [Thumbnail axes](#thumbnail-axes)
   * [Threshold axes](#threshold-axes)
-  * [Adding/deleting masks and nuclei](#Adding/deleting-masks-and-nuclei)
+  * [Adding/deleting masks and nuclei](#Adding-deleting-masks-and-nuclei)
 * [Importing CellPose nuclei masks](#importing-cellpose-nuclei-masks)
 * [Troubleshooting](#troubleshooting)
 
