@@ -83,6 +83,8 @@ Note these hotkeys:
 - 'shift-s': save tables
 - 'shift-e': export spots summary
 
+Also note, if you click on one of the add mask, add cells, or delete cells buttons, but don't want to complete the operation, try clicking the Esc key. Alternatively, click on an empty area in the main axes then press Enter.
+
 Stitching
 ==========
 Use the scan pattern checkboxes &#9313; to select the pattern corresponding to how your scan images were acquired. If unsure, use the show new positions button &#9314; to display a random set of tiles consistent with the selected pattern. Note that some patterns may place the same tiles at the same positions in a scan, and it can be helpful to check several scan positions. 
@@ -136,6 +138,17 @@ Adding and deleting masks and nuclei
 Use spot masks to filter erroneously labeled FISH spots. To add a spot mask, click the "add spot mask" button, draw a mask around the spots you wish to mask, then press Enter. To delete the mask, click the "delete mask" button, click inside each mask you wish to delete, then press Enter.
 
 ### Cell masks
+Use cells masks to filter erroneously labeled nuclei. To add a cell mask, click the "add cell mask" button, draw a mask around the cells you wish to mask, then press Enter. All spots assigned to masked nuclei will be re-assigned to the nearest valid nuclei (within the maximum cell radius). The nuclei.csv table will store masked nuclei however, masked nuclei will not appear in the main axes and will not be exported to spotsSummary.csv. 
+
+To delete cell masks, click the "delete mask" button, click inside each mask you wish to delete, then press Enter. Spots in your current view will be re-assigned to valid nuclei. 
+
+### Delete cells
+Use delete cells to permenantly delete labeled nuclei. Click the "delete cells" button, click on the nuclei wish to delete, then press Enter. As with masking, when you delete a nucleus, all spots assigned to the nucleus will be re-assigned to the nearest valid nucleus. Unlike masking, you cannot undo a nucleus deletion. Instead you must add a new nucleus. 
+
+### Add cells
+You can use the combination of "delete cells" and "add cells" to divide 2+ cells that were labelled as one. To add nuclei, click the "add cells" button, click on the locations you wish to label nuclei, then press Enter. All spots in your current view will be re-assigned to the nearest valid nuclei. Note that unlike nuclei identified by dentist2 initially, manually labeled nuclei will have an area of 0 in the nuclei.csv file. 
+
+**Please note, if you click on one of the add mask, add cells, or delete cells buttons, but don't want to complete the operation, try clicking the Esc key. Alternatively, click on an empty area in the main axes then press Enter.**
 
 Importing CellPose nuclei masks
 ===============================
