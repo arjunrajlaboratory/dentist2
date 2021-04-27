@@ -593,6 +593,11 @@ classdef spotTable < handle
             end
         end
         
+        function p = updateMaxDistance(p, distance)
+            p.maxDistance = distance;
+            p = updateAllSpotStatus(p);
+        end
+        
         function outTable = centroidTableInRect(p, channelIdx, rect)
 %             channelIdx = ismember(p.spotChannels, channel);
             centroidIdx = p.centroidLists{channelIdx}.x >= rect(1)...

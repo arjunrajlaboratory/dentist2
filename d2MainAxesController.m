@@ -489,10 +489,20 @@ classdef d2MainAxesController < handle
                 p.viewObj.maskSpotsButton, p.viewObj.deleteMaskButton], 'Enable', 'on')
         end
         
+        function p = changeMaxDistance(p, distance)
+            mustBePositive(distance)
+            p.spotTable.updateMaxDistance(distance);
+            p.spotTable.makeCentroidList();
+            p.updateCentroidListView();
+            p.updateMainAxes();
+            p.threshCntrlr.startup();
+            disp('done')
+        end
+        
         function p = changeSpotFilterThreshold(p, channel, threshFactor)
             %Check that channel and filter are valid
             mustBeMember(channel, p.spotTable.spotChannels)
-            mustBeInRange(threshFactor, 1, 65535)
+            mustBePositive(threshFactor)
             %reload non-contrast scan
             fprintf('Loading stitched scan.\nThis may take several minutes.\n')
             p.scanObj.reloadChannelStitch(channel);
@@ -508,12 +518,11 @@ classdef d2MainAxesController < handle
             %re-contrast scans
             disp('Auto-contrasting stitched scan. This may take several minutes.')
             p.scanObj.contrastStitchedScanChannel(channel, [1 99], [0.9 3]);
-            disp('Resizing stitched scans')
+            disp('Resizing stitched scan')
             p.scanObj.resizeStitchedScanChannel(channel);
             p.updateCentroidListView();
             p.updateMainAxes();
-            p.threshCntrlr.plotIntensityHistogram();
-            p.threshCntrlr.plotIntensityThreshold();
+            p.threshCntrlr.startup();
             disp('done')
         end
         
@@ -544,12 +553,11 @@ classdef d2MainAxesController < handle
             %re-contrast scans
             disp('Auto-contrasting stitched scan.')
             p.scanObj.contrastStitchedScanChannel(channel, [1 99], [0.9 3]);
-            disp('Resizing stitched scans')
+            disp('Resizing stitched scan')
             p.scanObj.resizeStitchedScanChannel(channel);
             p.updateCentroidListView();
             p.updateMainAxes();
-            p.threshCntrlr.plotIntensityHistogram();
-            p.threshCntrlr.plotIntensityThreshold();
+            p.threshCntrlr.startup();
             disp('done')
         end
         
