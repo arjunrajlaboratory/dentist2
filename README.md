@@ -179,6 +179,9 @@ Troubleshooting
 * Problem: "Java exception occured: java.lang.OutOfMemoryError: Java heap space". 
   * Possible Reason: You are trying to read a very large image or scan into MATLAB using bfmatlab functions and your Java heap size is set too low. 
   * Possible Solution: Increase your Java heap size by selecting Preferences > MATLAB > General > Java Heap Memory. Instructions available [here](https://www.mathworks.com/help/matlab/matlab_external/java-heap-memory-preferences.html). 
+* Problem: Dentist2 is missing FISH spots that are clearly present in the image, mostly at the cell periphery. 
+  * Possible Reason: Dentist2 uses a "maximum distance from nucleus" parameter for filtering spots. The default is 200 pixels. If your cells are very large or your images were acquired at very high magnification/resolution, you may need to increase the max distance parameter. 
+  * Possible Solution: You can adjust the maximum distance parameter using the method changeMaxDistance in the d2MainAxesController. For example, by typing `h.mainAxesCntrlr.changeMaxDistance(300);` into your MATLAB console, you can set the maximum distance to 300 pixels.
 * Problem: Dentist2 is missing FISH spots that are clearly present in the image. Oddly, this is happening in blocks like so: 
 ![missingSpotsExample1](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/missingSpotsExample1.png)
   * Possible Reason: When finding spots, dentist2 automatically sets a minimum intensity threshold in order to limit the size of the spotsTable (see the function d2utils.findSpotsaTrous.m). The default is max(spotIntensity)/4. If your FISH signal intensity is low and there is bright schmutz in your images, then your FISH signal may fall below the minimum intensity threshold. Also note that denists2 finds spots in blocks in parallel to speed up processing. Thus different blocks may have different max(spotIntensity) values. 
