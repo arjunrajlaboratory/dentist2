@@ -449,7 +449,7 @@ classdef scanObject < handle
         
         function [splitTiles, startPositions] = splitStitch(p, channels, varargin)
             if nargin == 2
-                blockSize = min([1345, p.stitchDim/2]); %Default chunk size
+                blockSize = min([1000, p.stitchDim/2]); %Default chunk size
             elseif narging == 3
                 blockSize = varargin{1};
             end
@@ -464,7 +464,7 @@ classdef scanObject < handle
                 end
                 startPositions = combvec(1:blockSize:p.stitchDim(1), 1:blockSize:p.stitchDim(2))';
 %                 startPositions = combvec(linspace(0, (nRowSplit-1)*blockSize, nRowSplit), linspace(0, (colSplit-1)*blockSize, nColSplit))';
-            else %stitched scan
+            else %tiled scan
                 splitTiles = cell(numel(p.scanMatrix), numel(channels));
                 startPositions = zeros(numel(p.scanMatrix),2);
                 for i = 1:numel(p.scanMatrix)
@@ -477,7 +477,7 @@ classdef scanObject < handle
                     else
                         colEnd = pos(2) + p.tileSize(2)-1;
                     end
-                    if r < 12
+                    if r < p.scanDim(1)
                         bottomTile = p.scanMatrix(r+1, c);
                         rowEnd = p.tilesTable{bottomTile, 'left'}-1;
                     else
