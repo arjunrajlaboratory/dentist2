@@ -13,7 +13,6 @@ classdef IFtable < handle
         centroidLists
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
         paletteIdx = 1;
-        minNucleusSize = 1000;
         radius = 20;
     end
     
@@ -155,7 +154,7 @@ classdef IFtable < handle
             cellBoundariesTmp = cell(0, numel(p.IFboundaries.dapiRP));
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
             for i = 1:numel(cellIDs) %can make this parfor?
-                tmpNucPoly = p.IFboundaries.nucBoundaries2.nucBoundary(p.IFboundaries.nucBoundaries2.cellID == i); %Note how this assumes cellID are continuous. If some are deleted, this may create errors
+                tmpNucPoly = p.IFboundaries.nucBoundaries2.nucBoundary(p.IFboundaries.nucBoundaries2.cellID == cellIDs(i)); 
                 tmpCellPoly = tmpNucPoly.polybuffer(p.radius); %What happens if disjoint nuclei? 
                 tmpCellPoly = polyshape(round(tmpCellPoly.Vertices));
                 tmpBB = d2utils.polyshapeBoundingBox(tmpCellPoly, p.scanObj.stitchDim);
@@ -184,7 +183,7 @@ classdef IFtable < handle
             %Update cellBoundaries
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), cellBoundariesTmp, 'UniformOutput', false);
             status = true(numel(cellBoundariesTmp),numel(p.channels));
-            p.IFboundaries.cellBoundaries2 = cell2table([num2cell((1:numel(cellBoundariesTmp))'), cellBoundariesTmp', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
+            p.IFboundaries.cellBoundaries2 = cell2table([num2cell(cellIDs), cellBoundariesTmp', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
             p.IFboundaries.addColors();
             %Update IFquant
             [cellCoordsX, cellCoordsY]  = arrayfun(@(x) centroid(x, 1:x.NumRegions),p.IFboundaries.nucBoundaries2.nucBoundary, 'UniformOutput', false); 

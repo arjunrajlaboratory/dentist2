@@ -89,8 +89,15 @@ classdef IFboundaries < handle
         end
         
         function p = deleteEmptyRows(p)
-            p.nucBoundaries2(p.nucBoundaries2.cellID == 0, :) = [];
-            p.cellBoundaries2(p.cellBoundaries2.cellID == 0, :) = [];
+%             p.nucBoundaries2(p.nucBoundaries2.cellID == 0, :) = [];
+%             p.cellBoundaries2(p.cellBoundaries2.cellID == 0, :) = [];
+            %updated function below should remove empty polyshape
+            %boundaries
+            numNucRegionsArray = [p.nucBoundaries2.nucBoundary.NumRegions];
+            p.nucBoundaries2(~numNucRegionsArray, :) = [];
+            
+            numCellRegionsArray = [p.cellBoundaries2.cellBoundary.NumRegions];
+            p.cellBoundaries2(~numCellRegionsArray, :) = [];
         end
         
         function p = makeNucEmpty(p)

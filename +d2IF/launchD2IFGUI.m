@@ -39,7 +39,7 @@ function guiHandle = launchD2IFGUI(varargin)
         else
             disp('Stitching DAPI channel. This may take a few minutes.')
             scanObj.stitchDAPI();
-            disp('Stitching FISH channels. This may take a few minutes.')
+            disp('Stitching IF channels. This may take a few minutes.')
             scanObj.stitchChannels();
             disp('Saving stitched scans. This may take several minutes.')
             scanObj.saveStitches();
