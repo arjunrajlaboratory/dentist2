@@ -104,6 +104,7 @@ function guiHandle = launchD2IFGUI(varargin)
         if n.Results.withCyto
             if isfile(sprintf('%s_masks.tif', n.Results.cellPoseCyto))
                 disp('Loading cellpose cytoplasmic boundaries.')
+                IFboundariesObj.cellPoseCytoFile = n.Results.cellPoseCyto;
                 IFboundariesObj.loadCellPoseCyto(sprintf('%s_masks.tif', n.Results.cellPoseCyto), sprintf('%s_outlines.txt',  n.Results.cellPoseCyto));
                 IFboundariesObj.labelMat2cytoTable();
                 disp('Quantifying nuclei and cytoplasmic IF signal.')
@@ -128,7 +129,7 @@ function guiHandle = launchD2IFGUI(varargin)
             end
         else
             if ~strcmp(n.Results.withNuc, 'none')
-                %Make empty cyto boundaries
+                %Make empty nuc boundaries
                 IFboundariesObj.addColors();
                 IFquantObj.quantBoundaries();
             else

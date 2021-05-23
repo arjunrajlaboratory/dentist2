@@ -15,8 +15,9 @@ classdef IFboundaries < handle
        randomColors
        nucBoundariesFile = 'nucBoundariesIF.csv'
        cellBoundariesFile = 'cellBoundariesIF.csv'
+       cellPoseNucFile
+       cellPoseCytoFile 
        minNucArea = 1000;
-       radius = 20;
        strelRadius = 40;
     end
     
@@ -188,23 +189,26 @@ classdef IFboundaries < handle
             boundaryStitch = zeros(size(p.dapiMask)); %Could make this max of boundaryArray. Or stitchDim
            
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
+            warning('off', 'MATLAB:polyshape:boundary3Points')
+            warning('off', 'MATLAB:polyshape:boolOperationFailed')
             for i = 1:numel(tmpBoundaries) %This could probably be parfor
                 [tmpXlim,tmpYlim]  = boundingbox(polyshape(tmpBoundaries{i}));
                 tmpMask = poly2mask(tmpBoundaries{i}(:,2)-tmpYlim(1), tmpBoundaries{i}(:,1)-tmpXlim(1), diff(tmpXlim)+1, diff(tmpYlim)+1);
                 boundaryStitch(tmpXlim(1):tmpXlim(2), tmpYlim(1):tmpYlim(2)) = imclose(tmpMask, strel('disk', p.strelRadius)); %Consider adjusting operation or strel. 
             end
-            warning('on', 'MATLAB:polyshape:repairedBySimplify')
             dapiCC = bwconncomp(boundaryStitch);
             p.dapiRP = regionprops(dapiCC);
             p.dapiLabelMat = labelmatrix(dapiCC);
             
             tmpBoundaries = bwboundaries(boundaryStitch, 'noholes');
-            warning('off', 'MATLAB:polyshape:repairedBySimplify')
             nucBoundariesArray = cellfun(@(x) polyshape(x), tmpBoundaries, 'UniformOutput', false);
             nucBoundariesArray = cellfun(@(x) union(rmholes(x)), nucBoundariesArray, 'UniformOutput', false); %Remove holes to simplify plotting. May not be necessary.
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), nucBoundariesArray, 'UniformOutput', false);
             status = true(numel(nucBoundariesArray),numel(p.channels));
             p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray, tmpBB, num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
+            warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            warning('on', 'MATLAB:polyshape:boundary3Points')
+            warning('on', 'MATLAB:polyshape:boolOperationFailed')
         end
         
         function p = loadCellPoseDapi(p, labelMatFile, outlineFile)

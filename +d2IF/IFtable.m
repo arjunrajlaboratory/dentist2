@@ -110,6 +110,7 @@ classdef IFtable < handle
             end
             %Update nucBoundaries
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
+            warning('off', 'MATLAB:polyshape:boundary3Points')
             nucBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), nucBoundariesTmp, 'UniformOutput', false); 
             tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), nucBoundariesArray, 'UniformOutput', false);
             status = true(numel(nucBoundariesArray), numel(p.channels));
@@ -122,6 +123,7 @@ classdef IFtable < handle
             p.IFboundaries.addColors();
             p.IFboundaries.addEmptyRows(1000);
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            warning('on', 'MATLAB:polyshape:boundary3Points')
             %Update IFquant
             [cellCoordsX, cellCoordsY]  = cellfun(@(x) centroid(x, 1:x.NumRegions), nucBoundariesArray, 'UniformOutput', false); 
             cellCoords = cellfun(@(x) single(round(mean(x, 1))), [cellCoordsX; cellCoordsY], 'UniformOutput', false); 
@@ -153,6 +155,7 @@ classdef IFtable < handle
             channelStatus = false(nRows,numel(p.channels));
             cellBoundariesTmp = cell(0, numel(p.IFboundaries.dapiRP));
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
+            warning('off', 'MATLAB:polyshape:boundary3Points')
             for i = 1:numel(cellIDs) %can make this parfor?
                 tmpNucPoly = p.IFboundaries.nucBoundaries2.nucBoundary(p.IFboundaries.nucBoundaries2.cellID == cellIDs(i)); 
                 tmpCellPoly = tmpNucPoly.polybuffer(p.radius); %What happens if disjoint nuclei? 
@@ -198,6 +201,7 @@ classdef IFtable < handle
             p.IFboundaries.addEmptyRows(1000);
             p.addEmptyRows(1000);
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            warning('on', 'MATLAB:polyshape:boundary3Points')
         end
         
         function p = quantAllCytoBoundaries(p, varargin)

@@ -657,6 +657,74 @@ classdef d2IFController < handle
             type = get(p.viewObj.figHandle, 'SelectionType');
         end
         
+        function p = changeCytoRadius(p, rad, varargin) %varargin for specifying channels
+            %change radius
+            p.IFtable.radius = rad;
+            %requant cyto. 
+            disp('Quantifying nuclei and cytoplasmic donut.')
+            if nargin == 2
+                p.IFtable.quantAllLabelMat2();
+            elseif nargin ==3
+                p.IFtable.quantAllLabelMat2(varargin{1});
+            end
+            %update centroid list
+            cellIdx = get(p.viewObj.centroidList, 'Value');
+            cellID = p.IFtable.centroidLists{p.channelIdx}.cellID(cellIdx);
+            p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
+            p.updateCentroidListView();
+            newCellIdx = find(p.IFtable.centroidLists{p.channelIdx}.cellID == cellID);
+            set(p.viewObj.centroidList, 'Value', newCellIdx);
+            %update main axes
+            p.updateMainAxes();
+        end
+        
+        function p = adjustNucleiParameters(p, minSize, varargin)
+            n = inputParser;
+            n.addRequired('minSize', @isnumeric)
+            n.addParameter('sensitivity', 0.1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>=',0,'<=',1.0}));
+            n.addParameter('strelRad', 40, @(x)validateattributes(x,{'numeric'}, {'scalar', 'nonnegative'}));
+            n.addParameter('withCyto', true, @islogical);
+            n.parse(minSize, varargin{:});
+            %Set parameters
+            p.IFboundaries.minNucArea = n.Results.minSize;
+            p.IFboundaries.strelRadius = n.Results.strelRad;
+            %Restitch dapi mask
+            disp('masking dapi')
+            if all(p.scanObj.scanDim == 1)
+                p.IFboundaries.stitchDAPImask2('sensitivity', n.Results.sensitivity);
+            else
+                p.IFboundaries.stitchDAPImask(n.Results.sensitivity);
+            end
+            disp('Finding nuclei boundaries.')
+            p.IFboundaries.makeNucleiLabelMat();
+            
+            if n.Results.withCyto
+                if isfile(sprintf('%s_outlines.tif', p.IFboundaries.cellPoseCytoFile))
+                    disp('Loading cellpose cytoplasmic boundaries.')
+                    p.IFboundaries.loadCellPoseCyto(sprintf('%s_masks.tif', p.IFboundaries.cellPoseCytoFile), sprintf('%s_outlines.txt',  p.IFboundaries.cellPoseCytoFile));
+                    p.IFboundaries.labelMat2cytoTable();
+                    disp('Quantifying nuclei and cytoplasmic IF signal.')
+                    p.IFtable.quantAllCytoBoundaries(true); %only quantifying nuclei overlapping cellpose cytoplasm masks
+                else
+                    disp('Quantifying nuclei and cytoplasmic donut.')
+                    p.IFtable.quantAllLabelMat2();
+                end
+            else
+                disp('Quantifying nuclei IF signal.')
+                p.IFboundaries.addColors();
+                p.IFtable.quantBoundaries();
+            end
+            %update centroid list
+            cellIdx = get(p.viewObj.centroidList, 'Value');
+            cellID = p.IFtable.centroidLists{p.channelIdx}.cellID(cellIdx);
+            p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
+            p.updateCentroidListView();
+            newCellIdx = find(p.IFtable.centroidLists{p.channelIdx}.cellID == cellID);
+            set(p.viewObj.centroidList, 'Value', newCellIdx);
+            %update main axes
+            p.updateMainAxes();
+        end
+        
         function keyPressFunctions(p, ~, evt)
             keyPressed = evt.Key;
             modifierPressed = evt.Modifier;
