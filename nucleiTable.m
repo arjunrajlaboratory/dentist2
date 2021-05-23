@@ -7,6 +7,7 @@ classdef nucleiTable < handle
         
         nuclei
         minNucleusSize = 1000; %Update set method to call findNuclei and updateAllMasks
+        nucMaskSens = 0.1;
         dapiMask
         nucleiFile = 'nuclei.csv'
         nucleiChanged = false %kinda serving as an event
@@ -49,9 +50,9 @@ classdef nucleiTable < handle
             iPlane = reader.getIndex(0, channel - 1, 0) + 1;
             
             if nargin == 1
-                s = 0.1;
+                p.nucMaskSens = 0.1;
             elseif nargin == 2
-                s = varargin{1};
+                p.nucMaskSens = varargin{1};
             end
                 
             for i = 1:numel(tiles)
@@ -59,7 +60,7 @@ classdef nucleiTable < handle
                 reader.setSeries(tiles(i)-1);
                 tmpPlane  = bfGetPlane(reader, iPlane);
                 
-                tileMask = d2utils.makeDAPImask(scale(tmpPlane), 'sensitivity', s);
+                tileMask = d2utils.makeDAPImask(scale(tmpPlane), 'sensitivity', p.nucMaskSens);
                 
                 tmpStitch(tileTable{tiles(i),'left'}:tileTable{tiles(i),'left'}+height-1, ...
                 tileTable{tiles(i),'top'}:tileTable{tiles(i),'top'}+width-1) = tileMask;
@@ -76,11 +77,11 @@ classdef nucleiTable < handle
             n.addParameter('blockSize', [1500 1500], @(x)validateattributes(x,{'numeric'}, {'size', [1 2]}));    
             n.parse(varargin{:});
             %Should maybe check that the block size is >[1 1] and < scanDim.
-            s = n.Results.sensitivity;
+            p.nucMaskSens = n.Results.sensitivity;
             block = n.Results.blockSize;
             
             function_mask = @(block_struct) imbinarize(scale(block_struct.data),...
-                adaptthresh(scale(block_struct.data), s, 'ForegroundPolarity','bright'));
+                adaptthresh(scale(block_struct.data), p.nucMaskSens, 'ForegroundPolarity','bright'));
             
             p.dapiMask = blockproc(p.scanObj.dapiStitch, block, function_mask, 'BorderSize', [0 0], 'UseParallel', true);
         end

@@ -499,6 +499,38 @@ classdef d2MainAxesController < handle
             disp('done')
         end
         
+        function p = adjustNucleiParameters(p, minSize, varargin)
+            n = inputParser;
+            n.addRequired('minSize', @isnumeric)
+            n.addParameter('sensitivity', 0.1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>=',0,'<=',1.0}));
+            n.parse(minSize, varargin{:});
+            
+            p.nucleiObj.minNucleusSize = n.Results.minSize;
+            
+            disp('Finding nuclei')
+            if ~(n.Results.sensitivity == p.nucleiObj.nucMaskSens) %Re-mask if sensitivity value different than current value.  
+                if all(p.scanObj.scanDim == 1)
+                    p.nucleiObj.stitchDAPImask2('sensitivity', n.Results.sensitivity);
+                else
+                    p.nucleiObj.stitchDAPImask(n.Results.sensitivity);
+                end
+            end
+            disp('Finding nuclei boundaries.')
+            p.nucleiObj.findNuclei();
+            
+            p.nucleiObj.addColors();
+            p.nucleiObj.updateAllMasks();
+            
+            p.spotTable.assignSpotsToNuclei();
+            p.spotTable.updateAllSpotStatus();
+            
+            p.spotTable.makeCentroidList();
+            p.updateCentroidListView();
+            p.updateMainAxes();
+            p.threshCntrlr.startup();
+            disp('done')
+        end
+        
         function p = changeSpotFilterThreshold(p, channel, threshFactor)
             %Check that channel and filter are valid
             mustBeMember(channel, p.spotTable.spotChannels)
