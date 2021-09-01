@@ -5,6 +5,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('nucleiFile', 'nuclei.csv', @ischar); 
     n.addParameter('spotsFile', 'spots.csv', @ischar); 
     n.addParameter('preStitchedScan', '', @ischar);
+    n.addParameter('preStitchedScanFilelist','', @iscell);
     n.addParameter('cellPose', '', @ischar);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
@@ -14,7 +15,9 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.parse(varargin{:});
 %----------------------------------------------------------------
 %
-    if isempty(n.Results.preStitchedScan)
+
+        
+    if and(isempty(n.Results.preStitchedScan),isempty(n.Results.preStitchedScanFilelist))
         if isfile(n.Results.scanSummary)
             scanObj = scanObject('scanSummary', n.Results.scanSummary);
         else
@@ -48,6 +51,14 @@ function guiHandle = launchD2ThresholdGUI(varargin)
             disp('Saving stitched scans. This may take several minutes.')
             scanObj.saveStitches();
         end
+        
+    elseif ~isempty(n.Results.preStitchedScanFilelist)
+        fprintf('Loading pre-stitched scans from provided file list (dapi should be first, followed by FISH channels)\n')
+        scanObj=scanObject('preStitchedScanFilelist',n.Results.preStitchedScanFilelist);
+        scanObj.scanSummaryFile = n.Results.scanSummary;
+        if ~isfile(n.Results.scanSummary)
+            scanObj.saveScanSummary();
+        end
     else
         fprintf('Loading pre-stitched scans.\nThis may take several minutes.\n')
         scanObj = scanObject('scanFile', n.Results.preStitchedScan);
@@ -76,7 +87,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
          nucleiObj.nucleiFile = n.Results.nucleiFile;
          if isempty(n.Results.cellPose) %No cellpose
             disp('Finding nuclei. This may take a few minutes.')
-            if isempty(n.Results.preStitchedScan)
+            if and(isempty(n.Results.preStitchedScan),isempty(n.Results.preStitchedScanFilelist))
                 nucleiObj.stitchDAPImask();
             else
                 nucleiObj.stitchDAPImask2();
@@ -104,7 +115,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
          end
     end
     nucleiObj.addColors();
-    nucleiObj.updateAllMasks();
+    nucleiObj.updateAllMasks(); 
 %----------------------------------------------------------------
 %   
     if isfile(n.Results.spotsFile)

@@ -7,6 +7,7 @@ function guiHandle = launchD2IFGUI(varargin)
     n.addParameter('cellBoundariesFile', 'cellBoundariesIF.csv', @ischar); 
     n.addParameter('IFquantFile', 'IFquantTable.csv', @ischar); 
     n.addParameter('preStitchedScan', '', @ischar);
+    n.addParameter('preStitchedScanFilelist','', @iscell);
     n.addParameter('cellPoseNuclei', '', @ischar);
     n.addParameter('cellPoseCyto', '', @ischar);
     n.addParameter('withNuc', 'some', @(x)mustBeMember(x, {'none', 'some', 'all'}));
@@ -17,7 +18,7 @@ function guiHandle = launchD2IFGUI(varargin)
     n.parse(varargin{:});
 %----------------------------------------------------------------
 %
-    if isempty(n.Results.preStitchedScan)
+    if and(isempty(n.Results.preStitchedScan),isempty(n.Results.preStitchedScanFilelist))
         if isfile(n.Results.scanSummary)
             scanObj = scanObject('scanSummary', n.Results.scanSummary);
         else
@@ -43,6 +44,13 @@ function guiHandle = launchD2IFGUI(varargin)
             scanObj.stitchChannels();
             disp('Saving stitched scans. This may take several minutes.')
             scanObj.saveStitches();
+        end
+    elseif ~isempty(n.Results.preStitchedScanFilelist)
+        fprintf('Loading pre-stitched scans from provided file list (dapi should be first, followed by FISH channels)\n')
+        scanObj=scanObject('preStitchedScanFilelist',n.Results.preStitchedScanFilelist);
+        scanObj.scanSummaryFile = n.Results.scanSummary;
+        if ~isfile(n.Results.scanSummary)
+            scanObj.saveScanSummary();
         end
     else
         fprintf('Loading pre-stitched scans.\nThis may take several minutes.\n')
@@ -91,7 +99,7 @@ function guiHandle = launchD2IFGUI(varargin)
                 IFboundariesObj.labelMat2nucTable();
             else
                 disp('masking dapi')
-                if isempty(n.Results.preStitchedScan)
+                if and(isempty(n.Results.preStitchedScan),isempty(n.Results.preStitchedScanFilelist))
                     IFboundariesObj.stitchDAPImask();
                 else
                      IFboundariesObj.stitchDAPImask2();

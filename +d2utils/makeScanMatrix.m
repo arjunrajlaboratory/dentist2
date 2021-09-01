@@ -18,8 +18,9 @@
     start = lower(p.Results.start);
     direction = lower(p.Results.direction);
     
-    scanMatrix = vec2mat(1:scanDim(1)*scanDim(2), scanDim(2));
-
+    %scanMatrix = vec2mat(1:scanDim(1)*scanDim(2), scanDim(2)); % This requires communications toolbox
+    scanMatrix=reshape(1:scanDim(1)*scanDim(2), scanDim(2),scanDim(1))'; % doesn't require communications toolbox
+    
     if strcmp(direction, 'horizontal')
 
         if p.Results.snake

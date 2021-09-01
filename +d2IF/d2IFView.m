@@ -198,11 +198,12 @@ classdef d2IFView < handle
         end
         
         function saveButtonPressed(p, ~, ~)
-            fprintf('Saving IF table, IF boundaries, and masks.\nThis may take a minute\n')
+            fprintf('Saving IF table, IF boundaries, and masks.\nThis may take a minute...')
             p.IFtable.saveTable;
             p.IFtable.maskObj.saveMasksTable;
             p.IFboundaries.saveBoundaries;
             p.IFboundaries.maskObj.saveMasksTable;
+            fprintf('done.\n')
         end
 
         function relaunchGUI(p)

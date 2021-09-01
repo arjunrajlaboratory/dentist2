@@ -28,8 +28,8 @@ classdef d2stitchController < handle
         end
         
         function startup(p)
-            set(p.viewObj.rowValue, 'String', num2str(floor(p.scanObj.scanDim(1)/2))) %Set default view to middle of scan
-            set(p.viewObj.colValue, 'String', num2str(floor(p.scanObj.scanDim(2)/2)))
+            set(p.viewObj.rowValue, 'String', num2str(max(2,floor(p.scanObj.scanDim(1)/2)))) %Set default view to middle of scan, with a minimum of 2 to avoid an index-1 issue later on
+            set(p.viewObj.colValue, 'String', num2str(max(2,floor(p.scanObj.scanDim(2)/2))))
             p.startPosValue = get(p.viewObj.startPos.SelectedObject, 'String');
             p.snakeValue = strcmp(get(p.viewObj.snake.SelectedObject, 'String'), 'snake');
             p.directionValue = get(p.viewObj.direction.SelectedObject, 'String');

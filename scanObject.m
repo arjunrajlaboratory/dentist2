@@ -27,7 +27,8 @@ classdef scanObject < handle
         %rotated. Consider deleting. Also, height and width 
         %may need to be switched for rotated images. I'm not sure if 
         %tilesize changes when the image from Elements is rotated.
-        imRotation = 0;  
+        imRotation = 0;
+        prestitchedScanFileList
     end
     
     methods
@@ -36,11 +37,12 @@ classdef scanObject < handle
             n = inputParser;
             n.addParameter('scanSummary', '', @ischar);
             n.addParameter('scanFile', '', @ischar); 
+            n.addParameter('prestitchedScanFileList', '', @(x) validateattributes(x,{'cell'},{'size',[nan 1]})); 
             n.addParameter('scanDim', [0,0], @(x)validateattributes(x,{'numeric'},{'size',[1 2]}));
             
             n.parse(varargin{:});
-
-            if ~isempty(n.Results.scanSummary)
+            
+            if ~isempty(n.Results.scanSummary) % a scan summary (Eg. scanSummary.txt) was given, load it
                     fprintf('Loading %s\n', n.Results.scanSummary);
                     p.scanSummaryFile = n.Results.scanSummary;
                     p.loadScanSummary();
@@ -56,6 +58,13 @@ classdef scanObject < handle
                     p.scanFile = n.Results.scanFile;
                     p.channels = d2utils.readND2Channels(p.scanFile);
                     p.loadPrestitchedScans();
+                elseif ~isempty(n.Results.prestitchedScanFileList)
+                    temp=join(n.Results.prestitchedScanFileList(2:end),', ');
+                    fprintf('Loading pre-stitched scan file list:\n    DAPI file= %s\n    FISH channel files= %s\n',n.Results.prestitchedScanFileList{1},temp{1})
+                    p.scanFile='';
+                    p.prestitchedScanFileList=n.Results.prestitchedScanFileList;
+                    p.channels=[{'dapi'},replace(p.prestitchedScanFileList(2:end),'.tif','')'];
+                    p.loadPrestitchedScansFromFilelist()
                 else
                     fprintf('Unable to create the scan object.\nPlease specify a scan summary file (e.g. scanSummary.txt) or the scan file name and scan dimensions.\n')
                     return
@@ -113,6 +122,7 @@ classdef scanObject < handle
              %first load dapi
              channelIdx = find(ismember(p.channels, 'dapi'));
              iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+             fprintf('   bfGetPlane: dapi\n')
              p.dapiStitch = bfGetPlane(reader, iPlane);
              %load FISH channels
              p.stitchedScans.labels = channelsFISH;
@@ -120,9 +130,39 @@ classdef scanObject < handle
              for i = 1:numel(channelsFISH)
                  channelIdx = find(ismember(p.channels, channelsFISH{i}));
                  iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+                 fprintf('   bfGetPlane: %s (%i of %i FISH channels)\n',channelsFISH{i},i,numel(channelsFISH))
                  p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
              end
              reader.close()
+             p.scanDim = [1 1];
+             p.stitchDim = size(p.dapiStitch);
+         end
+         
+         function p = loadPrestitchedScansFromFilelist(p) % Ian D added
+             filenamesFISH=p.prestitchedScanFileList(2:end);
+             channelsFISH =  replace(filenamesFISH,'.tif','')';
+             %channelDAPI=replace(p.prestitchedScanFileList(1),'.tif','');
+             %reader = bfGetReader(p.scanFile);
+             %reader.setSeries(0); %Will only load the first scan 
+             %first load dapi
+             dapiFile=p.prestitchedScanFileList{1}; % DAPI must be first
+             %channelIdx = find(ismember(p.channels, 'dapi'));
+             %iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+             fprintf('   loading dapi from file %s\n',dapiFile)
+             %p.dapiStitch = bfGetPlane(reader, iPlane);
+             p.dapiStitch=imread(dapiFile);
+             
+             %load FISH channels
+             p.stitchedScans.labels = channelsFISH;
+             p.stitchedScans.stitches = cell(1,numel(channelsFISH));
+             for i = 1:numel(channelsFISH)
+                 %channelIdx = find(ismember(p.channels, channelsFISH{i}));
+                 %iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+                 fprintf('   loading %s (%i of %i FISH channels)\n',channelsFISH{i},i,numel(channelsFISH))
+                 %p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
+                 p.stitchedScans.stitches{i}=imread(filenamesFISH{i});
+             end
+             %reader.close()
              p.scanDim = [1 1];
              p.stitchDim = size(p.dapiStitch);
          end
