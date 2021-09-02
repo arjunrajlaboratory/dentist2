@@ -7,7 +7,7 @@ function guiHandle = launchD2IFGUI(varargin)
     n.addParameter('cellBoundariesFile', 'cellBoundariesIF.csv', @ischar); 
     n.addParameter('IFquantFile', 'IFquantTable.csv', @ischar); 
     n.addParameter('preStitchedScan', '', @ischar);
-    n.addParameter('preStitchedScanFilelist','', @iscell);
+    n.addParameter('preStitchedScanFilelist','', @(x)validateattributes(x,{'cell'},{'size',[1 nan]}));
     n.addParameter('cellPoseNuclei', '', @ischar);
     n.addParameter('cellPoseCyto', '', @ischar);
     n.addParameter('withNuc', 'some', @(x)mustBeMember(x, {'none', 'some', 'all'}));
@@ -18,7 +18,7 @@ function guiHandle = launchD2IFGUI(varargin)
     n.parse(varargin{:});
 %----------------------------------------------------------------
 %
-    if and(isempty(n.Results.preStitchedScan),isempty(n.Results.preStitchedScanFilelist))
+    if isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist)
         if isfile(n.Results.scanSummary)
             scanObj = scanObject('scanSummary', n.Results.scanSummary);
         else

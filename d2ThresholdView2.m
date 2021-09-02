@@ -213,7 +213,7 @@ classdef d2ThresholdView2 < handle
         end
         
         function exportButtonPressed(p, ~, ~)
-            disp('Saving scanSummary.csv')
+            fprintf('Saving %s\n',p.spotTable.spotsSummaryFile)
             p.spotTable.exportSpotsSummary
             disp('done')
         end

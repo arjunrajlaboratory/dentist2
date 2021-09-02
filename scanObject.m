@@ -37,7 +37,7 @@ classdef scanObject < handle
             n = inputParser;
             n.addParameter('scanSummary', '', @ischar);
             n.addParameter('scanFile', '', @ischar); 
-            n.addParameter('prestitchedScanFileList', '', @(x) validateattributes(x,{'cell'},{'size',[nan 1]})); 
+            n.addParameter('prestitchedScanFileList', '', @(x) validateattributes(x,{'cell'},{'size',[1 nan]})); 
             n.addParameter('scanDim', [0,0], @(x)validateattributes(x,{'numeric'},{'size',[1 2]}));
             
             n.parse(varargin{:});
@@ -63,7 +63,7 @@ classdef scanObject < handle
                     fprintf('Loading pre-stitched scan file list:\n    DAPI file= %s\n    FISH channel files= %s\n',n.Results.prestitchedScanFileList{1},temp{1})
                     p.scanFile='';
                     p.prestitchedScanFileList=n.Results.prestitchedScanFileList;
-                    p.channels=[{'dapi'},replace(p.prestitchedScanFileList(2:end),'.tif','')'];
+                    p.channels=[{'dapi'},replace(p.prestitchedScanFileList(2:end),'.tif','')];
                     p.loadPrestitchedScansFromFilelist()
                 else
                     fprintf('Unable to create the scan object.\nPlease specify a scan summary file (e.g. scanSummary.txt) or the scan file name and scan dimensions.\n')
@@ -140,7 +140,7 @@ classdef scanObject < handle
          
          function p = loadPrestitchedScansFromFilelist(p) % Ian D added
              filenamesFISH=p.prestitchedScanFileList(2:end);
-             channelsFISH =  replace(filenamesFISH,'.tif','')';
+             channelsFISH =  replace(filenamesFISH,'.tif','');
              %channelDAPI=replace(p.prestitchedScanFileList(1),'.tif','');
              %reader = bfGetReader(p.scanFile);
              %reader.setSeries(0); %Will only load the first scan 

@@ -5,12 +5,13 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('nucleiFile', 'nuclei.csv', @ischar); 
     n.addParameter('spotsFile', 'spots.csv', @ischar); 
     n.addParameter('preStitchedScan', '', @ischar);
-    n.addParameter('preStitchedScanFilelist','', @iscell);
+    n.addParameter('preStitchedScanFilelist','', @(x)validateattributes(x,{'cell'},{'size',[1 nan]}));
     n.addParameter('cellPose', '', @ischar);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
     n.addParameter('aTrousMinThreshFactor', 4, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('subtractBackground', false, @islogical);
+    n.addParameter('launchGUI',true, @islogical);
 
     n.parse(varargin{:});
 %----------------------------------------------------------------
@@ -51,7 +52,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
             disp('Saving stitched scans. This may take several minutes.')
             scanObj.saveStitches();
         end
-        
+        % should scanObj.saveScanSummary(); be here?
     elseif ~isempty(n.Results.preStitchedScanFilelist)
         fprintf('Loading pre-stitched scans from provided file list (dapi should be first, followed by FISH channels)\n')
         scanObj=scanObject('preStitchedScanFilelist',n.Results.preStitchedScanFilelist);
@@ -139,14 +140,29 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     spotsObj.updateAllMasks();
     spotsObj.updateAllSpotStatus();
     spotsObj.makeCentroidList();
-
-%----------------------------------------------------------------
-% 
-    disp('Auto-contrasting stitched scans. This may take several minutes.')
-    scanObj.contrastDAPIstitch();
-    scanObj.contrastStitchedScans([1 99], [0.9 3]);
-    disp('Resizing stitched scans')
-    scanObj.resizeStitchedScans();
     
-    guiHandle = d2ThresholdView2(scanObj, maskObj, nucleiObj, spotsObj);
+    %----------------------------------------------------------------
+    if ~n.Results.launchGUI % don't launch GUI, just save files
+        fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
+        nucleiObj.saveNucleiTable;
+        %spotsObj.updateScanSummary;
+        spotsObj.saveSpotsTable;
+        maskObj.saveMasksTable;
+        disp('done')
+        
+        % fprintf('Saving %s\n',spotsObj.spotsSummaryFile)
+        % spotsObj.exportSpotsSummary % could do this by default, but its misleading if thresholds aren't actually good
+        % disp('done')
+        
+        guiHandle=[];
+    else % launch GUI
+        disp('Auto-contrasting stitched scans. This may take several minutes.')
+        scanObj.contrastDAPIstitch();
+        scanObj.contrastStitchedScans([1 99], [0.9 3]);
+        disp('Resizing stitched scans')
+        scanObj.resizeStitchedScans();
+        
+        guiHandle = d2ThresholdView2(scanObj, maskObj, nucleiObj, spotsObj);
+    end
+    
 end
