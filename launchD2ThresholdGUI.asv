@@ -17,7 +17,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
 %
 
         
-    if isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist)
+    if and(isempty(n.Results.preStitchedScan),isempty(n.Results.preStitchedScanFilelist))
         if isfile(n.Results.scanSummary)
             scanObj = scanObject('scanSummary', n.Results.scanSummary);
         else
