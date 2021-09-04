@@ -143,7 +143,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     
     %----------------------------------------------------------------
     if ~n.Results.launchGUI % don't launch GUI, just save files
-        fprintf('Saving mask table, cell table, and spot tables.\nThis may take a minute\n')
+        fprintf('launchGUI==false, so saving mask table, cell table, and spot tables.\nThis may take a minute\n')
         nucleiObj.saveNucleiTable;
         %spotsObj.updateScanSummary;
         spotsObj.saveSpotsTable;
