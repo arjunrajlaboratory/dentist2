@@ -6,13 +6,15 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('spotsFile', 'spots.csv', @ischar); 
     n.addParameter('preStitchedScan', '', @ischar);
     n.addParameter('preStitchedScanFilelist','', @(x)validateattributes(x,{'cell'},{'size',[1 nan]}));
+    n.addParameter('channelTypes',{}, @(x)iscell(x) && all(ismember(x,{'dapi','FISH','other'})) && size(x,1)==1);
     n.addParameter('cellPose', '', @ischar);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
     n.addParameter('aTrousMinThreshFactor', 4, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('subtractBackground', false, @islogical);
     n.addParameter('launchGUI',true, @islogical);
-
+    n.addParameter('thresholds',[],@(x) validateattributes(x,{'numeric'},{'size',[1 nan]}))
+    n.addParameter('sigma',[],@(x) validateattributes(x,{'numeric'},{'positive','nonzero'}))
     n.parse(varargin{:});
 %----------------------------------------------------------------
 %
@@ -20,7 +22,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         
     if isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist)
         if isfile(n.Results.scanSummary)
-            scanObj = scanObject('scanSummary', n.Results.scanSummary);
+            scanObj = scanObject('scanSummary', n.Results.scanSummary,'channelTypes',n.Results.channelTypes);
         else
             fprintf('Unable to detect %s in your current directory.\n. Make sure to run the d2StitchingGUI before launching the d2ThresholdGUI.\n You may also want to check your path and %s and try again. ', n.Results.scanSummary, n.Results.scanSummary)
             return
@@ -54,15 +56,15 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         end
         % should scanObj.saveScanSummary(); be here?
     elseif ~isempty(n.Results.preStitchedScanFilelist)
-        fprintf('Loading pre-stitched scans from provided file list (dapi should be first, followed by FISH channels)\n')
-        scanObj=scanObject('preStitchedScanFilelist',n.Results.preStitchedScanFilelist);
+        fprintf('Loading pre-stitched scans from provided file list\n')
+        scanObj=scanObject('preStitchedScanFilelist',n.Results.preStitchedScanFilelist,'channelTypes',n.Results.channelTypes);
         scanObj.scanSummaryFile = n.Results.scanSummary;
         if ~isfile(n.Results.scanSummary)
             scanObj.saveScanSummary();
         end
     else % then ~isempty(n.Results.preStitchedScan)
         fprintf('Loading pre-stitched scans.\nThis may take several minutes.\n')
-        scanObj = scanObject('scanFile', n.Results.preStitchedScan);
+        scanObj = scanObject('scanFile', n.Results.preStitchedScan,'channelTypes',n.Results.channelTypes);
         scanObj.scanSummaryFile = n.Results.scanSummary;
         if ~isfile(n.Results.scanSummary)
             scanObj.saveScanSummary();
@@ -120,11 +122,12 @@ function guiHandle = launchD2ThresholdGUI(varargin)
 %----------------------------------------------------------------
 %   
     if isfile(n.Results.spotsFile)
-        spotsObj = spotTable(scanObj, maskObj, nucleiObj, n.Results.spotsFile);
+        spotsObj = spotTable(scanObj, maskObj, nucleiObj, 'spotsFile',n.Results.spotsFile);
     else
         fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
         spotsObj = spotTable(scanObj, maskObj, nucleiObj);
         spotsObj.spotsFile = n.Results.spotsFile;
+        
         disp('Finding spots. This may take several minutes.')
         spotsObj.findSpots4(n.Results.aTrousMinThreshFactor); %Run before contrasting scans
         spotsObj.maskBorderSpots();
@@ -132,8 +135,10 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         spotsObj.assignSpotsToNuclei();
     end
     
-    if isempty(spotsObj.thresholds)
-        spotsObj.defaultThresholds();
+    if isempty(n.Results.thresholds) && isempty(spotsObj.thresholds)
+            spotsObj.defaultThresholds();
+    else % user-input thresholds. These override anything in scanSummary.txt
+        spotsObj.userInputThresholds(n.Results.thresholds);
     end
 
     spotsObj.updateScanSummary();

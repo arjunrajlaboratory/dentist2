@@ -9,6 +9,7 @@ classdef scanObject < handle
         tilesTable
         tileSize
         channels
+        channelTypes
         scanMatrix
         scanDim
         snake
@@ -39,38 +40,46 @@ classdef scanObject < handle
             n.addParameter('scanFile', '', @ischar); 
             n.addParameter('prestitchedScanFileList', '', @(x) validateattributes(x,{'cell'},{'size',[1 nan]})); 
             n.addParameter('scanDim', [0,0], @(x)validateattributes(x,{'numeric'},{'size',[1 2]}));
-            
+            n.addParameter('channelTypes',{},@iscell)
             n.parse(varargin{:});
             
             if ~isempty(n.Results.scanSummary) % a scan summary (Eg. scanSummary.txt) was given, load it
                     fprintf('Loading %s\n', n.Results.scanSummary);
                     p.scanSummaryFile = n.Results.scanSummary;
                     p.loadScanSummary();
+                    p.loadChannelTypes(n.Results.channelTypes) % user-input would override the channelTypes from scanSummaryFile
+                    %p.renameDapiChannel();
             else
                 if ~isempty(n.Results.scanFile) && all(n.Results.scanDim)
                     fprintf('Loading file %s\n', n.Results.scanFile)
                     p.scanFile = n.Results.scanFile;
                     p.channels = d2utils.readND2Channels(p.scanFile);
+                    p.loadChannelTypes(n.Results.channelTypes)
+                    %p.renameDapiChannel();
                     p.scanDim = n.Results.scanDim;
                     p.defaultScanParameters()
                 elseif ~isempty(n.Results.scanFile) %If loading pre-stitched scan. 
                     fprintf('Loading pre-stiched scan file: %s\n', n.Results.scanFile)
                     p.scanFile = n.Results.scanFile;
                     p.channels = d2utils.readND2Channels(p.scanFile);
+                    p.loadChannelTypes(n.Results.channelTypes)
+                    %p.renameDapiChannel();
                     p.loadPrestitchedScans();
                 elseif ~isempty(n.Results.prestitchedScanFileList)
                     temp=join(n.Results.prestitchedScanFileList(2:end),', ');
                     fprintf('Loading pre-stitched scan file list:\n    DAPI file= %s\n    FISH channel files= %s\n',n.Results.prestitchedScanFileList{1},temp{1})
                     p.scanFile='';
                     p.prestitchedScanFileList=n.Results.prestitchedScanFileList;
-                    p.channels=[{'dapi'},replace(p.prestitchedScanFileList(2:end),'.tif','')];
+                    p.channels=replace(p.prestitchedScanFileList,'.tif','');
+                    p.loadChannelTypes(n.Results.channelTypes)
+                    %p.renameDapiChannel();
                     p.loadPrestitchedScansFromFilelist()
                 else
                     fprintf('Unable to create the scan object.\nPlease specify a scan summary file (e.g. scanSummary.txt) or the scan file name and scan dimensions.\n')
                     return
-                    
                 end
             end
+            
         end
         
         function defaultScanParameters(p)
@@ -116,21 +125,21 @@ classdef scanObject < handle
          end
          
          function p = loadPrestitchedScans(p)
-             channelsFISH =  p.channels(~ismember(p.channels,{'dapi','trans'}));
              reader = bfGetReader(p.scanFile);
              reader.setSeries(0); %Will only load the first scan 
              %first load dapi
-             channelIdx = find(ismember(p.channels, 'dapi'));
+             channelIdx = find(ismember(p.channelTypes, 'dapi'));
              iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
              fprintf('   bfGetPlane: dapi\n')
              p.dapiStitch = bfGetPlane(reader, iPlane);
-             %load FISH channels
-             p.stitchedScans.labels = channelsFISH;
-             p.stitchedScans.stitches = cell(1,numel(channelsFISH));
-             for i = 1:numel(channelsFISH)
-                 channelIdx = find(ismember(p.channels, channelsFISH{i}));
+             %load other channels
+             nonDapiChannels=p.channels(~ismember(p.channelTypes, 'dapi'));
+             p.stitchedScans.labels = nonDapiChannels;
+             p.stitchedScans.stitches = cell(1,numel(nonDapiChannels));
+             for i = 1:numel(nonDapiChannels)
+                 channelIdx = find(ismember(p.channels, nonDapiChannels{i}));
                  iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-                 fprintf('   bfGetPlane: %s (%i of %i FISH channels)\n',channelsFISH{i},i,numel(channelsFISH))
+                 fprintf('   bfGetPlane: %s (%i of %i non-dapi channels) with channelType=%s\n',nonDapiChannels{i},i,numel(nonDapiChannels),p.channelTypes(channelIdx))
                  p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
              end
              reader.close()
@@ -139,32 +148,73 @@ classdef scanObject < handle
          end
          
          function p = loadPrestitchedScansFromFilelist(p) % Ian D added
-             filenamesFISH=p.prestitchedScanFileList(2:end);
-             channelsFISH =  replace(filenamesFISH,'.tif','');
-             %channelDAPI=replace(p.prestitchedScanFileList(1),'.tif','');
-             %reader = bfGetReader(p.scanFile);
-             %reader.setSeries(0); %Will only load the first scan 
-             %first load dapi
-             dapiFile=p.prestitchedScanFileList{1}; % DAPI must be first
-             %channelIdx = find(ismember(p.channels, 'dapi'));
-             %iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-             fprintf('   loading dapi from file %s\n',dapiFile)
-             %p.dapiStitch = bfGetPlane(reader, iPlane);
-             p.dapiStitch=imread(dapiFile);
              
-             %load FISH channels
-             p.stitchedScans.labels = channelsFISH;
-             p.stitchedScans.stitches = cell(1,numel(channelsFISH));
-             for i = 1:numel(channelsFISH)
-                 %channelIdx = find(ismember(p.channels, channelsFISH{i}));
-                 %iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-                 fprintf('   loading %s (%i of %i FISH channels)\n',channelsFISH{i},i,numel(channelsFISH))
-                 %p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
-                 p.stitchedScans.stitches{i}=imread(filenamesFISH{i});
+             %first load dapi
+             dapiFile=p.prestitchedScanFileList{ismember(p.channelTypes,'dapi')};
+             fprintf('   loading dapi from file %s\n',dapiFile)
+             p.dapiStitch=imread(dapiFile);
+             %load other channels
+             nonDapiFilenames=p.prestitchedScanFileList(~ismember(p.channelTypes,'dapi'));
+             nonDapiChannels=replace(nonDapiFilenames,'.tif','');
+             p.stitchedScans.labels = nonDapiChannels;
+             p.stitchedScans.stitches = cell(1,numel(nonDapiChannels));
+             for i = 1:numel(nonDapiChannels)
+                 fprintf('   loading %s (%i of %i non-dapi channels) from file %s\n',nonDapiChannels{i},i,numel(nonDapiChannels),nonDapiFilenames{i})
+                 p.stitchedScans.stitches{i}=imread(nonDapiFilenames{i});
              end
-             %reader.close()
              p.scanDim = [1 1];
              p.stitchDim = size(p.dapiStitch);
+         end
+         
+         function loadChannelTypes(p,userInputChannelTypes)
+             
+             if isempty(userInputChannelTypes)
+                 if isempty(p.channelTypes)
+                     % make default channelTypes based on filenames.
+                     %      anything with 'dapi' (case insensitive) in name = dapi
+                     %      'Brightfield' or 'trans' (case insensitive) = 'other'
+                     %      otherwise it is 'FISH'
+                     indOther=[];
+                     indDapi=find(contains(lower(p.channels),'dapi'));
+                     if length(indDapi)>1 && sum(ismember(p.channels,'dapi'))==1 % but there's just one exact match of 'dapi', use this and channelType of the ris 'other'
+                         indOther=find(contains(lower(p.channels),'dapi') & ~ismember(p.channels,'dapi'));
+                         indDapi=find(ismember(p.channels,'dapi'));
+                     else
+                         if length(indDapi)>1
+                             fprintf('WARNING: more than one channel was detected with dapi in the channel name (case insensitive). The first one (%s) will be used as the dapi channel, and the others will be assigned channelType other\n',p.channels{indDapi(1)})
+                             indOther=indDapi(2:end);
+                             indDapi=indDapi(1);
+                         elseif isempty(indDapi)
+                             error("no channel with dapi in the name was found. Try to input a channelTypes cell array, with a cell for each channel. For a 5 channel file, it would be like this: launchD2ThresholdGUI(__,'channelTypes',{'dapi','FISH','FISH','other','FISH'}")
+                         end
+                     end
+                     indTrans=find(contains(lower(p.channels),{'trans','brightfield'}));
+                     p.channelTypes=repmat({'FISH'},1,length(p.channels));
+                     p.channelTypes(indDapi)={'dapi'};
+                     p.channelTypes(indTrans)={'other'};
+                     p.channelTypes(indOther)={'other'}; % where multiple files with dapi (case insensitive) were found
+                 else
+                     % channelTypes were likely read scanSummary.txt, and
+                     % user is not requesting to overwrite those
+                     p.checkOverChannelTypes(p.channelTypes)
+                 end
+             else % have user-input channelTypes
+                 p.checkOverChannelTypes(userInputChannelTypes)
+                 p.channelTypes=userInputChannelTypes;
+             end
+         end
+         
+         function checkOverChannelTypes(p,channelTypes)
+             mustBeMember(channelTypes,{'dapi','FISH','other'})
+             if length(channelTypes)~=length(p.channels)
+                 error('There are %i cells in channelTypes but there are %i channels',length(channelTypes),length(p.channels))
+             end
+             mustBeMember(channelTypes,{'dapi','FISH','other'})
+             if sum(ismember(channelTypes,'dapi'))>1
+                 error("there should be 1 dapi in the input channelTypes, but instead you have %i. If you actually do have more than one dapi channel, you must pick one to be processed as dapi and the rest can have channelType 'other'",sum(ismember(channelTypes,'dapi')))
+             elseif sum(ismember(channelTypes,'dapi'))==0
+                 error("one of the elements of channelTypes should be 'dapi'")
+             end
          end
          
         %Stitch DAPI
@@ -175,7 +225,8 @@ classdef scanObject < handle
             height = p.tileSize(1);
             width = p.tileSize(2);
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
-            channel = find(ismember(p.channels, 'dapi'));
+            %channel = find(ismember(p.channels, 'dapi'));
+            channel = p.channels(ismember(p.channelTypes,'dapi'));
             reader = bfGetReader(p.scanFile);
             iPlane = reader.getIndex(0, channel - 1, 0) + 1;
             
@@ -312,7 +363,7 @@ classdef scanObject < handle
 
         function p = stitchChannels(p, varargin)
             n = inputParser;
-            n.addOptional('channelsToStitch', p.channels(~ismember(p.channels,{'dapi','trans'})), @(x) mustBeMember(x, p.channels));
+            n.addOptional('channelsToStitch', p.channels(~ismember(p.channelTypes,{'dapi'})), @(x) mustBeMember(x, p.channels));
             n.parse(varargin{:});
             channelsToStitch = n.Results.channelsToStitch;
             tileTable = p.tilesTable;
@@ -561,6 +612,10 @@ classdef scanObject < handle
             
             p.scanMatrix = d2utils.makeScanMatrix(p.scanDim, 'start', p.startPos, 'snake', p.snake,'direction', p.direction); 
             p.channels = d2utils.readND2Channels(p.scanFile);
+            
+            p.channelTypes = split(scanSummaryTable{'channelTypes',1});
+            p.checkOverChannelTypes(p.channelTypes)
+            
             %Load tiles table.
             if isfile(p.tilesTableName)
                 p.loadTilesTable();
@@ -574,13 +629,13 @@ classdef scanObject < handle
             
             if ~isempty(p.scanDim) && all(p.scanDim) %Using this as indicator for whether the scan is tiled or pre-stitched
                 outTableArray = {p.scanFile; p.tilesTableName; num2str(p.scanDim); num2str(p.tileSize); num2str(p.stitchDim);...
-                    p.startPos; p.direction; string(p.snake); strjoin(p.channels);...
+                    p.startPos; p.direction; string(p.snake); strjoin(p.channels);strjoin(p.channelTypes);...
                     num2str(p.rowTransformCoords); num2str(p.columnTransformCoords)};
                 outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'tilesTableName', 'scanDimensions', 'imageSize', 'stitchDimensions',...
-                    'startPosition', 'scanDirection', 'snake', 'channels', 'rowTransform', 'columnTransform'});
+                    'startPosition', 'scanDirection', 'snake', 'channels','channelTypes', 'rowTransform', 'columnTransform'});
             else
-                outTableArray = {p.scanFile; num2str(p.stitchDim); strjoin(p.channels)};
-                outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'stitchDimensions', 'channels'});
+                outTableArray = {p.scanFile; num2str(p.stitchDim); strjoin(p.channels);strjoin(p.channelTypes)};
+                outTable = cell2table(outTableArray,'RowNames', {'scanFileName', 'stitchDimensions', 'channels','channelTypes'});
             end
            
             writetable(outTable, p.scanSummaryFile, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
@@ -600,10 +655,10 @@ classdef scanObject < handle
             if ~isempty(p.dapiStitch) && ~isempty(p.stitchedScans) 
                 dapi = p.dapiStitch;
                 save(outFileName, 'dapi', '-v7.3')
-                fishLabels = p.stitchedScans.labels;
-                save(outFileName, 'fishLabels', '-append')
-                fishScans = p.stitchedScans.stitches;
-                save(outFileName, 'fishScans', '-append')
+                nondapiLabels = p.stitchedScans.labels;
+                save(outFileName, 'nondapiLabels', '-append') % could use updating here and below (in loadStitches and reloadChannelStitch) to not say fishLabels but instead just labels or something
+                nondapiScans = p.stitchedScans.stitches;
+                save(outFileName, 'nondapiScans', '-append')
             else
                 if isempty(p.dapiStitch)
                     fprintf("dapiStitch is empty. Run stitchDAPI and try again\n")

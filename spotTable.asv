@@ -654,7 +654,14 @@ classdef spotTable < handle
                 fprintf('Setting %s as spot channels.\n', strjoin(p.spotChannels));
             end
         end
-
+        function userInputThresholds(p,userInputThresholds)
+            if numel(userInputThresholds)~=numel(p.spotChannels)
+                error('user-input thresholds is 1x%i but should be 1x%i, corresponding to %i spot channels',numel(userInputThresholds),numel(p.spotChannels),numel(p.spotChannels))
+            elseif size(userInputThresholds,1)~=1
+                error('user-input thresholds should be a row vector');s
+            end
+            p.thresholds=userInputThresholds;
+        end
         function saveSpotsTable(p)
             if ~isempty(p.spots)
                 writetable(p.spots(:,{'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'}), p.spotsFile);
@@ -675,15 +682,6 @@ classdef spotTable < handle
         function loadSpotFinderInputs(userInputSigma, userInputThresholds, userInputaTrousMinThreshFactor)
             
             
-        end
-        
-        function userInputThresholds(p,userInputThresholds)
-            if numel(userInputThresholds)~=numel(p.spotChannels)
-                error('user-input thresholds is 1x%i but should be 1x%i, corresponding to %i spot channels',numel(userInputThresholds),numel(p.spotChannels),numel(p.spotChannels))
-            elseif size(userInputThresholds,1)~=1
-                error('user-input thresholds should be a row vector');s
-            end
-            p.thresholds=userInputThresholds;
         end
         function loadScanSummarySpotInfo(p)
             scanSummaryTable = d2utils.parseScanSummary(p.scanSummaryFile);

@@ -14,7 +14,8 @@ classdef maskTable < handle
         
         function p = maskTable(scanObject, varargin)
             channels = convertStringsToChars(scanObject.channels);
-            p.channels = channels(~ismember(channels, 'trans'));
+            %p.channels = channels(~ismember(scanObject.channelTypes,'other'));
+            p.channels = channels; % all channels can have mask
             if nargin == 1
                 fprintf('New Mask Table\n');
                 p.masks = table('Size', [p.heightMaskTable, numel(p.channels) + 3],...
@@ -67,7 +68,7 @@ classdef maskTable < handle
 
         end
         
-        function tempMaskID = addMaskLocalCoords(p,maskPoly,channel)
+        function tempMaskID = addMaskLocalCoords(p,maskPoly,channelOrChannels)
             
             tempMaskID = single(max(p.masks.maskID)+1);
             
@@ -81,7 +82,7 @@ classdef maskTable < handle
             
 %             [x,y] = d2utils.localToGlobalCoords(localRect,maskPoly(:,2),maskPoly(:,1));
             
-            channelIdx = ismember(p.channels, channel);
+            channelIdx = ismember(p.channels, channelOrChannels);
             
             tmpCoords = table(repmat(tempMaskID,  height(maskPoly), 1), single(maskPoly(:,2)), single(maskPoly(:,1)), 'VariableNames',{'maskID', 'x', 'y'});
             tmpChannelTable = array2table(repmat(channelIdx, height(maskPoly), 1), 'VariableNames', p.channels);

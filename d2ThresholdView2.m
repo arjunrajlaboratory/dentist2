@@ -38,6 +38,8 @@ classdef d2ThresholdView2 < handle
         deleteCellButton %Toggle button
         maskCellButton %Push button
         maskSpotsButton %Push button
+        maskSpotsAllChannelsCheckBox % Check box
+        maskSpotsForAllChannels = false
         deleteMaskButton %Push button
         
         upperContrastSlider %Slider
@@ -98,7 +100,8 @@ classdef d2ThresholdView2 < handle
             p.threshAxes = axes('Parent', p.figHandle, 'Position', [0.64 0.025 0.34 0.34], 'Interactions', []);
             set(p.threshAxes.Toolbar, 'Visible', 'off')
             
-            p.channelPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.spotChannels, 'Units', 'normalized', 'Position', [0.64 0.49 0.1111 0.0367]);
+            %p.channelPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.spotChannels, 'Units', 'normalized', 'Position', [0.64 0.49 0.1111 0.0367]); % CHANGE
+            p.channelPopup = uicontrol('Style', 'popupmenu', 'String', p.scanObj.channels(~ismember(p.scanObj.channelTypes,'dapi')), 'Units', 'normalized', 'Position', [0.64 0.49 0.1111 0.0367]); % CHANGE
             p.colormapPopup = uicontrol('Style', 'popupmenu', 'String', p.spotTable.expressionColorPal, 'Units', 'normalized', 'Position', [0.755 0.49 0.1111 0.0367]);
             p.centroidList = uicontrol('Style', 'listbox', 'String', string(p.spotTable.centroidLists{1}.GroupCount),'Units', 'normalized', 'Position', [0.86 0.645 0.12 0.33]);
             p.spotsCheckBox = uicontrol('Style', 'checkbox', 'String', 'spots (s)', 'Value', p.showSpots,'Units', 'normalized', 'Position', [0.65 0.585 0.0722 0.0333]);
@@ -109,7 +112,9 @@ classdef d2ThresholdView2 < handle
             p.addCellButton = uicontrol('Style', 'pushbutton', 'String', 'add cells', 'Units', 'normalized', 'Position', [0.755 0.45 0.1111 0.0367]);
             p.deleteCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.755 0.41 0.1111 0.0367]);
 
-            p.maskSpotsButton = uicontrol('Style', 'pushbutton', 'String', 'mask spots (m)', 'Units', 'normalized', 'Position', [0.64 0.37 0.1111 0.0367]);
+            p.maskSpotsButton = uicontrol('Style', 'pushbutton', 'String', 'mask spots (m)', 'Units', 'normalized', 'Position', [0.64 0.37 0.05  0.0367]);
+            p.maskSpotsAllChannelsCheckBox = uicontrol('Style', 'checkbox', 'String', sprintf('for all channels'), 'Value', p.maskSpotsForAllChannels, 'Units', 'normalized', 'Position', [0.69 0.37 0.0600 0.0367]);
+            
             p.maskCellButton = uicontrol('Style', 'pushbutton', 'String', 'mask cells (M)', 'Units', 'normalized', 'Position', [0.755 0.37 0.1111 0.0367]);
             p.deleteMaskButton = uicontrol('Style', 'pushbutton', 'String', 'delete mask (d)', 'Units', 'normalized', 'Position', [0.87 0.37 0.1111 0.0367]); 
 
@@ -172,6 +177,7 @@ classdef d2ThresholdView2 < handle
             p.addCellButton.Callback = {@controller.addCells};
             p.deleteCellButton.Callback = {@controller.deleteCells};
             p.maskSpotsButton.Callback = {@controller.addSpotMask};
+            %p.maskSpotsAllChannelsCheckBox.Callback={@controller.toggleMaskSpotsAllChannels}
             p.maskCellButton.Callback = {@controller.addCellMask};
             p.deleteMaskButton.Callback = {@controller.deleteMask};
             p.zoomAxes.Callback = {@controller.zoomInPressed};

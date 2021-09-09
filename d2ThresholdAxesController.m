@@ -46,37 +46,51 @@ classdef d2ThresholdAxesController < handle
                 delete(p.histogramLineH)
             end
             
-            if p.includeMaskedSpots
-                intensities = p.spotTable.spotsIntensitiesWithMasked{p.mainAxesCntrlr.channelIdx};
+            spotTableChannelIdx=find(ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx}));
+            
+            if ~isempty(spotTableChannelIdx)
+                if p.includeMaskedSpots
+                    intensities = p.spotTable.spotsIntensitiesWithMasked{spotTableChannelIdx};
+                else
+                    intensities = p.spotTable.spotsIntensitiesNoMasked{spotTableChannelIdx};
+                end
+                
+                if isempty(intensities)
+                    warning('spot intensities are empty. This can occur if you previously terminated the program before allowing spots.csv to fully save, such that the later channels have not been saved');
+                end
+                logRank = log(numel(intensities):-1:1);
+                p.histogramLineH = line(p.viewObj.threshAxes, intensities, logRank, ...
+                    'HitTest', 'off', ...
+                    'Color', 'k');
+                
+                p.ThreshAxisMin = intensities(1);
+                p.ThreshAxisMax = intensities(end) * 1.05;
+                
+                set(p.viewObj.threshAxes, 'XLim', [p.ThreshAxisMin p.ThreshAxisMax]);
+                
+                yaxismax = logRank(1)*1.1;
+                
+                set(p.viewObj.threshAxes, 'YLim', [0 yaxismax]);
             else
-                intensities = p.spotTable.spotsIntensitiesNoMasked{p.mainAxesCntrlr.channelIdx};
+                delete(p.histogramLineH)
             end
-            
-            logRank = log(numel(intensities):-1:1);
-            p.histogramLineH = line(p.viewObj.threshAxes, intensities, logRank, ...
-                'HitTest', 'off', ...
-                'Color', 'k');
-            
-            p.ThreshAxisMin = intensities(1);
-            p.ThreshAxisMax = intensities(end) * 1.05;
-            
-            set(p.viewObj.threshAxes, 'XLim', [p.ThreshAxisMin p.ThreshAxisMax]);
-            
-            yaxismax = logRank(1)*1.1;
-          
-            set(p.viewObj.threshAxes, 'YLim', [0 yaxismax]);
         end
         
         function plotIntensityThreshold(p)
             if ~isempty(p.thresholdLineH) && ishandle(p.thresholdLineH)
                 delete(p.thresholdLineH)
             end
-            
-            threshold = p.spotTable.thresholds(p.mainAxesCntrlr.channelIdx);
+            spotTableChannelIdx=find(ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx}));
+            if ~isempty(spotTableChannelIdx)
+            %threshold = p.spotTable.thresholds(p.mainAxesCntrlr.channelIdx);
+            threshold = p.spotTable.thresholds(spotTableChannelIdx);
             yaxis = get(p.viewObj.threshAxes, 'Ylim');
             p.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis,...
                 'Color', 'b', 'HitTest', 'off');
             p.viewObj.threshValue.String = num2str(threshold);
+            else
+                delete(p.thresholdLineH)
+            end
         end
         
         function threshZoomButtonDown(p, ~, ~)
@@ -123,9 +137,10 @@ classdef d2ThresholdAxesController < handle
         
         function stopThreshDrag(p, ~, ~)
             set(p.viewObj.figHandle, 'WindowButtonMotionFcn', '');
+            spotTableChannelIdx=find(ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx}));
             newThresh = str2double(p.viewObj.threshValue.String);
-            p.spotTable.setThreshold(p.spotTable.spotChannels{p.mainAxesCntrlr.channelIdx}, newThresh);
-            p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.mainAxesCntrlr.channelIdx}.GroupCount);
+            p.spotTable.setThreshold(p.spotTable.spotChannels{spotTableChannelIdx}, newThresh);
+            p.viewObj.centroidList.String = string(p.spotTable.centroidLists{spotTableChannelIdx}.GroupCount);
             p.mainAxesCntrlr.updateMainAxes();
             set(p.viewObj.figHandle, 'WindowButtonUpFcn', '');
         end
@@ -154,12 +169,14 @@ classdef d2ThresholdAxesController < handle
         end
       
         function threshValueChange(p, ~, ~)
+            spotTableChannelIdx=find(ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx}));
             if ~isnan(str2double(p.viewObj.threshValue.String)) && isreal(str2double(p.viewObj.threshValue.String))
                 newThresh = round(str2double(p.viewObj.threshValue.String));
                 set(p.thresholdLineH, 'XData', [newThresh, newThresh])
                 %Update threshold for spots
-                p.spotTable.setThreshold(p.spotTable.spotChannels{p.mainAxesCntrlr.channelIdx}, newThresh);
-                p.viewObj.centroidList.String = string(p.spotTable.centroidLists{p.mainAxesCntrlr.channelIdx}.GroupCount);
+                
+                p.spotTable.setThreshold(p.spotTable.spotChannels{spotTableChannelIdx}, newThresh);
+                p.viewObj.centroidList.String = string(p.spotTable.centroidLists{spotTableChannelIdx}.GroupCount);
 %                 p.updateColorMap(); %Specifying colors directly in scatter instead
                 p.mainAxesCntrlr.updateMainAxes();
             else
@@ -169,12 +186,12 @@ classdef d2ThresholdAxesController < handle
                     oldThresh = get(p.thresholdLineH, 'XData');
                     set(p.threshValue, 'String', num2str(oldThresh(1)))
                 else
-                    threshold = p.spotTable.thresholds{p.mainAxesCntrlr.channelIdx};
+                    threshold = p.spotTable.thresholds{spotTableChannelIdx};
                     yaxis = get(p.viewObj.threshAxes, 'Ylim');
                     p.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis,...
                         'Color', 'b', 'HitTest', 'off');
                     p.viewObj.threshValue.String = num2str(threshold);
-                    p.spotTable.setThreshold(p.spotTable.spotChannels{p.mainAxesCntrlr.channelIdx}, num2str(threshold));
+                    p.spotTable.setThreshold(p.spotTable.spotChannels{spotTableChannelIdx}, num2str(threshold));
                     p.mainAxesCntrlr.updateMainAxes();
                 end
             end

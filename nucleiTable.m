@@ -316,7 +316,10 @@ classdef nucleiTable < handle
         
         function p = updateAllMasks(p) %This will overwrite previous maskIDs in nuclei. 
             
-            maskTable = p.maskObj.masks(p.maskObj.masks.dapi, :);
+            % maskTable = p.maskObj.masks(p.maskObj.masks.dapi,:); % can do
+            % this when we rename dapi channel
+            dapiChannelName=p.scanObj.channels{ismember(p.scanObj.channelTypes,'dapi')};
+            maskTable = p.maskObj.masks(p.maskObj.masks.(dapiChannelName),:);
             maskIDs = unique(maskTable.maskID);
             maskIDs(maskIDs == 0) = [];
             p.nuclei = p.nuclei(~(p.nuclei.nucID == 0),:);
