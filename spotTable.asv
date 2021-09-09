@@ -9,12 +9,15 @@ classdef spotTable < handle
         spots
         centroidLists %Not sure if this should go into the View
         
+        sigma
         thresholds
+        minChannelIntensities
+        minChannelIntensityIsBlockSpecific
         spotChannels
         maxDistance = 200;  
         theFilter
         percentileToKeep = 98;
-        threshFactor = 4; %Consider adding this to scanSummary.txt 
+        threshFactor
         spotsIntensitiesWithMasked
         spotsIntensitiesNoMasked
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
@@ -31,23 +34,65 @@ classdef spotTable < handle
             p.maskObj = maskObject;
             p.nucleiObj = nucleiObject;
             p.parseScanSummary(p.scanObj.scanSummaryFile);
+            
+            n=inputParser;
+            n.addParameter('spotsFile',[],@ischar)
+            n.addParameter('sigma',[],@(x) validateattributes(x,{'numeric'},{'positive','nonzero'}))
+            n.addParameter('thresholds',[], @(x) isempty(x) || (isnumeric(x) && size(x,1)==1) )
+            n.addParameter('aTrousMinThreshFactor', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x>0))
+            n.parse(varargin{:});
+            
+            
 
-            if nargin == 3
+             if ~isfile(n.Results.spotsFile)
+                fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
                 fprintf('New spots table\n');
-                p.spots = cell2table(cell(0,9),...
-                    'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
-            elseif nargin == 4
+                
+                % even if we have params sigma, thresholds,
+                % aTrousMinThreshFactor in scanSummary.txt, overwrite with user inputs
+                if ~isempty(n.Results.sigma)
+                    p.sigma=n.Results.sigma;
+                elseif isempty(p.sigma) % if it was in scanSummary, this wouldnot be empty
+                    p.sigma=2; % default
+                    fprintf('no sigma for aTrous spot-finding algorithm was provided, using the default sigma=%g\n',p.sigma)
+                end
+                
+                if ~isempty(n.Results.aTrousMinThreshFactor)
+                    p.threshFactor=n.Results.aTrousMinThreshFactor;
+                elseif isempty(p.threshFactor) % if it was in scanSummary, this wouldnot be empty
+                    p.threshFactor=4; % default
+                end
+                
+                if isempty(p.thresholds)
+                    p.minChannelIntensityIsBlockSpecific=true; % findSpots5 will return spots above minIntensity=autoThresholdForThisBlock/p.threshFactor
+                else
+                    p.minChannelIntensityIsBlockSpecific=false; % findSpots5 will return spots above minIntensity=globalThreshold/p.threshFactor (where globalThreshold is the channel-specific value from p.thresholds, which was loaded from scanSummary.txt or was user-input
+                
+                    if ~isempty(p.thresholds)
+                        p.minChannelIntensities=p.thresholds/p.threshFactor;
+                    else
+                        p.minChannelIntensities=[];
+                    end
+                end
+                        disp('Finding spots. This may take several minutes.') 
+                        p.findSpots5(); %Run before contrasting scans
+                        p.maskBorderSpots();
+                        disp('Finished finding spots')
+                        p.assignSpotsToNuclei();
+
+             else % there is a spots file here (usually spots.csv)
                 fprintf('Loading spot table\n');
-                p.spotsFile = varargin{1};
-                opts = detectImportOptions(varargin{1});
+                p.spotsFile = n.Results.spotsFile;
+                opts = detectImportOptions(n.Results.spotsFile);
                 opts = setvartype(opts, {'spotID', 'x', 'y', 'nearestNucID', 'maskID', 'distanceToNuc'}, 'single');
                 opts = setvartype(opts, 'channel', 'string');
                 opts = setvartype(opts, {'intensity', 'status'}, 'uint16'); %For some reason, when I set 'status' to 'logical' they all go to false. So doing this instead
-                p.spots = readtable(varargin{1}, opts);
+                p.spots = readtable(p.spotsFile, opts);
                 p.spots.status = logical(p.spots.status);
                 [spotIdx, nucIdx] = ismember(p.spots.nearestNucID, p.nucleiObj.nuclei.nucID);
                 nucIdx(nucIdx == 0) = [];
                 p.spots{spotIdx, 'colors'} = p.nucleiObj.nuclei.colors(nucIdx,:);
+
             end
         end
         
@@ -372,12 +417,17 @@ classdef spotTable < handle
             channel = [];
             threshPercentile = p.percentileToKeep;
             [splitMats, startCoords] = p.scanObj.splitStitch(p.spotChannels);
+            
+            
             for i = 1:numel(p.spotChannels)
                 fprintf('Finding %s spots\n',p.spotChannels{i});
                 splitMat = splitMats(:,i);
                 tempX = cell(numel(splitMat), 1);
                 tempY = cell(numel(splitMat), 1);
                 tempIntensity = cell(numel(splitMat), 1);
+                
+                
+                thresh=p.thresholds(i);
                 %parpool('threads')
                 parfor ii = 1:numel(splitMat)
                     %Consider changing connectivity to 4 to find more spots in dense areas. 
@@ -465,6 +515,7 @@ classdef spotTable < handle
                 tempX = cell(numel(splitMat), 1);
                 tempY = cell(numel(splitMat), 1);
                 tempIntensity = cell(numel(splitMat), 1);
+                
                 %parpool('threads')
                 parfor ii = 1:numel(splitMat)
                     %Consider changing connectivity to 4 to find more spots in dense areas. 
@@ -475,6 +526,63 @@ classdef spotTable < handle
                 intensity = [intensity ; cell2mat(tempIntensity)];
                 channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
             end 
+            
+            n = length(x);
+            spotID = single((1:n))';
+            nearestNucID = single(zeros(n,1));
+            maskID = single(zeros(n,1));
+            status = true(n,1);
+            dist =  single(zeros(n,1));
+            p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
+                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
+        end
+        
+        function p = findSpots5(p)
+            %Find spots on stitched image.
+            %Do not run on auto-contrasted stitches.
+            %Only run on non-contrasted stitches.
+            
+            x = [];
+            y = [];
+            intensity = [];
+            channel = [];
+            
+            [splitMats, startCoords] = p.scanObj.splitStitch(p.spotChannels);
+            
+            if ~isempty(p.thresholds)
+                assert(length(p.thresholds)==length(p.spotChannels))
+            end
+            
+            
+            if ~p.minChannelIntensityIsBlockSpecific
+                fprintf('spot finder will use these minChannelIntensities for the entire scan:\n\n')
+                strlen=max(cellfun(@(x) length(x),p.spotChannels));
+                fprintf('%*s   minChannelIntensity\n',strlen,'spotChannel')
+                D=[num2cell(repmat(strlen,1,length(p.spotChannels))); reshape(p.spotChannels,1, []); num2cell(reshape(p.minChannelIntensities,1, []))];
+                fprintf('%*s     %.2f\n',D{:})
+            end
+            for i = 1:numel(p.spotChannels)
+                fprintf('Finding %s spots\n',p.spotChannels{i});
+                splitMat = splitMats(:,i);
+                tempX = cell(numel(splitMat), 1);
+                tempY = cell(numel(splitMat), 1);
+                tempIntensity = cell(numel(splitMat), 1);
+                
+                if p.minChannelIntensityIsBlockSpecific
+                    minRegionalMax=[]; % if minRegionalMax is empty, d2utils.findSpotsaTrous2 then will make minRegionalMax to be block-specific, based on the auto-threshold found for that block
+                else
+                    minRegionalMax=p.minChannelIntensities(i);
+                end
+                %parpool('threads')
+                parfor ii = 1:numel(splitMat)
+                    %Consider changing connectivity to 4 to find more spots in dense areas.
+                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous2(splitMat{ii},'minRegionalMax',minRegionalMax,'sigma', p.sigma, 'shift', startCoords(ii,:) - 1,'threshFactor', p.threshFactor); % the - 1 was added 6-Sep-2021
+                end
+                x = [x ; cell2mat(tempX)];
+                y = [y ; cell2mat(tempY)];
+                intensity = [intensity ; cell2mat(tempIntensity)];
+                channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
+            end
             
             n = length(x);
             spotID = single((1:n))';
@@ -505,7 +613,7 @@ classdef spotTable < handle
             %parpool('threads')
             parfor ii = 1:numel(splitMat)
                 %Consider changing connectivity to 4 to find more spots in dense areas.
-                [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:), 'threshFactor', tmpThreshFactor);
+                [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:) - 1, 'threshFactor', tmpThreshFactor);% the - 1 was added 6-Sep-2021
             end
             x = cell2mat(tempX);
             y = cell2mat(tempY);
@@ -631,6 +739,9 @@ classdef spotTable < handle
             scanSummaryTable = d2utils.parseScanSummary(p.scanObj.scanSummaryFile);
             scanSummaryTable{'spotChannels',:} = {strjoin(p.spotChannels)};
             scanSummaryTable{'thresholds',:} = {num2str(p.thresholds)};
+            scanSummaryTable{'sigma',:} = {num2str(p.sigma)};
+            scanSummaryTable{'aTrousMinThreshFactor',:} = {num2str(p.threshFactor)};
+            scanSummaryTable{'minChannelIntensities',:} = {num2str(p.minChannelIntensities)};
             writetable(scanSummaryTable, p.scanObj.scanSummaryFile, 'WriteRowNames', true, 'WriteVariableNames', false, 'QuoteStrings', false, 'Delimiter', '\t')  
         end
         
@@ -648,20 +759,26 @@ classdef spotTable < handle
                 if ismember('thresholds', scanSummaryTable.Row)
                     p.thresholds = str2double(split(scanSummaryTable{'thresholds',1})');
                 end
+                
+                if ismember('aTrousMinThreshFactor',scanSummaryTable.Row)
+                    p.threshFactor= str2double(split(scanSummaryTable{'aTrousMinThreshFactor',1})');
+                end
+                
+                if ismember('minChannelIntensities',scanSummaryTable.Row)
+                    p.minChannelIntensities= str2double(split(scanSummaryTable{'minChannelIntensities',1})');
+                end
+                
+                if ismember('sigma',scanSummaryTable.Row)
+                    p.sigma= str2double(split(scanSummaryTable{'sigma',1})');
+                end
+                
             else
                 fprintf('Unable to find %s in your current directory.\n', inFileName)
                 p.spotChannels = p.scanObj.channels(~ismember(p.scanObj.channelTypes,{'dapi','other'}));
                 fprintf('Setting %s as spot channels.\n', strjoin(p.spotChannels));
             end
         end
-        function userInputThresholds(p,userInputThresholds)
-            if numel(userInputThresholds)~=numel(p.spotChannels)
-                error('user-input thresholds is 1x%i but should be 1x%i, corresponding to %i spot channels',numel(userInputThresholds),numel(p.spotChannels),numel(p.spotChannels))
-            elseif size(userInputThresholds,1)~=1
-                error('user-input thresholds should be a row vector');s
-            end
-            p.thresholds=userInputThresholds;
-        end
+
         function saveSpotsTable(p)
             if ~isempty(p.spots)
                 writetable(p.spots(:,{'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'}), p.spotsFile);
@@ -679,14 +796,17 @@ classdef spotTable < handle
             end
         end
         
-        function loadSpotFinderInputs(userInputSigma, userInputThresholds, userInputaTrousMinThreshFactor)
-            
-            
+
+        function userInputThresholds(p,userInputThresholds)
+            if numel(userInputThresholds)~=numel(p.spotChannels)
+                error('user-input thresholds is 1x%i but should be 1x%i, corresponding to %i spot channels',numel(userInputThresholds),numel(p.spotChannels),numel(p.spotChannels))
+            elseif size(userInputThresholds,1)~=1
+                error('user-input thresholds should be a row vector');s
+            end
+            p.thresholds=userInputThresholds;
         end
-        function loadScanSummarySpotInfo(p)
-            scanSummaryTable = d2utils.parseScanSummary(p.scanSummaryFile);
-            
-        end
+        
+
     end
     
 end 

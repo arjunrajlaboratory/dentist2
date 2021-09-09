@@ -10,11 +10,12 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('cellPose', '', @ischar);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
-    n.addParameter('aTrousMinThreshFactor', 4, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     n.addParameter('subtractBackground', false, @islogical);
     n.addParameter('launchGUI',true, @islogical);
-    n.addParameter('thresholds',[],@(x) validateattributes(x,{'numeric'},{'size',[1 nan]}))
-    n.addParameter('sigma',[],@(x) validateattributes(x,{'numeric'},{'positive','nonzero'}))
+    n.addParameter('sigma',[],@(x) validateattributes(x,{'numeric'},{'positive','nonzero'})) % defaults stored in spotsTable
+    n.addParameter('thresholds',[],@(x) validateattributes(x,{'numeric'},{'size',[1 nan]})) % defaults stored in spotsTable
+    n.addParameter('aTrousMinThreshFactor', [], @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
+    
     n.parse(varargin{:});
 %----------------------------------------------------------------
 %
@@ -54,7 +55,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
             disp('Saving stitched scans. This may take several minutes.')
             scanObj.saveStitches();
         end
-        % should scanObj.saveScanSummary(); be here?
+        
     elseif ~isempty(n.Results.preStitchedScanFilelist)
         fprintf('Loading pre-stitched scans from provided file list\n')
         scanObj=scanObject('preStitchedScanFilelist',n.Results.preStitchedScanFilelist,'channelTypes',n.Results.channelTypes);
@@ -121,24 +122,23 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     nucleiObj.updateAllMasks(); 
 %----------------------------------------------------------------
 %   
-    if isfile(n.Results.spotsFile)
-        spotsObj = spotTable(scanObj, maskObj, nucleiObj, 'spotsFile',n.Results.spotsFile);
-    else
-        fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
-        spotsObj = spotTable(scanObj, maskObj, nucleiObj);
-        spotsObj.spotsFile = n.Results.spotsFile;
+    %if isfile(n.Results.spotsFile)
+        %spotsObj = spotTable(scanObj, maskObj, nucleiObj,n.Results.spotsFile)
+        spotsObj = spotTable(scanObj, maskObj, nucleiObj, 'spotsFile',n.Results.spotsFile,'sigma',n.Results.sigma,'thresholds',n.Results.thresholds,'aTrousMinThreshFactor',n.Results.aTrousMinThreshFactor);
+    %else
+        %fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
+        %spotsObj = spotTable(scanObj, maskObj, nucleiObj);
+        %spotsObj.spotsFile = n.Results.spotsFile;
         
-        disp('Finding spots. This may take several minutes.')
-        spotsObj.findSpots4(n.Results.aTrousMinThreshFactor); %Run before contrasting scans
-        spotsObj.maskBorderSpots();
-        disp('Finished finding spots')
-        spotsObj.assignSpotsToNuclei();
-    end
+    %end
     
-    if isempty(n.Results.thresholds) && isempty(spotsObj.thresholds)
+    
+    if ~isempty(n.Results.thresholds)
+        spotsObj.userInputThresholds(n.Results.thresholds); % user-input thresholds. These override anything thresholds found in scanSummary.txt
+    else
+        if isempty(spotsObj.thresholds) % did not already got thresholds from scanSummary.txt
             spotsObj.defaultThresholds();
-    else % user-input thresholds. These override anything in scanSummary.txt
-        spotsObj.userInputThresholds(n.Results.thresholds);
+        end
     end
 
     spotsObj.updateScanSummary();

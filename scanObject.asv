@@ -66,8 +66,7 @@ classdef scanObject < handle
                     %p.renameDapiChannel();
                     p.loadPrestitchedScans();
                 elseif ~isempty(n.Results.prestitchedScanFileList)
-                    temp=join(n.Results.prestitchedScanFileList,'  ');
-                    fprintf('Loading pre-stitched scan file list:%s\n',temp{1})
+                    fprintf('Loading pre-stitched scan file list:%s\n',n.Results.prestitchedScanFileList{:})
                     p.scanFile='';
                     p.prestitchedScanFileList=n.Results.prestitchedScanFileList;
                     p.channels=replace(p.prestitchedScanFileList,'.tif','');
@@ -169,11 +168,7 @@ classdef scanObject < handle
          function loadChannelTypes(p,userInputChannelTypes)
              
              if isempty(userInputChannelTypes)
-                 if isfile(p.scanSummaryFile)
-                     scanSummaryTable = d2utils.parseScanSummary(p.scanSummaryFile);
-                     p.channelTypes = split(scanSummaryTable{'channelTypes',1})';
-                     p.checkOverChannelTypes(p.channelTypes)
-                 elseif isempty(p.channelTypes)
+                 if isempty(p.channelTypes)
                      % make default channelTypes based on filenames.
                      %      anything with 'dapi' (case insensitive) in name = dapi
                      %      'Brightfield' or 'trans' (case insensitive) = 'other'
@@ -197,8 +192,13 @@ classdef scanObject < handle
                      p.channelTypes(indDapi)={'dapi'};
                      p.channelTypes(indTrans)={'other'};
                      p.channelTypes(indOther)={'other'}; % where multiple files with dapi (case insensitive) were found
-                  % else p.channelTypes already exists, which is
-                  % unexpected.
+                 else
+                     % check if channelTypes are in scanSummary.txt
+                     scanSummaryTable = d2utils.parseScanSummary(p.scanSummaryFile);
+                     
+                     % channelTypes were likely read scanSummary.txt, and
+                     % user is not requesting to overwrite those
+                     p.checkOverChannelTypes(p.channelTypes)
                  end
              else % have user-input channelTypes
                  p.checkOverChannelTypes(userInputChannelTypes)
