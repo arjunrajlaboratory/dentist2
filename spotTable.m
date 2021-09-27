@@ -42,7 +42,9 @@ classdef spotTable < handle
             n.addParameter('aTrousMinThreshFactor', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x>0))
             n.parse(varargin{:});
             
-            
+              if ~isempty(n.Results.thresholds)
+                    p.userInputThresholds(n.Results.thresholds) % will set p.thresholds. Otherwise p.thresholds might still be nonempty if it came from scanSummary.txt
+              end
 
              if ~isfile(n.Results.spotsFile)
                 fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
@@ -62,23 +64,19 @@ classdef spotTable < handle
                 elseif isempty(p.threshFactor) % if it was in scanSummary, this wouldnot be empty
                     p.threshFactor=4; % default
                 end
-                
+ 
                 if isempty(p.thresholds)
                     p.minChannelIntensityIsBlockSpecific=true; % findSpots5 will return spots above minIntensity=autoThresholdForThisBlock/p.threshFactor
+                    p.minChannelIntensities=[]; % don't really need to set this, already the case by default
                 else
                     p.minChannelIntensityIsBlockSpecific=false; % findSpots5 will return spots above minIntensity=globalThreshold/p.threshFactor (where globalThreshold is the channel-specific value from p.thresholds, which was loaded from scanSummary.txt or was user-input
-                
-                    if ~isempty(p.thresholds)
-                        p.minChannelIntensities=p.thresholds/p.threshFactor;
-                    else
-                        p.minChannelIntensities=[];
-                    end
+                    p.minChannelIntensities=p.thresholds/p.threshFactor;
                 end
-                        disp('Finding spots. This may take several minutes.') 
-                        p.findSpots5(); %Run before contrasting scans
-                        p.maskBorderSpots();
-                        disp('Finished finding spots')
-                        p.assignSpotsToNuclei();
+                disp('Finding spots. This may take several minutes.')
+                p.findSpots5(); %Run before contrasting scans
+                p.maskBorderSpots();
+                disp('Finished finding spots')
+                p.assignSpotsToNuclei();
 
              else % there is a spots file here (usually spots.csv)
                 fprintf('Loading spot table\n');

@@ -121,26 +121,11 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     nucleiObj.addColors();
     nucleiObj.updateAllMasks(); 
 %----------------------------------------------------------------
-%   
-    %if isfile(n.Results.spotsFile)
-        %spotsObj = spotTable(scanObj, maskObj, nucleiObj,n.Results.spotsFile)
         spotsObj = spotTable(scanObj, maskObj, nucleiObj, 'spotsFile',n.Results.spotsFile,'sigma',n.Results.sigma,'thresholds',n.Results.thresholds,'aTrousMinThreshFactor',n.Results.aTrousMinThreshFactor);
-    %else
-        %fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
-        %spotsObj = spotTable(scanObj, maskObj, nucleiObj);
-        %spotsObj.spotsFile = n.Results.spotsFile;
         
-    %end
-    
-    
-    if ~isempty(n.Results.thresholds)
-        spotsObj.userInputThresholds(n.Results.thresholds); % user-input thresholds. These override anything thresholds found in scanSummary.txt
-    else
-        if isempty(spotsObj.thresholds) % did not already got thresholds from scanSummary.txt
+        if isempty(spotsObj.thresholds) % did not already get thresholds from user input or scanSummary.txt
             spotsObj.defaultThresholds();
         end
-    end
-
     spotsObj.updateScanSummary();
     spotsObj.updateAllMasks();
     spotsObj.updateAllSpotStatus();
