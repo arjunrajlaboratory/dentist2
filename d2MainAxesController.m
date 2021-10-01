@@ -58,8 +58,8 @@ classdef d2MainAxesController < handle
             p.getNondapiChannelsInView()
             p.plotScatterMain();
             p.updateImageInView();
-            spotChannelIdx=find(ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx}));
-            if ~isempty(spotChannelIdx)
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+            if any(spotChannelIdx)
                 p.numCells = height(p.spotTable.centroidLists{spotChannelIdx});
             else
                 p.numCells=0;
@@ -98,8 +98,8 @@ classdef d2MainAxesController < handle
         end
         
         function updateCentroidListView(p)
-            spotChannelIdx=find(ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx}));
-            if ~isempty(spotChannelIdx)
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+            if any(spotChannelIdx)
                 p.viewObj.centroidList.String = string(p.spotTable.centroidLists{spotChannelIdx}.GroupCount);
                 p.numCells = height(p.spotTable.centroidLists{spotChannelIdx}); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
             else
@@ -110,7 +110,7 @@ classdef d2MainAxesController < handle
         
         function p = centroidSelected(p, ~, ~)
             if strcmp(get(p.viewObj.figHandle, 'SelectionType'), 'open') %Respond to double mouse click
-                spotChannelIdx=find(ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx}));
+                spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
                 cellIdx = get(p.viewObj.centroidList, 'Value');
                 cellPos = p.spotTable.centroidLists{spotChannelIdx}{cellIdx, {'x', 'y'}};
                 p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.stitchDim);
@@ -122,22 +122,24 @@ classdef d2MainAxesController < handle
         end
         
         function plotScatterMain(p)
-            spotChannelIdx=find(ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx}));
-            if ~isempty(spotChannelIdx)
-            %centroidsInView = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
-            centroidsInView = p.spotTable.centroidTableInRect(spotChannelIdx, p.viewRect);
-            centroidsInView = flipud(centroidsInView); %In order to plot cells with 0 expression in the back
-            set(p.viewObj.mainAxes, 'XLim', [p.viewRect(2)-0.5,  p.viewRect(2)+p.viewRect(4)-0.5])
-            set(p.viewObj.mainAxes, 'YLim', [p.viewRect(1)-0.5,  p.viewRect(1)+p.viewRect(3)-0.5])
-            hold(p.viewObj.mainAxes, 'on')
-            %Note that it is slightly slower to specify RGB colors with expression_color
-            %instead of changing the colormap on the axes however, specifying RGB colors
-            %ensures that the colors don't change with the view 
-            p.scatterH = scatter(centroidsInView.y, centroidsInView.x,...
-                30, centroidsInView.expression_color, 'filled',...
-                'Parent', p.viewObj.mainAxes, 'HitTest','off');
-            hold(p.viewObj.mainAxes, 'off')
-            %colorbar(p.viewObj.mainAxes, 'Location', 'eastoutside','HitTest','off')
+            %update this. For non-FISH channels, want to show position of cells 
+            %but points not colored by expression level 
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+            if any(spotChannelIdx)
+                %centroidsInView = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
+                centroidsInView = p.spotTable.centroidTableInRect(spotChannelIdx, p.viewRect);
+                centroidsInView = flipud(centroidsInView); %In order to plot cells with 0 expression in the back
+                set(p.viewObj.mainAxes, 'XLim', [p.viewRect(2)-0.5,  p.viewRect(2)+p.viewRect(4)-0.5])
+                set(p.viewObj.mainAxes, 'YLim', [p.viewRect(1)-0.5,  p.viewRect(1)+p.viewRect(3)-0.5])
+                hold(p.viewObj.mainAxes, 'on')
+                %Note that it is slightly slower to specify RGB colors with expression_color
+                %instead of changing the colormap on the axes however, specifying RGB colors
+                %ensures that the colors don't change with the view
+                p.scatterH = scatter(centroidsInView.y, centroidsInView.x,...
+                    30, centroidsInView.expression_color, 'filled',...
+                    'Parent', p.viewObj.mainAxes, 'HitTest','off');
+                hold(p.viewObj.mainAxes, 'off')
+                %colorbar(p.viewObj.mainAxes, 'Location', 'eastoutside','HitTest','off')
             else % this is not a spot channel
                 delete(p.scatterH)
             end
@@ -320,29 +322,26 @@ classdef d2MainAxesController < handle
             hold(p.viewObj.mainAxes, 'off')
         end
         
-        function overlaySpots(p, ~, ~) %update this
-            if logical(p.viewObj.spotsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
-                spotChannelIdx=find(ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx}));
-                %mainAxesIdxsWithSpots=find(ismember(p.nondapiChannelsInView,p.spotTable.spotChannels));
-                if ~isempty(spotChannelIdx)
-                    channel=p.nondapiChannelsInView{p.channelIdx};
-                    [spotsInView, ~] = p.spotTable.getValidSpotsInRect(channel, p.viewRect);
-                    hold(p.viewObj.mainAxes, 'on')
-                    scatSZ=max(10,round(30000/max(p.viewRect(3:4))));
-                    p.spotScatterH = scatter(spotsInView.y, spotsInView.x, scatSZ, spotsInView.colors,...
-                        'Parent', p.viewObj.mainAxes, 'HitTest','off');
-                    hold(p.viewObj.mainAxes, 'off')
-                else
-                    delete(p.spotScatterH)
-                end
+        function overlaySpots(p, ~, ~) 
+            if logical(p.viewObj.spotsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value) && logical(ismember(p.nondapiChannelsInView{p.channelIdx}, p.spotTable.spotChannels))
+                channel=p.nondapiChannelsInView{p.channelIdx};
+                [spotsInView, ~] = p.spotTable.getValidSpotsInRect(channel, p.viewRect);
+                hold(p.viewObj.mainAxes, 'on')
+                scatSZ=max(10,round(30000/max(p.viewRect(3:4))));
+                p.spotScatterH = scatter(spotsInView.y, spotsInView.x, scatSZ, spotsInView.colors,...
+                    'Parent', p.viewObj.mainAxes, 'HitTest','off');
+                hold(p.viewObj.mainAxes, 'off')
             else
                 delete(p.spotScatterH)
             end
         end
         
         function overlayNuclei(p, ~, ~)
-            spotChannelIdx=find(ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx}));
-            if logical(p.viewObj.centroidsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value) && ~isempty(spotChannelIdx)
+            %update this.
+            %Need to check that the current channel (p.channelIdx) has
+            %spots (e.g. is not dapi or trans)
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+            if logical(p.viewObj.centroidsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value) && any(spotChannelIdx)
                 outTableTmp = p.spotTable.centroidTableInRect(spotChannelIdx, p.viewRect);
                 hold(p.viewObj.mainAxes, 'on')
                 p.nucleiScatterH = scatter(outTableTmp.y, outTableTmp.x, 35, outTableTmp.colors, 'filled',...
@@ -384,7 +383,7 @@ classdef d2MainAxesController < handle
         
         function shuffleColorsInView(p, ~, ~)
             if ~logical(p.viewObj.scatterCheckBox.Value)
-                spotChannelIdx=find(ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx}));
+                spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
                 
                 outTableTmp = p.spotTable.centroidTableInRect(spotChannelIdx, p.viewRect);
                 randomColors  = single(d2utils.distinguishable_colors(50));
@@ -652,7 +651,7 @@ classdef d2MainAxesController < handle
         function keyPressFunctions(p, ~, evt)
             keyPressed = evt.Key;
             modifierPressed = evt.Modifier;
-            spotChannelIdx=find(ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx}));
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
             if isempty(modifierPressed)
                 switch(keyPressed)
                     case 'z'
