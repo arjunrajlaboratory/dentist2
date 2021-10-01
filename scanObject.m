@@ -48,14 +48,12 @@ classdef scanObject < handle
                     p.scanSummaryFile = n.Results.scanSummary;
                     p.loadScanSummary();
                     p.loadChannelTypes(n.Results.channelTypes) % user-input would override the channelTypes from scanSummaryFile
-                    %p.renameDapiChannel();
             else
                 if ~isempty(n.Results.scanFile) && all(n.Results.scanDim)
                     fprintf('Loading file %s\n', n.Results.scanFile)
                     p.scanFile = n.Results.scanFile;
                     p.channels = d2utils.readND2Channels(p.scanFile);
                     p.loadChannelTypes(n.Results.channelTypes)
-                    %p.renameDapiChannel();
                     p.scanDim = n.Results.scanDim;
                     p.defaultScanParameters()
                 elseif ~isempty(n.Results.scanFile) %If loading pre-stitched scan. 
@@ -63,7 +61,6 @@ classdef scanObject < handle
                     p.scanFile = n.Results.scanFile;
                     p.channels = d2utils.readND2Channels(p.scanFile);
                     p.loadChannelTypes(n.Results.channelTypes)
-                    %p.renameDapiChannel();
                     p.loadPrestitchedScans();
                 elseif ~isempty(n.Results.prestitchedScanFileList)
                     temp=join(n.Results.prestitchedScanFileList,'  ');
@@ -72,7 +69,6 @@ classdef scanObject < handle
                     p.prestitchedScanFileList=n.Results.prestitchedScanFileList;
                     p.channels=replace(p.prestitchedScanFileList,'.tif','');
                     p.loadChannelTypes(n.Results.channelTypes)
-                    %p.renameDapiChannel();
                     p.loadPrestitchedScansFromFilelist()
                 else
                     fprintf('Unable to create the scan object.\nPlease specify a scan summary file (e.g. scanSummary.txt) or the scan file name and scan dimensions.\n')
@@ -127,7 +123,7 @@ classdef scanObject < handle
          function p = loadPrestitchedScans(p)
              reader = bfGetReader(p.scanFile);
              reader.setSeries(0); %Will only load the first scan 
-             %first load dapi
+             %first load dapi. Assumes there is 1 dapi channel to load
              channelIdx = find(ismember(p.channelTypes, 'dapi'));
              iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
              fprintf('   bfGetPlane: dapi\n')
@@ -139,7 +135,7 @@ classdef scanObject < handle
              for i = 1:numel(nonDapiChannels)
                  channelIdx = find(ismember(p.channels, nonDapiChannels{i}));
                  iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-                 fprintf('   bfGetPlane: %s (%i of %i non-dapi channels) with channelType=%s\n',nonDapiChannels{i},i,numel(nonDapiChannels),p.channelTypes(channelIdx))
+                 fprintf('   bfGetPlane: %s (%i of %i non-dapi channels) with channelType=%s\n',nonDapiChannels{i},i,numel(nonDapiChannels),p.channelTypes{channelIdx})
                  p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
              end
              reader.close()
@@ -167,43 +163,71 @@ classdef scanObject < handle
          end
          
          function loadChannelTypes(p,userInputChannelTypes)
-             
              if isempty(userInputChannelTypes)
-                 if isfile(p.scanSummaryFile)
-                     scanSummaryTable = d2utils.parseScanSummary(p.scanSummaryFile);
-                     p.channelTypes = split(scanSummaryTable{'channelTypes',1})';
-                     p.checkOverChannelTypes(p.channelTypes)
-                 elseif isempty(p.channelTypes)
-                     % make default channelTypes based on filenames.
-                     %      anything with 'dapi' (case insensitive) in name = dapi
-                     %      'Brightfield' or 'trans' (case insensitive) = 'other'
-                     %      otherwise it is 'FISH'
-                     indOther=[];
-                     indDapi=find(contains(lower(p.channels),'dapi'));
-                     if length(indDapi)>1 && sum(ismember(p.channels,'dapi'))==1 % but there's just one exact match of 'dapi', use this and channelType of the ris 'other'
-                         indOther=find(contains(lower(p.channels),'dapi') & ~ismember(p.channels,'dapi'));
-                         indDapi=find(ismember(p.channels,'dapi'));
-                     else
-                         if length(indDapi)>1
-                             fprintf('WARNING: more than one channel was detected with dapi in the channel name (case insensitive). The first one (%s) will be used as the dapi channel, and the others will be assigned channelType other\n',p.channels{indDapi(1)})
-                             indOther=indDapi(2:end);
-                             indDapi=indDapi(1);
-                         elseif isempty(indDapi)
-                             error("no channel with dapi in the name was found. Try to input a channelTypes cell array, with a cell for each channel. For a 5 channel file, it would be like this: launchD2ThresholdGUI(__,'channelTypes',{'dapi','FISH','FISH','other','FISH'}")
-                         end
-                     end
-                     indTrans=find(contains(lower(p.channels),{'trans','brightfield'}));
-                     p.channelTypes=repmat({'FISH'},1,length(p.channels));
-                     p.channelTypes(indDapi)={'dapi'};
-                     p.channelTypes(indTrans)={'other'};
-                     p.channelTypes(indOther)={'other'}; % where multiple files with dapi (case insensitive) were found
-                  % else p.channelTypes already exists, which is
-                  % unexpected.
-                 end
+             % make default channelTypes based on filenames.
+             %      anything with 'dapi' (case insensitive) in name = dapi
+             %      'Brightfield' or 'trans' (case insensitive) = 'other'
+             %      otherwise it is 'FISH'
+                indOther=[];
+                indDapi=find(contains(lower(p.channels),'dapi'));
+                if length(indDapi)>1 && sum(ismember(p.channels,'dapi'))==1 % but there's just one exact match of 'dapi', use this and channelType of the ris 'other'
+                    indOther=find(contains(lower(p.channels),'dapi') & ~ismember(p.channels,'dapi'));
+                    indDapi=find(ismember(p.channels,'dapi'));
+                else
+                    if length(indDapi)>1
+                        fprintf('WARNING: more than one channel was detected with dapi in the channel name (case insensitive). The first one (%s) will be used as the dapi channel, and the others will be assigned channelType other\n',p.channels{indDapi(1)})
+                        indOther=indDapi(2:end);
+                        indDapi=indDapi(1);
+                    elseif isempty(indDapi)
+                        error("no channel with dapi in the name was found. Try to input a channelTypes cell array, with a cell for each channel. For a 5 channel file, it would be like this: launchD2ThresholdGUI(__,'channelTypes',{'dapi','FISH','FISH','other','FISH'}")
+                    end
+                end
+                indTrans=find(contains(lower(p.channels),{'trans','brightfield'}));
+                p.channelTypes=repmat({'FISH'},1,length(p.channels));
+                p.channelTypes(indDapi)={'dapi'};
+                p.channelTypes(indTrans)={'other'};
+                p.channelTypes(indOther)={'other'}; % where multiple files with dapi (case insensitive) were found
              else % have user-input channelTypes
-                 p.checkOverChannelTypes(userInputChannelTypes)
-                 p.channelTypes=userInputChannelTypes;
+                p.checkOverChannelTypes(userInputChannelTypes)
+                p.channelTypes=userInputChannelTypes;
              end
+%              if isempty(userInputChannelTypes)
+%                  if isfile(p.scanSummaryFile) 
+%                      scanSummaryTable = d2utils.parseScanSummary(p.scanSummaryFile);
+%                      p.channelTypes = split(scanSummaryTable{'channelTypes',1})';
+%                      p.checkOverChannelTypes(p.channelTypes)
+%                      
+%                  elseif isempty(p.channelTypes)
+%                      % make default channelTypes based on filenames.
+%                      %      anything with 'dapi' (case insensitive) in name = dapi
+%                      %      'Brightfield' or 'trans' (case insensitive) = 'other'
+%                      %      otherwise it is 'FISH'
+%                      indOther=[];
+%                      indDapi=find(contains(lower(p.channels),'dapi'));
+%                      if length(indDapi)>1 && sum(ismember(p.channels,'dapi'))==1 % but there's just one exact match of 'dapi', use this and channelType of the ris 'other'
+%                          indOther=find(contains(lower(p.channels),'dapi') & ~ismember(p.channels,'dapi'));
+%                          indDapi=find(ismember(p.channels,'dapi'));
+%                      else
+%                          if length(indDapi)>1
+%                              fprintf('WARNING: more than one channel was detected with dapi in the channel name (case insensitive). The first one (%s) will be used as the dapi channel, and the others will be assigned channelType other\n',p.channels{indDapi(1)})
+%                              indOther=indDapi(2:end);
+%                              indDapi=indDapi(1);
+%                          elseif isempty(indDapi)
+%                              error("no channel with dapi in the name was found. Try to input a channelTypes cell array, with a cell for each channel. For a 5 channel file, it would be like this: launchD2ThresholdGUI(__,'channelTypes',{'dapi','FISH','FISH','other','FISH'}")
+%                          end
+%                      end
+%                      indTrans=find(contains(lower(p.channels),{'trans','brightfield'}));
+%                      p.channelTypes=repmat({'FISH'},1,length(p.channels));
+%                      p.channelTypes(indDapi)={'dapi'};
+%                      p.channelTypes(indTrans)={'other'};
+%                      p.channelTypes(indOther)={'other'}; % where multiple files with dapi (case insensitive) were found
+%                   % else p.channelTypes already exists, which is
+%                   % unexpected.
+%                  end
+%              else % have user-input channelTypes
+%                  p.checkOverChannelTypes(userInputChannelTypes)
+%                  p.channelTypes=userInputChannelTypes;
+%              end
          end
          
          function checkOverChannelTypes(p,channelTypes)
@@ -221,14 +245,15 @@ classdef scanObject < handle
          
         %Stitch DAPI
         function p = stitchDAPI(p)  
+            %Currently assumes there is only 1 dapi channel to stitch
             tileTable = p.tilesTable;
             tilesTmp = transpose(p.scanMatrix);
             tiles = tilesTmp(:);
             height = p.tileSize(1);
             width = p.tileSize(2);
             tmpStitch = zeros(max(tileTable.left)+height-1,max(tileTable.top)+width-1, 'uint16');
-            %channel = find(ismember(p.channels, 'dapi'));
-            channel = p.channels(ismember(p.channelTypes,'dapi'));
+            channel = find(ismember(p.channels, 'dapi')); 
+%             channel = p.channels(ismember(p.channelTypes,'dapi'));
             reader = bfGetReader(p.scanFile);
             iPlane = reader.getIndex(0, channel - 1, 0) + 1;
             
@@ -615,9 +640,11 @@ classdef scanObject < handle
             p.scanMatrix = d2utils.makeScanMatrix(p.scanDim, 'start', p.startPos, 'snake', p.snake,'direction', p.direction); 
             p.channels = d2utils.readND2Channels(p.scanFile);
             
-            p.channelTypes = split(scanSummaryTable{'channelTypes',1});
-            p.checkOverChannelTypes(p.channelTypes)
-            
+            if any(strcmp(scanSummaryTable.Properties.RowNames,'channelTypes')) %For compatibility with older version of dentist2
+                p.channelTypes = split(scanSummaryTable{'channelTypes',1});
+                p.checkOverChannelTypes(p.channelTypes)
+            end
+
             %Load tiles table.
             if isfile(p.tilesTableName)
                 p.loadTilesTable();
@@ -669,18 +696,6 @@ classdef scanObject < handle
                     fprintf("stitchedScans is empty. Run stitchChannels and try again\n")
                 end
             end
-                
-%             if ~isempty(p.dapiStitch) && ~isempty(p.stitchedScans) 
-%                 d2StitchedScans = {p.dapiStitch, p.stitchedScans};
-%                 save(outFileName, 'd2StitchedScans', '-v7.3')
-%             else
-%                 if isempty(p.dapiStitch)
-%                     fprintf("dapiStitch is empty. Run stitchDAPI and try again\n")
-%                 end
-%                 if isempty(p.stitchedScans)
-%                     fprintf("stitchedScans is empty. Run stitchChannels and try again\n")
-%                 end
-%             end
        end
        
        function p = loadStitches(p)
@@ -689,9 +704,6 @@ classdef scanObject < handle
            p.stitchedScans = struct;
            p.stitchedScans.labels = tmpMat.fishLabels;
            p.stitchedScans.stitches = tmpMat.fishScans;
-%            load('stitchedScans.mat', 'd2StitchedScans');
-%            p.dapiStitch = d2StitchedScans{1};
-%            p.stitchedScans = d2StitchedScans{2};
        end
        
        function p = reloadChannelStitch(p, channel)
