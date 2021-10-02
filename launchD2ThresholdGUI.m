@@ -121,11 +121,12 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     nucleiObj.addColors();
     nucleiObj.updateAllMasks(); 
 %----------------------------------------------------------------
-        spotsObj = spotTable(scanObj, maskObj, nucleiObj, 'spotsFile',n.Results.spotsFile,'sigma',n.Results.sigma,'thresholds',n.Results.thresholds,'aTrousMinThreshFactor',n.Results.aTrousMinThreshFactor);
-        
-        if isempty(spotsObj.thresholds) % did not already get thresholds from user input or scanSummary.txt
-            spotsObj.defaultThresholds();
-        end
+    spotsObj = spotTable(scanObj, maskObj, nucleiObj, 'spotsFile',n.Results.spotsFile,'sigma',n.Results.sigma,'thresholds',n.Results.thresholds,'aTrousMinThreshFactor',n.Results.aTrousMinThreshFactor);
+
+    if isempty(spotsObj.thresholds) % did not already get thresholds from user input or scanSummary.txt
+        spotsObj.defaultThresholds();
+    end
+    
     spotsObj.updateScanSummary();
     spotsObj.updateAllMasks();
     spotsObj.updateAllSpotStatus();
