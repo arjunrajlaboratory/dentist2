@@ -57,9 +57,9 @@ classdef d2MainAxesController < handle
         function startup(p)
             p.channelIdx = p.viewObj.channelPopup.Value;
             p.getNondapiChannelsInView()
+            p.currentChannel = p.nondapiChannelsInView{p.channelIdx};
             p.plotScatterMain();
             p.updateImageInView();
-            p.currentChannel = p.nondapiChannelsInView{p.channelIdx};
             p.numCells = height(p.spotTable.centroidLists{ismember(p.spotTable.spotChannels, p.currentChannel)});
             %p.updateMainAxes()
         end
