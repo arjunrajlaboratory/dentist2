@@ -363,8 +363,8 @@ classdef d2MainAxesController < handle
                     drawfreehand(p.viewObj.mainAxes, 'Position', maskTableTmp{maskTableTmp.maskID == maskIDs(i), {'y', 'x'}},...
                         'Color', 'red', 'InteractionsAllowed', 'none');
                 end
-                dapiChannel=p.scanObj.channels(ismember(p.scanObj.channelTypes,'dapi'));
-                cellMasksTmp = p.maskObj.getChannelMasksInRect(p.viewRect, dapiChannel);
+%                 dapiChannel=p.scanObj.channels(ismember(p.scanObj.channelTypes,'dapi'));
+                cellMasksTmp = p.maskObj.getChannelMasksInRect(p.viewRect, 'dapi');
                 maskIDs = unique(cellMasksTmp.maskID);
                 maskIDs(maskIDs == 0) = [];
                 for i = 1:numel(maskIDs)
@@ -420,7 +420,7 @@ classdef d2MainAxesController < handle
             if ~isempty(p.maskH.Position) && isvalid(p.maskH) && polyarea(p.maskH.Position(:,1), p.maskH.Position(:,2)) > 3 %min mask area
                 if p.viewObj.maskSpotsAllChannelsCheckBox.Value
                     % then mask for all channels
-                    p.maskSpots(p.maskH,p.spotTable.spotChannels)
+                    p.maskSpotsAllChannels(p.maskH)
                 else
                     p.maskSpots(p.maskH, channel)
                 end
@@ -432,19 +432,28 @@ classdef d2MainAxesController < handle
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', {@p.figWindowDown})
         end
         
-        function maskSpots(p, roi, channelOrChannels)
+        function maskSpots(p, roi, channel)
             %tmpPoly = roi.Position;
             set(p.viewObj.masksCheckBox, 'Value', true)
             
-            newMaskID = p.maskObj.addMaskLocalCoords(roi.Position, channelOrChannels); % can handle channel array
+            newMaskID = p.maskObj.addMaskLocalCoords(roi.Position, channel);
             delete(roi)
-            channelOrChannels=cellstr(channelOrChannels); % force cell array
-            for i=1:length(channelOrChannels)
-                channel=channelOrChannels{i};
-                p.spotTable.addNewMask(channel, newMaskID);
-                p.spotTable.updateSpotStatus(channel);
-                p.spotTable.updateCentroidList(channel);
-            end
+            p.spotTable.addNewMask(channel, newMaskID);
+%             p.spotTable.updateSpotStatus(channel); This should be unnecessary.
+            p.spotTable.updateCentroidList(channel);
+            p.updateCentroidListView();
+            p.updateMainAxes();
+        end
+        
+        function maskSpotsAllChannels(p, roi)
+            %tmpPoly = roi.Position;
+            set(p.viewObj.masksCheckBox, 'Value', true)
+            
+            newMaskID = p.maskObj.addMaskLocalCoords(roi.Position, p.spotTable.spotChannels); % can handle channel array
+            delete(roi)
+            p.spotTable.addNewMaskAllChannels(newMaskID);
+%             p.spotTable.updateAllSpotStatus; This should be unnecessary.
+            p.spotTable.makeCentroidList;
             p.updateCentroidListView();
             p.updateMainAxes();
         end
@@ -499,6 +508,76 @@ classdef d2MainAxesController < handle
                 p.nucleiObj.nucleiChanged = false;
                 p.updateCentroidListView();
                 p.updateMainAxes();
+            end
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'on')
+        end
+        
+        
+%         function deleteMask2(p, ~, ~)
+%         %Although this function is somewhat simpler than deleteMask2 below, the function below is performs slightly faster with very larger scans (and is equivalent for smaller scans)  
+%             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
+%             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
+%             if ~isempty(x) 
+%                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
+%                 [removedMaskIDs, globalMask] = p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
+%                 p.nucleiObj.removeMasksByID(removedMaskIDs);
+%                 p.spotTable.removeMasksByID(removedMaskIDs);
+%                 if p.nucleiObj.nucleiChanged %Kinda ugly. Should write something better. Could make separate buttons for cell masks and spot masks
+%                     p.spotTable.assignSpotsInRect(p.viewRect);
+%                     p.spotTable.updateAllSpotStatus();
+%                     p.spotTable.makeCentroidList();
+%                 elseif any(globalMask)
+%                     p.spotTable.updateAllSpotStatus();
+%                     p.spotTable.makeCentroidList();
+%                 else
+%                     channel = p.nondapiChannelsInView{p.channelIdx};
+%                     p.spotTable.updateSpotStatus(channel);
+%                     p.spotTable.updateCentroidList(channel);
+%                 end
+%                 p.nucleiObj.nucleiChanged = false;
+%                 p.updateCentroidListView();
+%                 p.updateMainAxes();
+%             end
+%             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+%                 p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'on')
+%         end
+        
+        function deleteMask2(p, ~, ~)
+            %Similar to deleteMask2 function above except only updates
+            %nuclei/spots within/near the deleted masks (saves a bit of
+            %time on large scans)
+            set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+            set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
+                p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
+            [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
+            if ~isempty(x) 
+%                 tic
+                ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
+                [removedMaskIDs, globalMask, removedMaskBB] = p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
+                if ~isempty(removedMaskIDs)
+                    p.nucleiObj.removeMasksByID(removedMaskIDs);
+                    p.spotTable.removeMasksByID(removedMaskIDs);
+                    removedMaskBBmerged = d2utils.unionBB2(removedMaskBB, p.spotTable.maxDistance);
+                    if p.nucleiObj.nucleiChanged %Kinda ugly. Should write something better. Could make separate buttons for cell masks and spot masks
+                        p.spotTable.assignSpotsInRect(removedMaskBBmerged);
+                        p.spotTable.updateAllSpotStatusInRect(removedMaskBBmerged);
+                        p.spotTable.makeCentroidList();
+                    elseif any(globalMask)
+                        p.spotTable.updateAllSpotStatusInRect(removedMaskBBmerged);
+                        p.spotTable.makeCentroidList();
+                    else
+                        channel = p.nondapiChannelsInView{p.channelIdx};
+                        p.spotTable.updateSpotStatusInRect(channel, removedMaskBBmerged);
+                        p.spotTable.updateCentroidList(channel);
+                    end
+%                     toc
+                    p.nucleiObj.nucleiChanged = false;
+                    p.updateCentroidListView();
+                    p.updateMainAxes();
+                end
             end
             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
                 p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'on')

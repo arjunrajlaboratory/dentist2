@@ -109,6 +109,11 @@ classdef d2ThresholdView2 < handle
             p.masksCheckBox = uicontrol('Style', 'checkbox', 'String', 'masks', 'Value', p.showMasks, 'Units', 'normalized', 'Position', [0.74 0.585 0.0722 0.0333]);
             p.scatterCheckBox = uicontrol('Style', 'checkbox', 'String', 'scatter (c)', 'Value', p.showScatter, 'Units', 'normalized', 'Position', [0.785 0.585 0.0722 0.0333]);
             
+            %In case there are non-FISH channels, set channelPopup value
+            %and centroidList to correspond to first FISH channel
+            firstFISHidx = find(strcmp(p.channelPopup.String, p.spotTable.spotChannels{1}));
+            set(p.channelPopup, 'Value', firstFISHidx)
+
             p.addCellButton = uicontrol('Style', 'pushbutton', 'String', 'add cells', 'Units', 'normalized', 'Position', [0.755 0.45 0.1111 0.0367]);
             p.deleteCellButton = uicontrol('Style', 'pushbutton', 'String', 'delete cells', 'Units', 'normalized', 'Position', [0.755 0.41 0.1111 0.0367]);
 
@@ -179,7 +184,7 @@ classdef d2ThresholdView2 < handle
             p.maskSpotsButton.Callback = {@controller.addSpotMask};
             %p.maskSpotsAllChannelsCheckBox.Callback={@controller.toggleMaskSpotsAllChannels}
             p.maskCellButton.Callback = {@controller.addCellMask};
-            p.deleteMaskButton.Callback = {@controller.deleteMask};
+            p.deleteMaskButton.Callback = {@controller.deleteMask2};
             p.zoomAxes.Callback = {@controller.zoomInPressed};
             p.panAxes.Callback = {@controller.panViewPressed};
             p.upperContrastSlider.Callback = {@controller.updateMainAxes};

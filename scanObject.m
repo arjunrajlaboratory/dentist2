@@ -684,10 +684,10 @@ classdef scanObject < handle
             if ~isempty(p.dapiStitch) && ~isempty(p.stitchedScans) 
                 dapi = p.dapiStitch;
                 save(outFileName, 'dapi', '-v7.3')
-                nondapiLabels = p.stitchedScans.labels;
-                save(outFileName, 'nondapiLabels', '-append') % could use updating here and below (in loadStitches and reloadChannelStitch) to not say fishLabels but instead just labels or something
-                nondapiScans = p.stitchedScans.stitches;
-                save(outFileName, 'nondapiScans', '-append')
+                labels = p.stitchedScans.labels;
+                save(outFileName, 'labels', '-append') 
+                scans = p.stitchedScans.stitches;
+                save(outFileName, 'scans', '-append')
             else
                 if isempty(p.dapiStitch)
                     fprintf("dapiStitch is empty. Run stitchDAPI and try again\n")
@@ -702,15 +702,15 @@ classdef scanObject < handle
            tmpMat = matfile('stitchedScans.mat');
            p.dapiStitch = tmpMat.dapi;
            p.stitchedScans = struct;
-           p.stitchedScans.labels = tmpMat.fishLabels;
-           p.stitchedScans.stitches = tmpMat.fishScans;
+           p.stitchedScans.labels = tmpMat.labels;
+           p.stitchedScans.stitches = tmpMat.scans;
        end
        
        function p = reloadChannelStitch(p, channel)
            tmpMat = matfile('stitchedScans.mat');
-           fishLabels = tmpMat.fishLabels;
-           idx = find(ismember(channel, fishLabels));
-           tmpStitch = tmpMat.fishScans(1,idx);
+           labels = tmpMat.labels;
+           idx = find(ismember(channel, labels));
+           tmpStitch = tmpMat.scans(1,idx);
            p.stitchedScans.stitches{idx} = tmpStitch{:};
        end
         

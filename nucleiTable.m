@@ -266,7 +266,7 @@ classdef nucleiTable < handle
                 & p.nuclei.status;
         end
         
-        function outNuclei = getNucleiNearRect(p,rect, radius) %rect specified as [x y nrows ncols]
+        function outNuclei = getNucleiNearRect(p,rect, radius) %rect specified as [x y height width]
             
             idx = p.nuclei.x >= rect(1) - radius & p.nuclei.x < rect(1) + rect(3) + radius ...
                 & p.nuclei.y >= rect(2) - radius & p.nuclei.y < rect(2) + rect(4) + radius ...
@@ -318,8 +318,8 @@ classdef nucleiTable < handle
             
             % maskTable = p.maskObj.masks(p.maskObj.masks.dapi,:); % can do
             % this when we rename dapi channel
-            dapiChannelName=p.scanObj.channels{ismember(p.scanObj.channelTypes,'dapi')};
-            maskTable = p.maskObj.masks(p.maskObj.masks.(dapiChannelName),:);
+%             dapiChannelName=p.scanObj.channels{ismember(p.scanObj.channelTypes,'dapi')};
+            maskTable = p.maskObj.masks(p.maskObj.masks.dapi,:);
             maskIDs = unique(maskTable.maskID);
             maskIDs(maskIDs == 0) = [];
             p.nuclei = p.nuclei(~(p.nuclei.nucID == 0),:);
@@ -378,6 +378,17 @@ classdef nucleiTable < handle
             masksToRemove(masksToRemove == 0) = [];
             if ~isempty(masksToRemove)
                 nucIdx = ismember(p.nuclei.maskID, masksToRemove);
+                p.nuclei.maskID(nucIdx) = single(0);
+                p.nuclei.status(nucIdx) = true;
+                p.nucleiChanged = true;
+            end
+            
+        end
+        
+        function p = removeMasksByID(p, masksToRemove)
+            
+            nucIdx = ismember(p.nuclei.maskID, masksToRemove);
+            if any(nucIdx)
                 p.nuclei.maskID(nucIdx) = single(0);
                 p.nuclei.status(nucIdx) = true;
                 p.nucleiChanged = true;

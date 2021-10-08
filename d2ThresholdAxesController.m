@@ -80,14 +80,14 @@ classdef d2ThresholdAxesController < handle
             if ~isempty(p.thresholdLineH) && ishandle(p.thresholdLineH)
                 delete(p.thresholdLineH)
             end
-            spotTableChannelIdx=find(ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx}));
-            if ~isempty(spotTableChannelIdx)
-            %threshold = p.spotTable.thresholds(p.mainAxesCntrlr.channelIdx);
-            threshold = p.spotTable.thresholds(spotTableChannelIdx);
-            yaxis = get(p.viewObj.threshAxes, 'Ylim');
-            p.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis,...
-                'Color', 'b', 'HitTest', 'off');
-            p.viewObj.threshValue.String = num2str(threshold);
+            spotTableChannelIdx=ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx});
+            if any(spotTableChannelIdx)
+                %threshold = p.spotTable.thresholds(p.mainAxesCntrlr.channelIdx);
+                threshold = p.spotTable.thresholds(spotTableChannelIdx);
+                yaxis = get(p.viewObj.threshAxes, 'Ylim');
+                p.thresholdLineH = line(p.viewObj.threshAxes, [threshold threshold], yaxis,...
+                    'Color', 'b', 'HitTest', 'off');
+                p.viewObj.threshValue.String = num2str(threshold);
             else
                 delete(p.thresholdLineH)
             end

@@ -13,9 +13,9 @@ classdef maskTable < handle
     methods
         
         function p = maskTable(scanObject, varargin)
-            channels = convertStringsToChars(scanObject.channels);
-            %p.channels = channels(~ismember(scanObject.channelTypes,'other'));
-            p.channels = channels; % all channels can have mask
+            %channels = convertStringsToChars(scanObject.channels);
+%             p.channels = channels; % all channels can have mask
+            p.channels = [scanObject.channels(ismember(upper(scanObject.channelTypes),'FISH')), {'dapi'}]; %There can only be masks for spots (FISH channels) and cells (dapi) 
             if nargin == 1
                 fprintf('New Mask Table\n');
                 p.masks = table('Size', [p.heightMaskTable, numel(p.channels) + 3],...
@@ -167,16 +167,20 @@ classdef maskTable < handle
             maskIDs = unique(masksInRect.maskID);
             maskIDs(maskIDs==0) = [];
             removedMaskIDs = [];
-            removedMaskBB = {};
+            globalMask = [];
+            removedMaskBB = [];
             for i = 1:numel(maskIDs)
                 if any(inpolygon(points(:,2), points(:,1), masksInRect{masksInRect.maskID == maskIDs(i), 'x'}, masksInRect{masksInRect.maskID == maskIDs(i), 'y'}))
-                    removedMaskBB = [removedMaskBB, p.masksBB{p.masksBB.maskID == maskIDs(i),'BB'}];
                     removedMaskIDs = [removedMaskIDs, maskIDs(i)];
+                    tmpMaskBB = p.masksBB(p.masksBB.maskID == maskIDs(i),:);
+                    removedMaskBB = [removedMaskBB; tmpMaskBB{:,'BB'}];
+                    globalMask = [globalMask, sum(tmpMaskBB{:,3:end}) > 1]; %There may be a better way of doing this
                     p.removeMasks(maskIDs(i));
                 end
             end
             varargout{1} = removedMaskIDs;
-            varargout{2} = removedMaskBB;
+            varargout{2} = globalMask;
+            varargout{3} = removedMaskBB;
         end
         
         function p = allMasks2BB(p)
