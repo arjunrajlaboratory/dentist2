@@ -59,12 +59,8 @@ classdef d2MainAxesController < handle
             p.getNondapiChannelsInView()
             p.plotScatterMain();
             p.updateImageInView();
-            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
-            if any(spotChannelIdx)
-                p.numCells = height(p.spotTable.centroidLists{spotChannelIdx});
-            else
-                p.numCells=0;
-            end
+            p.currentChannel = p.nondapiChannelsInView{p.channelIdx};
+            p.numCells = height(p.spotTable.centroidLists{ismember(p.spotTable.spotChannels, p.currentChannel)});
             %p.updateMainAxes()
         end
         
@@ -100,7 +96,7 @@ classdef d2MainAxesController < handle
         end
         
         function updateCentroidListView(p)
-            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.currentChannel);
             if any(spotChannelIdx)
                 p.viewObj.centroidList.String = string(p.spotTable.centroidLists{spotChannelIdx}.GroupCount);
                 p.numCells = height(p.spotTable.centroidLists{spotChannelIdx}); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
@@ -112,7 +108,7 @@ classdef d2MainAxesController < handle
         
         function p = centroidSelected(p, ~, ~)
             if strcmp(get(p.viewObj.figHandle, 'SelectionType'), 'open') %Respond to double mouse click
-                spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+                spotChannelIdx=ismember(p.spotTable.spotChannels,p.currentChannel);
                 cellIdx = get(p.viewObj.centroidList, 'Value');
                 cellPos = p.spotTable.centroidLists{spotChannelIdx}{cellIdx, {'x', 'y'}};
                 p.viewRect = d2utils.getRectAroundPoint(cellPos, 2 * p.cellViewRadius, 2 * p.cellViewRadius, p.scanObj.stitchDim);
@@ -126,7 +122,7 @@ classdef d2MainAxesController < handle
         function plotScatterMain(p)
             %update this. For non-FISH channels, want to show position of cells 
             %but points not colored by expression level 
-            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.currentChannel);
             if any(spotChannelIdx)
                 %centroidsInView = p.spotTable.centroidTableInRect(p.channelIdx, p.viewRect);
                 centroidsInView = p.spotTable.centroidTableInRect(spotChannelIdx, p.viewRect);
@@ -325,9 +321,8 @@ classdef d2MainAxesController < handle
         end
         
         function overlaySpots(p, ~, ~) 
-            if logical(p.viewObj.spotsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value) && logical(ismember(p.nondapiChannelsInView{p.channelIdx}, p.spotTable.spotChannels))
-                channel=p.nondapiChannelsInView{p.channelIdx};
-                [spotsInView, ~] = p.spotTable.getValidSpotsInRect(channel, p.viewRect);
+            if logical(p.viewObj.spotsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value) && ismember(p.currentChannel, p.spotTable.spotChannels)
+                [spotsInView, ~] = p.spotTable.getValidSpotsInRect(p.currentChannel, p.viewRect);
                 hold(p.viewObj.mainAxes, 'on')
                 scatSZ=max(10,round(30000/max(p.viewRect(3:4))));
                 p.spotScatterH = scatter(spotsInView.y, spotsInView.x, scatSZ, spotsInView.colors,...
@@ -342,7 +337,7 @@ classdef d2MainAxesController < handle
             %update this.
             %Need to check that the current channel (p.channelIdx) has
             %spots (e.g. is not dapi or trans)
-            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.currentChannel);
             if logical(p.viewObj.centroidsCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value) && any(spotChannelIdx)
                 outTableTmp = p.spotTable.centroidTableInRect(spotChannelIdx, p.viewRect);
                 hold(p.viewObj.mainAxes, 'on')
@@ -358,7 +353,7 @@ classdef d2MainAxesController < handle
             masks = findobj(p.viewObj.mainAxes, 'type', 'images.roi.freehand');
             delete(masks);
             if logical(p.viewObj.masksCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value) && ismember(p.currentChannel, p.maskObj.channels)
-                maskTableTmp = p.maskObj.getChannelMasksInRect(p.viewRect, p.nondapiChannelsInView{p.channelIdx});
+                maskTableTmp = p.maskObj.getChannelMasksInRect(p.viewRect, p.currentChannel);
                 maskIDs = unique(maskTableTmp.maskID);
                 maskIDs(maskIDs == 0) = [];
                 for i = 1:numel(maskIDs)
@@ -385,7 +380,7 @@ classdef d2MainAxesController < handle
         
         function shuffleColorsInView(p, ~, ~)
             if ~logical(p.viewObj.scatterCheckBox.Value)
-                spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+                spotChannelIdx=ismember(p.spotTable.spotChannels,p.currentChannel);
                 
                 outTableTmp = p.spotTable.centroidTableInRect(spotChannelIdx, p.viewRect);
                 randomColors  = single(d2utils.distinguishable_colors(50));
@@ -416,7 +411,7 @@ classdef d2MainAxesController < handle
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.addCellButton, p.viewObj.deleteCellButton,...
                 p.viewObj.maskCellButton, p.viewObj.deleteMaskButton], 'Enable', 'off')
-            channel = p.nondapiChannelsInView{p.channelIdx};
+%             channel = p.nondapiChannelsInView{p.channelIdx};
             p.maskH = drawfreehand(p.viewObj.mainAxes, 'Parent', p.viewObj.mainAxes);
             %addlistener(p.maskH, 'DrawingFinished', @p.maskSpots);
             if ~isempty(p.maskH.Position) && isvalid(p.maskH) && polyarea(p.maskH.Position(:,1), p.maskH.Position(:,2)) > 3 %min mask area
@@ -424,7 +419,7 @@ classdef d2MainAxesController < handle
                     % then mask for all channels
                     p.maskSpotsAllChannels(p.maskH)
                 else
-                    p.maskSpots(p.maskH, channel)
+                    p.maskSpots(p.maskH, p.currentChannel)
                 end
             else
                 delete(p.maskH)
@@ -492,20 +487,20 @@ classdef d2MainAxesController < handle
             set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
             set([p.viewObj.zoomAxes, p.viewObj.panAxes, p.viewObj.maskCellButton, p.viewObj.deleteCellButton,...
                 p.viewObj.maskSpotsButton, p.viewObj.addCellButton], 'Enable', 'off')
-            channel = p.nondapiChannelsInView{p.channelIdx};
+%             channel = p.nondapiChannelsInView{p.channelIdx};
             [x, y] = getpts(p.viewObj.mainAxes); %Simple but not interruptible. Can make WindowButtonDownFcn if want something interruptiblef.   
             if ~isempty(x)  
                 ptsInView = d2utils.getPtsInsideView([x, y], p.viewRect);
                 p.maskObj.removeMasksByLocalPoints(ptsInView, p.viewRect);
                 p.nucleiObj.removeMasks();
-                p.spotTable.removeMasks2(channel, p.viewRect);
+                p.spotTable.removeMasks2(p.currentChannel, p.viewRect);
                 if p.nucleiObj.nucleiChanged %Kinda ugly. Should write something better. Could make separate buttons for cell masks and spot masks
                     p.spotTable.assignSpotsInRect(p.viewRect);
                     p.spotTable.updateAllSpotStatus();
                     p.spotTable.makeCentroidList();
                 else
-                    p.spotTable.updateSpotStatus(channel);
-                    p.spotTable.updateCentroidList(channel);
+                    p.spotTable.updateSpotStatus(p.currentChannel);
+                    p.spotTable.updateCentroidList(p.currentChannel);
                 end
                 p.nucleiObj.nucleiChanged = false;
                 p.updateCentroidListView();
@@ -571,9 +566,9 @@ classdef d2MainAxesController < handle
                         p.spotTable.updateAllSpotStatusInRect(removedMaskBBmerged);
                         p.spotTable.makeCentroidList();
                     else
-                        channel = p.nondapiChannelsInView{p.channelIdx};
-                        p.spotTable.updateSpotStatusInRect(channel, removedMaskBBmerged);
-                        p.spotTable.updateCentroidList(channel);
+%                         channel = p.nondapiChannelsInView{p.channelIdx};
+                        p.spotTable.updateSpotStatusInRect(p.currentChannel, removedMaskBBmerged);
+                        p.spotTable.updateCentroidList(p.currentChannel);
                     end
 %                     toc
                     p.nucleiObj.nucleiChanged = false;
@@ -732,7 +727,7 @@ classdef d2MainAxesController < handle
         function keyPressFunctions(p, ~, evt)
             keyPressed = evt.Key;
             modifierPressed = evt.Modifier;
-            spotChannelIdx=ismember(p.spotTable.spotChannels,p.nondapiChannelsInView{p.channelIdx});
+            spotChannelIdx=ismember(p.spotTable.spotChannels,p.currentChannel);
             if isempty(modifierPressed)
                 switch(keyPressed)
                     case 'z'
