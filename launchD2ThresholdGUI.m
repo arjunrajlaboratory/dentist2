@@ -91,7 +91,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
          nucleiObj.nucleiFile = n.Results.nucleiFile;
          if isempty(n.Results.cellPose) %No cellpose
             disp('Finding nuclei. This may take a few minutes.')
-            if and(isempty(n.Results.preStitchedScan),isempty(n.Results.preStitchedScanFilelist))
+            if (isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist))
                 nucleiObj.stitchDAPImask();
             else
                 nucleiObj.stitchDAPImask2();
@@ -122,7 +122,18 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     nucleiObj.updateAllMasks(); 
 %----------------------------------------------------------------
     spotsObj = spotTable(scanObj, maskObj, nucleiObj, 'spotsFile',n.Results.spotsFile,'sigma',n.Results.sigma,'thresholds',n.Results.thresholds,'aTrousMinThreshFactor',n.Results.aTrousMinThreshFactor);
-
+    if ~isfile(n.Results.spotsFile)
+        disp('Finding spots. This may take several minutes.')
+        if spotsObj.minChannelIntensityIsBlockSpecific % Note that if you delete the spotsFile but keep the scanSummary with channel thresholds, it will use these thresholds (and findSpots5) to find spots.  
+            spotsObj.findSpots4(); %Using previous findSpots function. 
+        else
+            spotsObj.findSpots5();
+        end
+        spotsObj.maskBorderSpots();
+        disp('Finished finding spots')
+        spotsObj.assignSpotsToNuclei();
+    end
+    
     if isempty(spotsObj.thresholds) % did not already get thresholds from user input or scanSummary.txt
         spotsObj.defaultThresholds();
     end

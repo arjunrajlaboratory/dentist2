@@ -17,7 +17,7 @@ classdef spotTable < handle
         maxDistance = 200;  
         theFilter
         percentileToKeep = 98;
-        threshFactor = 4;
+        threshFactor = 2;
         spotsIntensitiesWithMasked
         spotsIntensitiesNoMasked
         expressionColorPal = {'BuYlRd', 'YlOrRd', 'GrBu', 'BuGnYlRd'}
@@ -35,7 +35,7 @@ classdef spotTable < handle
             n.addRequired('scanObject', @(x) mustBeA(x, 'scanObject'))
             n.addRequired('maskObject', @(x) mustBeA(x, 'maskTable'))
             n.addRequired('nucleiObject', @(x) mustBeA(x, 'nucleiTable'))
-            n.addParameter('spotsFile','spots.csv',@ischar)
+            n.addParameter('spotsFile','',@ischar)
             n.addParameter('sigma',[],@(x) validateattributes(x,{'numeric'},{'positive','nonzero'}))
             n.addParameter('thresholds',[], @(x) isempty(x) || (isnumeric(x) && size(x,1)==1) )
             n.addParameter('aTrousMinThreshFactor', [], @(x) isempty(x) || (isnumeric(x) && isscalar(x) && x>0))
@@ -53,7 +53,7 @@ classdef spotTable < handle
 
             if ~isfile(n.Results.spotsFile)
                 fprintf('Unable to find %s in your current directory. Creating a new spots object\n', n.Results.spotsFile)
-                fprintf('New spots table\n');
+%                 fprintf('New spots table\n');
                 p.spotsFile = n.Results.spotsFile;
                 % even if we have params sigma, thresholds,
                 % aTrousMinThreshFactor in scanSummary.txt, overwrite with user inputs
@@ -72,11 +72,12 @@ classdef spotTable < handle
                     p.minChannelIntensityIsBlockSpecific=false; % findSpots5 will return spots above minIntensity=globalThreshold/p.threshFactor (where globalThreshold is the channel-specific value from p.thresholds, which was loaded from scanSummary.txt or was user-input
                     p.minChannelIntensities=p.thresholds/p.threshFactor;
                 end
-                disp('Finding spots. This may take several minutes.')
-                p.findSpots5(); %Run before contrasting scans
-                p.maskBorderSpots();
-                disp('Finished finding spots')
-                p.assignSpotsToNuclei();
+                %Commenting out the code below in order to more easily create empty spotTable objects.  
+%                 disp('Finding spots. This may take several minutes.')
+%                 p.findSpots5(); %Run before contrasting scans
+%                 p.maskBorderSpots();
+%                 disp('Finished finding spots')
+%                 p.assignSpotsToNuclei();
                 
             else % there is a spots file here (usually spots.csv)
                 fprintf('Loading spot table\n');
@@ -140,6 +141,13 @@ classdef spotTable < handle
             end
         end
         
+        function idx = getAllSpotsInRectIndex(p,rect) %rect specified as [x y nrows ncols]
+            
+            idx = p.spots.x >= rect(1) & p.spots.x < rect(1) + rect(3) ...
+                & p.spots.y >= rect(2) & p.spots.y < rect(2) + rect(4);
+            
+        end
+        
         function [outSpots,idx] = getAllSpotsInRect(p,rect) %rect specified as [x y nrows ncols]
             
             idx = p.spots.x >= rect(1) & p.spots.x < rect(1) + rect(3) ...
@@ -147,6 +155,7 @@ classdef spotTable < handle
             
             outSpots = p.spots(idx,:);
         end
+        
         
         function [outSpots, idx] = getValidSpotsInRect(p,channel,rect) %rect specified as [x y nrows ncols]
 
@@ -229,6 +238,19 @@ classdef spotTable < handle
             %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
         end
         
+        function p = addNewMaskAllChannels(p, maxSpotMask)
+            maskBB = p.maskObj.masksBB{p.maskObj.masksBB.maskID == maxSpotMask,{'BB'}}; %Only query spots within mask bouding box
+
+            spotIdx = p.getAllSpotsInRectIndex(maskBB);
+            idx = inpolygon(p.spots.x(spotIdx), p.spots.y(spotIdx),...
+                p.maskObj.masks{p.maskObj.masks.maskID == maxSpotMask, 'x'}, p.maskObj.masks{p.maskObj.masks.maskID == maxSpotMask, 'y'});
+            
+            spotIdx(spotIdx) = idx; %Only spots in polygon remain true
+                
+            p.spots.maskID(spotIdx) = maxSpotMask;
+            p.spots.status(spotIdx) = false;
+        end
+        
         function p = updateMasksInRect(p, channel, localRect) 
             %Use for removing masks or if we want to change multiple masks
             %before updating spots
@@ -261,7 +283,26 @@ classdef spotTable < handle
             %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
         end
         
+        function p = removeMasksByID(p, masksToRemove)
+            p.spots.maskID(ismember(p.spots.maskID, masksToRemove)) = single(0);
+            %p.updateSpotStatus(channel);
+            %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
+        end
+        
         function p = removeMasks2(p, channel, rect)
+            %Not sure if it'll be faster to first get spots and masks in
+            %rect. 
+            [spotsInRect, spotIdx] = p.getSpotsInRect(channel, rect);
+            maskIDsInRect = p.maskObj.getChannelMaskIDsInRect(rect, channel);
+            maskIDsInRect(maskIDsInRect == 0) = [];
+            goodSpotIdx = ~ismember(spotsInRect.maskID, maskIDsInRect);
+            spotIdx(spotIdx) = goodSpotIdx;
+            p.spots.maskID(spotIdx) = single(0);
+            %p.updateSpotStatus(channel); %For now, done by controller.
+            %p.spotsIntensitiesNoMasked{ismember(p.spotChannels,channel)} = sort(uint16(p.getIntensitiesNoMasked(channel)));
+        end
+        
+        function p = removeMasks3(p, rect)
             %Not sure if it'll be faster to first get spots and masks in
             %rect. 
             [spotsInRect, spotIdx] = p.getSpotsInRect(channel, rect);
@@ -298,104 +339,23 @@ classdef spotTable < handle
             end
         end
        
-        function p = findSpots(p) %BE should we make a faster version that uses blockproc on stitched data? 
+        function p = updateSpotStatusInRect(p, channel, rect)
+            %Add buffer to rect based on max distance allowed from spot to
+            %nucleus
+            [spotsInRect, spotIdx] = p.getSpotsInRect(channel, rect);
+            threshold = p.thresholds(ismember(p.spotChannels, channel));
 
-            if isempty(p.theFilter) == 2
-                filt = -fspecial('log',20,2);
-                p.theFilter = filt;
-            else
-                filt = p.theFilter;
-            end
-            tilesTable = p.scanObj.tilesTable;
-            scanMatrix = p.scanObj.scanMatrix;
-            tilesTmp = transpose(scanMatrix);
-            tiles = tilesTmp(:);
+            goodSpotIdx = spotsInRect.intensity >= threshold ...
+                & spotsInRect.distanceToNuc <= p.maxDistance & spotsInRect.maskID == 0 ...
+                & ismember(spotsInRect.nearestNucID, p.nucleiObj.nuclei.nucID(p.nucleiObj.nuclei.status));%spots assigned to masked cells will be set to false. 
             
-            x = [];
-            y = [];
-            intensity = [];
-            channel = [];
-            reader = bfGetReader(p.scanObj.scanFile);
-            
-            for i = 1:numel(p.spotChannels)
-                currChannel = p.spotChannels{i};
-                fprintf('Finding %s spots\n',currChannel);
-                channelIdx = find(ismember(p.scanObj.channels,currChannel));
-                iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-                channelCount = 0;
-                for ii = 1:numel(tiles)
-                    reader.setSeries(tiles(ii)-1);
-                    tmpPlane  = bfGetPlane(reader, iPlane);
-                    [tempX, tempY, tempIntensity] = d2utils.findSpotsInImage(tmpPlane, p.percentileToKeep, 'filter', filt);
-                    %Adjust local to global coordinates
-                    tempX = tempX + tilesTable.left(tiles(ii));
-                    tempY = tempY + tilesTable.top(tiles(ii)); 
-                    
-                    x = [x ; tempX];
-                    y = [y ; tempY];
-                    intensity = [intensity ; tempIntensity];
-                    channelCount = channelCount + length(tempX);
-                end
-                channel = [channel ; repmat(string(currChannel),channelCount,1)]; %somewhat less memory with string array vs cell array
-            end
-            reader.close()
-            
-            spotID = single((1:length(x)))';
-            nearestNucID = single(zeros(length(x),1));
-            maskID = single(zeros(length(x),1));
-            status = true(length(x),1);
-            dist =  single(zeros(length(x),1));
-            p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
-                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
+            p.spots.status(spotIdx) = goodSpotIdx;
         end
         
-        function p = findSpots2(p, varargin) 
-            %Find spots tile by tile
-            %Try using aTrous function for finding spots
-            if nargin == 2
-                p.threshFactor = varargin{1}; %Global threshFactor set when launching GUI.
-            end
-            tilesTable = p.scanObj.tilesTable;
-            tilesTmp = transpose(p.scanObj.scanMatrix);
-            tiles = tilesTmp(:);
-            
-            x = [];
-            y = [];
-            intensity = [];
-            channel = [];
-            reader = bfGetReader(p.scanObj.scanFile);
-            
+        function p = updateAllSpotStatusInRect(p, rect)
             for i = 1:numel(p.spotChannels)
-                currChannel = p.spotChannels{i};
-                fprintf('Finding %s spots\n',currChannel);
-                channelIdx = find(ismember(p.scanObj.channels,currChannel));
-                iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-                channelCount = 0;
-                for ii = 1:numel(tiles)
-                    reader.setSeries(tiles(ii)-1);
-                    tmpPlane  = bfGetPlane(reader, iPlane);
-                    [tempX, tempY, tempIntensity] = d2utils.findSpotsaTrous(tmpPlane, 'threshFactor', p.threshFactor);
-                    %Adjust local to global coordinates
-                    tempX = tempX + tilesTable.left(tiles(ii));
-                    tempY = tempY + tilesTable.top(tiles(ii)); 
-                    
-                    x = [x ; tempX];
-                    y = [y ; tempY];
-                    intensity = [intensity ; tempIntensity];
-                    channelCount = channelCount + length(tempX);
-                end
-                channel = [channel ; repmat(string(currChannel),channelCount,1)]; %somewhat less memory with string array vs cell array. 
+                p.updateSpotStatusInRect(p.spotChannels{i}, rect);
             end
-            reader.close()
-            
-            n = length(x);
-            spotID = single((1:n))';
-            nearestNucID = single(zeros(n,1));
-            maskID = single(zeros(n,1));
-            status = true(n,1);
-            dist =  single(zeros(n,1));
-            p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
-                'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
         
         function p = findSpots3(p) 
@@ -459,7 +419,7 @@ classdef spotTable < handle
             intensity = [];
             channel = [];
             
-            spotThreshFactor = p.threshFactor;
+            spotThreshFactor = p.threshFactor; %Assign variables here to reduce overhead in parfor loop below 
             [splitMats, startCoords] = p.scanObj.splitStitch(p.spotChannels);
             for i = 1:numel(p.spotChannels)
                 fprintf('Finding %s spots\n',p.spotChannels{i});
@@ -472,6 +432,7 @@ classdef spotTable < handle
                 parfor ii = 1:numel(splitMat)
                     %Consider changing connectivity to 4 to find more spots in dense areas. 
                     [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous(splitMat{ii}, 'shift', startCoords(ii,:) - 1, 'threshFactor', spotThreshFactor); % the - 1 was added 6-Sep-2021
+
                 end
                 x = [x ; cell2mat(tempX)];
                 y = [y ; cell2mat(tempY)];
@@ -485,6 +446,7 @@ classdef spotTable < handle
             maskID = single(zeros(n,1));
             status = true(n,1);
             dist =  single(zeros(n,1));
+            intensity = uint16(intensity); %Will cut off values <0 and >65535 but very unlikely.  
             p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
@@ -499,12 +461,13 @@ classdef spotTable < handle
             intensity = [];
             channel = [];
             
+            spotThreshFactor = p.threshFactor; %Assign variables here to reduce overhead in parfor loop below 
+            spotSigma = p.sigma;
             [splitMats, startCoords] = p.scanObj.splitStitch(p.spotChannels);
             
             if ~isempty(p.thresholds)
                 assert(length(p.thresholds)==length(p.spotChannels))
             end
-            
             
             if ~p.minChannelIntensityIsBlockSpecific
                 fprintf('spot finder will use these minChannelIntensities for the entire scan:\n\n')
@@ -529,7 +492,7 @@ classdef spotTable < handle
                 %parpool('threads')
                 parfor ii = 1:numel(splitMat)
                     %Consider changing connectivity to 4 to find more spots in dense areas.
-                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous2(splitMat{ii},'minRegionalMax',minRegionalMax,'sigma', p.sigma, 'shift', startCoords(ii,:) - 1,'threshFactor', p.threshFactor); % the - 1 was added 6-Sep-2021
+                    [tempX{ii}, tempY{ii}, tempIntensity{ii}] = d2utils.findSpotsaTrous2(splitMat{ii},'minRegionalMax',minRegionalMax,'sigma', spotSigma, 'shift', startCoords(ii,:) - 1,'threshFactor', spotThreshFactor); % the - 1 was added 6-Sep-2021
                 end
                 x = [x ; cell2mat(tempX)];
                 y = [y ; cell2mat(tempY)];
@@ -543,11 +506,12 @@ classdef spotTable < handle
             maskID = single(zeros(n,1));
             status = true(n,1);
             dist =  single(zeros(n,1));
+            intensity = uint16(intensity); %Will cut off values <0 and >65535 but very unlikely.
             p.spots = table(spotID, single(x), single(y), intensity, nearestNucID, status, maskID, channel, dist,...
                 'VariableNames', {'spotID', 'x', 'y', 'intensity', 'nearestNucID', 'status', 'maskID', 'channel', 'distanceToNuc'});
         end
-        
-        function p = findSpotsChannel(p, channel, varargin) % this function is not updated to calll with the recent 
+                
+        function p = findSpotsChannel(p, channel, varargin) % this function is not updated to call with the recent 
             if nargin == 3
                 tmpThreshFactor = varargin{1}; %Channel specific threshFactor
             else
@@ -648,7 +612,7 @@ classdef spotTable < handle
                     = sortrows(p.tabulateChannel(channel), 'GroupCount', 'descend');
                 p.centroidLists{channelIdx}.expression_color = d2utils.expressionToColors(p.centroidLists{channelIdx}.GroupCount, p.expressionColorPal{p.paletteIdx});
             end
-            end
+        end
         
         function p = updateExpressionColors(p)
             for i = 1:numel(p.spotChannels)
@@ -753,8 +717,6 @@ classdef spotTable < handle
         function userInputThresholds(p,userInputThresholds)
             if numel(userInputThresholds)~=numel(p.spotChannels)
                 error('user-input thresholds is 1x%i but should be 1x%i, corresponding to %i spot channels',numel(userInputThresholds),numel(p.spotChannels),numel(p.spotChannels))
-            elseif size(userInputThresholds,1)~=1
-                error('user-input thresholds should be a row vector');
             end
             p.thresholds=userInputThresholds;
         end
