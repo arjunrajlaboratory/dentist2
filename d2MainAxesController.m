@@ -24,6 +24,7 @@ classdef d2MainAxesController < handle
         fixedZoom = false
         panStart
         channelIdx
+        currentChannel
         zoomMode = true
         scatterH %Not sure if we need these handle. 
         imageH
@@ -69,6 +70,7 @@ classdef d2MainAxesController < handle
         
         function p = changeChannel(p, ~, ~)
             p.channelIdx = p.viewObj.channelPopup.Value;
+            p.currentChannel = p.nondapiChannelsInView{p.channelIdx};
             %Update centroid listbox
             p.updateCentroidListView();
             p.updateMainAxes();
@@ -355,7 +357,7 @@ classdef d2MainAxesController < handle
         function overlayMasks(p, ~, ~)
             masks = findobj(p.viewObj.mainAxes, 'type', 'images.roi.freehand');
             delete(masks);
-            if logical(p.viewObj.masksCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value)
+            if logical(p.viewObj.masksCheckBox.Value) && ~logical(p.viewObj.scatterCheckBox.Value) && ismember(p.currentChannel, p.maskObj.channels)
                 maskTableTmp = p.maskObj.getChannelMasksInRect(p.viewRect, p.nondapiChannelsInView{p.channelIdx});
                 maskIDs = unique(maskTableTmp.maskID);
                 maskIDs(maskIDs == 0) = [];

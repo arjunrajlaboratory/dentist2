@@ -46,18 +46,18 @@ classdef d2ThresholdAxesController < handle
                 delete(p.histogramLineH)
             end
             
-            spotTableChannelIdx=find(ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx}));
+            spotTableChannelIdx=ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx});
             
-            if ~isempty(spotTableChannelIdx)
+            if any(spotTableChannelIdx)
                 if p.includeMaskedSpots
                     intensities = p.spotTable.spotsIntensitiesWithMasked{spotTableChannelIdx};
                 else
                     intensities = p.spotTable.spotsIntensitiesNoMasked{spotTableChannelIdx};
                 end
                 
-                if isempty(intensities)
-                    warning('spot intensities are empty. This can occur if you previously terminated the program before allowing spots.csv to fully save, such that the later channels have not been saved');
-                end
+%                 if isempty(intensities)
+%                     warning('spot intensities are empty. This can occur if you previously terminated the program before allowing spots.csv to fully save, such that the later channels have not been saved');
+%                 end
                 logRank = log(numel(intensities):-1:1);
                 p.histogramLineH = line(p.viewObj.threshAxes, intensities, logRank, ...
                     'HitTest', 'off', ...
@@ -71,8 +71,8 @@ classdef d2ThresholdAxesController < handle
                 yaxismax = logRank(1)*1.1;
                 
                 set(p.viewObj.threshAxes, 'YLim', [0 yaxismax]);
-            else
-                delete(p.histogramLineH)
+%             else
+%                 delete(p.histogramLineH)
             end
         end
         
@@ -90,6 +90,7 @@ classdef d2ThresholdAxesController < handle
                 p.viewObj.threshValue.String = num2str(threshold);
             else
                 delete(p.thresholdLineH)
+                %Make threshValue box uneditable
             end
         end
         
@@ -169,7 +170,7 @@ classdef d2ThresholdAxesController < handle
         end
       
         function threshValueChange(p, ~, ~)
-            spotTableChannelIdx=find(ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx}));
+            spotTableChannelIdx=ismember(p.spotTable.spotChannels,p.mainAxesCntrlr.nondapiChannelsInView{p.mainAxesCntrlr.channelIdx});
             if ~isnan(str2double(p.viewObj.threshValue.String)) && isreal(str2double(p.viewObj.threshValue.String))
                 newThresh = round(str2double(p.viewObj.threshValue.String));
                 set(p.thresholdLineH, 'XData', [newThresh, newThresh])

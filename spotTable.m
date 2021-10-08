@@ -669,7 +669,7 @@ classdef spotTable < handle
                     p.spotChannels = split(scanSummaryTable{'spotChannels',1}{:})';
                     fprintf('Setting %s as spot channels.\n', scanSummaryTable{'spotChannels',1}{:});
                 else
-                    p.spotChannels = p.scanObj.channels(~ismember(p.scanObj.channelTypes,{'dapi','other'}));
+                    p.spotChannels = p.scanObj.channels(ismember(p.scanObj.channelTypes,{'FISH'}));
                     fprintf('Setting %s as spot channels.\n', strjoin(p.spotChannels));
                 end
 
@@ -691,7 +691,7 @@ classdef spotTable < handle
                 
             else
                 fprintf('Unable to find %s in your current directory.\n', inFileName)
-                p.spotChannels = p.scanObj.channels(~ismember(p.scanObj.channelTypes,{'dapi','other'}));
+                p.spotChannels = p.scanObj.channels(ismember(p.scanObj.channelTypes,{'FISH'}));
                 fprintf('Setting %s as spot channels.\n', strjoin(p.spotChannels));
             end
         end
