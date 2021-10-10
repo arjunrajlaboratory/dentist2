@@ -740,14 +740,18 @@ classdef d2MainAxesController < handle
                         p.overlayNuclei();
                     case 'c'
                         p.scatterCallback();
-                    case 'm'
+                    case 'w'
                         p.addSpotMask();
                     case 'd'
                         p.deleteMask();
                     case 'f' 
                         p.fixedZoom = true;
-                    case 'x'
+                    case 'q'
                         set(p.viewObj.figHandle, 'WindowButtonDownFcn', '')
+                    case 'x'
+                        p.addCellMask();
+                    case 'a'
+                        set(p.viewObj.maskSpotsAllChannelsCheckBox, 'Value', ~p.viewObj.maskSpotsAllChannelsCheckBox.Value)
                     case 'uparrow'
                         cellIdx = max(1, get(p.viewObj.centroidList, 'Value')-1);
                         cellPos = p.spotTable.centroidLists{spotChannelIdx}{cellIdx, {'x', 'y'}};
@@ -767,8 +771,8 @@ classdef d2MainAxesController < handle
                 end
             elseif strcmp(modifierPressed{1}, 'shift')
                 switch(keyPressed)
-                    case 'm'
-                        p.addCellMask();
+%                     case 'm'
+%                         p.addCellMask();
                     case 's'
                         p.viewObj.saveButtonPressed;
                     case 'e'
