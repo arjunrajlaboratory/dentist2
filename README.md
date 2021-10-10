@@ -67,7 +67,7 @@ As described [below](#d2ThresholdGUI), use the threshold GUI to adjust the spot 
 
 **Annotated screenshot of threshold GUI**
 
-![thresholdGUI](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/D2threshGUI.png)
+![thresholdGUI](https://github.com/arjunrajlaboratory/dentist2/blob/master/diagrams/D2threshGUI_2.png)
 
 Note these hotkeys:
 - 'up arrow': move up centroid list
@@ -77,8 +77,9 @@ Note these hotkeys:
 - 's': overlay spots checkbox
 - 'n': overlay nuclei checkbox
 - 'c': scatter checkbox
-- 'm': add spot mask
-- 'shift-m': add cell mask
+- 'a': mask all spots checkbox
+- 'w': add spot mask
+- 'x': add cell mask
 - 'd': delete mask
 - 'shift-s': save tables
 - 'shift-e': export spots summary
