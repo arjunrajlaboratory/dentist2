@@ -174,10 +174,11 @@ or
 ```
 Loading single-channel .tif scans
 =================================
-To load pre-stitched .tif files into dentist2, first create a cell array containing the file names (e.g. `preStitchedScanFiles={'alexa.tif', 'cy.tif', 'dapi.tif', 'trans.tif'};`). Next, create a cell array that specifies the channel type (either 'FISH', 'dapi', or 'other') for each of the .tif files (e.g. `channelTypes = {'FISH', 'FISH', 'dapi', 'other'};`). Input these variable for the 'preStitchedScanFilelist' and 'channelTypes' parameters when running launchD2ThresholdGUI() as below:
+To load pre-stitched, single-channel .tif files into dentist2, first create a cell array containing the file names (e.g. `preStitchedScanFiles={'alexa.tif', 'cy.tif', 'dapi.tif', 'trans.tif'};`). Next, create a cell array that specifies the channel type (either 'FISH', 'dapi', or 'other') for each of the .tif files (e.g. `channelTypes = {'FISH', 'FISH', 'dapi', 'other'};`). Dentist2 will find spots for all image files with channelType == 'FISH' and will find nuclei for the image file with channeltype == 'dapi'. Currently, dentist2 expect only one image file with channeltype == 'dapi'. Image files with channelType == 'other' will be loaded into dentist2 for viewing but will not be used for finding spots. Input the image files list and channelTypes list when running launchD2ThresholdGUI() as below:
 ```matlab
 >>h = launchD2ThresholdGUI('preStitchedScanFilelist', preStitchedScanFiles, 'channelTypes', channelTypes); 
 ```  
+An example dataset and script for loading the data into dentist2 can be found [here](). Note, that you can use this feature to load processed images (e.g. masks, z-projection, or merged channels) into dentist2. For example, to load the merged image file *** ,add the file name to the preStitchedScanFile list (e.g. `preStitchedScanFiles={'alexa.tif', 'cy.tif', 'dapi.tif', 'trans.tif', '***'};`) and specify it's channel type as 'other' (e.g. `channelTypes = {'FISH', 'FISH', 'dapi', 'other', 'other'};).
 
 Troubleshooting
 ===============
