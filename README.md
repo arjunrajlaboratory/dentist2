@@ -15,7 +15,7 @@ Table of contents
   * [Threshold axes](#threshold-axes)
   * [Adding and deleting masks and nuclei](#adding-and-deleting-masks-and-nuclei)
 * [Importing CellPose nuclei masks](#importing-cellpose-nuclei-masks)
-* [Loading pre-stitched scans from .tif files](#loading-pre-stitched-scans-from-tif-files)
+* [Loading single-channel .tif scan](#loading-single-channel-tif-scans)
 * [Troubleshooting](#troubleshooting)
 
 Dependencies
@@ -172,8 +172,8 @@ or
 ```matlab
 >>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv', 'maskResizeFactor', 4);
 ```
-Loading pre-stitched scans from .tif files
-==========================================
+Loading single-channel .tif scans
+=================================
 To load pre-stitched .tif files into dentist2, first create a cell array containing the file names (e.g. `preStitchedScanFiles={'alexa.tif', 'cy.tif', 'dapi.tif', 'trans.tif'};`). Next, create a cell array that specifies the channel type (either 'FISH', 'dapi', or 'other') for each of the .tif files (e.g. `channelTypes = {'FISH', 'FISH', 'dapi', 'other'};`). Input these variable for the 'preStitchedScanFilelist' and 'channelTypes' parameters when running launchD2ThresholdGUI() as below:
 ```matlab
 >>h = launchD2ThresholdGUI('preStitchedScanFilelist', preStitchedScanFiles, 'channelTypes', channelTypes); 
