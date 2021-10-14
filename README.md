@@ -178,7 +178,7 @@ To load pre-stitched, single-channel .tif files into dentist2, first create a ce
 ```matlab
 >>h = launchD2ThresholdGUI('preStitchedScanFilelist', preStitchedScanFiles, 'channelTypes', channelTypes); 
 ```  
-An example dataset and script for loading the data into dentist2 can be found [here]().
+An example dataset and script for loading the data into dentist2 can be found [here](https://www.dropbox.com/sh/yjzw0776ttac1qj/AAD3dmmnF8k8G9FWb2sEdmJ_a?dl=0).
 
 Troubleshooting
 ===============
