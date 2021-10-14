@@ -15,7 +15,7 @@ Table of contents
   * [Threshold axes](#threshold-axes)
   * [Adding and deleting masks and nuclei](#adding-and-deleting-masks-and-nuclei)
 * [Importing CellPose nuclei masks](#importing-cellpose-nuclei-masks)
-* [Loading pre-stitched scans from .tif files](#loading-pre-stitched-scans-from-.tif-files)
+* [Loading pre-stitched scans from .tif files](#loading-pre-stitched-scans-from-tif-files)
 * [Troubleshooting](#troubleshooting)
 
 Dependencies
