@@ -34,7 +34,7 @@ Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not
  
 Expected input
 ==============
-Dentist2 expects images from a **tiled rectangular scan** in a **single z-plane**. There should be one DAPI channel and one or more FISH channels. The FISH channels may be named 'YFP', 'GFP', 'CY3', 'A594', 'CY5', 'A647' '700' or 'CY7'. If you'd like to process other fluorescence channels, you may need to modify the map in +d2utils/readND2Channels.m. 
+Dentist2 expects images from a **tiled or pre-stitched rectangular scan** in a **single z-plane**. There should be one DAPI channel and one or more FISH channels. The FISH channels may be named 'YFP', 'GFP', 'CY3', 'A594', 'CY5', 'A647' '700' or 'CY7'. If you'd like to process other fluorescence channels, you may need to modify the map in +d2utils/readND2Channels.m. 
 
 At the moment, Dentist2 identifies nuclei based on DAPI signal and assigned RNA FISH spots to the nearest nucleus. In the future, we may add the option to input whole-cell segmentations and assign spots to the surrounding cell or, for IF, average fluorescence intensity per cell.
 
