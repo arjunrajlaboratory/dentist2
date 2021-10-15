@@ -1,6 +1,8 @@
 Dentist2
 ========
-This repository contains tools to help analyze RNA FISH data from large image scans. Example input and output data are available on Dropbox [here](https://www.dropbox.com/sh/djy9mock6vp5j2d/AADqZDtkAEROWK7Jh85oCE68a?dl=0).  
+This repository contains tools to help analyze RNA FISH data from large image scans. Example input and output data are available on Dropbox [here](https://www.dropbox.com/sh/djy9mock6vp5j2d/AADqZDtkAEROWK7Jh85oCE68a?dl=0). 
+
+For analysis of immunofluorescence data, consider trying the dentist2IF GUI. Instructions are available [here](https://github.com/arjunrajlaboratory/dentist2/wiki/Dentist2-Immunofluorescence-GUI)
 
 Table of contents
 =================
@@ -34,9 +36,9 @@ Of note, Dentist2 was written and tested using MATLAB version 2020b. We have not
  
 Expected input
 ==============
-Dentist2 expects images from a **tiled or pre-stitched rectangular scan** in a **single z-plane**. There should be one DAPI channel and one or more FISH channels. The FISH channels may be named 'YFP', 'GFP', 'CY3', 'A594', 'CY5', 'A647' '700' or 'CY7'. If you'd like to process other fluorescence channels, you may need to modify the map in +d2utils/readND2Channels.m. 
+Dentist2 expects images from a **tiled or pre-stitched rectangular scan** in a **single z-plane**. There should be one DAPI channel and one or more FISH channels. The FISH channels may be named 'YFP', 'GFP', 'CY3', 'A594', 'CY5', 'A647' '700' or 'CY7'. If you'd like to process other channels, you may need to modify the map in +d2utils/readND2Channels.m or load single-channel .tif scans as described [here](#loading-single-channel-tif-scans).  
 
-At the moment, Dentist2 identifies nuclei based on DAPI signal and assigned RNA FISH spots to the nearest nucleus. In the future, we may add the option to input whole-cell segmentations and assign spots to the surrounding cell or, for IF, average fluorescence intensity per cell.
+At the moment, Dentist2 identifies nuclei based on DAPI signal and assigned RNA FISH spots to the nearest nucleus. In the future, we may add the option to input whole-cell segmentations and assign spots to the surrounding cell.
 
 Quick start
 ============
