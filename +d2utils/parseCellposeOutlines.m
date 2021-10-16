@@ -2,7 +2,7 @@ function polygonVector = parseCellposeOutlines(inFileName, varargin)
     p = inputParser;
     p.addRequired('inFileName', @ischar);
     p.addParameter('position', [1 1],@(x)validateattributes(x,{'numeric'}, {'size', [1, 2], '>', 0}));
-    p.addParameter('scaleFactor', [1, 1], @(x)validateattributes(x,{'numeric'}, {'size', [1, 2], '>', 0}));
+    p.addParameter('scaleFactor', 1, @(x)validateattributes(x,{'numeric'}, {'vector', '>', 0}));
     p.addParameter('flip', false, @islogical);
     p.parse(inFileName, varargin{:});
     

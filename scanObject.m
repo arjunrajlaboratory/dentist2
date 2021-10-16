@@ -342,8 +342,12 @@ classdef scanObject < handle
         end
         
         function p = resizeStitchedScanChannel(p, channel)
-            channelIdx = find(ismember(channel, p.smallStitchedScans.labels));
+            channelIdx = ismember(channel, p.smallStitchedScans.labels);
             p.smallStitchedScans.stitches{channelIdx} = imresize(p.stitchedScans.stitches{channelIdx}, 1/p.resizeFactor);
+        end
+        
+        function p = resizeStitchedDapi(p)
+            p.smallDapiStitch = imresize(p.dapiStitch, 1/p.resizeFactor);
         end
         
         function tmpStitch = stitchChannel(p, channel, varargin)

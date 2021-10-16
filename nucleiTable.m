@@ -88,7 +88,7 @@ classdef nucleiTable < handle
         
         function p = findNuclei(p)
             
-            CC = bwconncomp(p.dapiMask);
+            CC = bwconncomp(p.dapiMask); %May be able to delete this and run regionProps on dapiMask
             rp = regionprops(CC);
             area = [rp.Area];
             idx = area >= p.minNucleusSize;
@@ -107,10 +107,13 @@ classdef nucleiTable < handle
             p.addEmptyRows(1000);
         end
         
-        function p = loadCellPoseMasks(p, inFileName, scaleFactor)
+        function p = loadNucleiOutlines(p, inFileName, scaleFactor)
             warning('off', 'MATLAB:polyshape:repairedBySimplify') 
             polyArray = d2utils.parseCellposeOutlines(inFileName);
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
+            if isempty(polyArray)
+                error('Unable to parse masks from %s. Please check file format.', inFileName)
+            end
             polyArray = scale(polyArray, scaleFactor);
             [polyX, polyY] = centroid(polyArray);
             polyArea = single(area(polyArray));
@@ -124,9 +127,35 @@ classdef nucleiTable < handle
             p.addEmptyRows(1000);
         end
         
+        function p = loadLabelMat(p, inFileName, scaleFactor)
+            tmpLabelMat = imread(inFileName);
+            if scaleFactor == 1
+                p.dapiMask = tmpLabelMat;
+            else
+                p.dapiMask = imresize(tmpLabelMat, scaleFactor, 'nearest');
+            end
+            
+            rp = regionprops(p.dapiMask);
+            area = [rp.Area];
+            idx = area >= p.minNucleusSize;
+            rp = rp(idx);
+            centroids = [rp.Centroid];
+            centroids = round(reshape(centroids,2,[])');
+            centroids = single(centroids);
+            area = single([rp.Area]);
+            
+            status = true(height(centroids), 1);
+            maskID = single(zeros(height(centroids), 1));
+            colors = single(zeros(height(centroids),3));
+
+            p.nuclei = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
+                'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
+            p.addEmptyRows(1000);
+        end
+        
         function p = stitchCellPoseMasks(p, cpTilePositionsFile, inDir, scaleFactor)
-            %May want to update this to avoid joining certain overlapping
-            %outlines. Should also try speeding up. 
+            %Load tiled cellpose outlines from inDir and merge overlapping masks. 
+            %Unfortunately, very slow for large scans. Consider writing new function. 
             cpTilePositions = readtable(cpTilePositionsFile, 'ReadRowNames', true);
             rows = regexp(cpTilePositions.tile, '\d+(?=_)', 'Match');
             rows = unique(cellfun(@str2num, [rows{:}]));

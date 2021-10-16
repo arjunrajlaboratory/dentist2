@@ -4,23 +4,22 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('masksFile', 'masks.csv', @ischar); 
     n.addParameter('nucleiFile', 'nuclei.csv', @ischar); 
     n.addParameter('spotsFile', 'spots.csv', @ischar); 
-    n.addParameter('preStitchedScan', '', @ischar);
+    n.addParameter('preStitchedScan', '', @(x) d2utils.checkFile(x));
     n.addParameter('preStitchedScanFilelist','', @(x)validateattributes(x,{'cell'},{'size',[1 nan]}));
     n.addParameter('channelTypes',{}, @(x)iscell(x) && all(ismember(x,{'dapi','FISH','other'})) && size(x,1)==1);
-    n.addParameter('cellPose', '', @ischar);
-    n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
+    n.addParameter('nucleiMasks', '', @(x) d2utils.checkFile(x)); 
+    n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'vector', '>', 0})); %Consider updating to limit ncol to 1 | 2
+    n.addParameter('cellPose', '', @(x) d2utils.checkDir(x));
     n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
     n.addParameter('subtractBackground', false, @islogical);
     n.addParameter('launchGUI',true, @islogical);
-    n.addParameter('sigma',[],@(x) validateattributes(x,{'numeric'},{'positive','nonzero'})) % defaults stored in spotsTable
-    n.addParameter('thresholds',[],@(x) validateattributes(x,{'numeric'},{'size',[1 nan]})) % defaults stored in spotsTable
+    n.addParameter('sigma',[],@(x) validateattributes(x,{'numeric'},{'positive','nonzero'})) % defaults stored in spotsTable.m
+    n.addParameter('thresholds',[],@(x) validateattributes(x,{'numeric'},{'size',[1 nan]})) % defaults stored in spotsTable.m
     n.addParameter('aTrousMinThreshFactor', [], @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
     
     n.parse(varargin{:});
 %----------------------------------------------------------------
-%
 
-        
     if isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist)
         if isfile(n.Results.scanSummary)
             scanObj = scanObject('scanSummary', n.Results.scanSummary,'channelTypes',n.Results.channelTypes);
@@ -86,10 +85,10 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         disp('Loading nuclei file.')
         nucleiObj = nucleiTable(scanObj, maskObj, n.Results.nucleiFile);
     else
-         fprintf('Unable to detect %s in your current directory. Creating a new nuclei object\n', n.Results.nucleiFile)
-         nucleiObj = nucleiTable(scanObj, maskObj);
-         nucleiObj.nucleiFile = n.Results.nucleiFile;
-         if isempty(n.Results.cellPose) %No cellpose
+        fprintf('Unable to detect %s in your current directory. Creating a new nuclei object\n', n.Results.nucleiFile)
+        nucleiObj = nucleiTable(scanObj, maskObj);
+        nucleiObj.nucleiFile = n.Results.nucleiFile;
+        if isempty(n.Results.nucleiMasks) && isempty(n.Results.cellPose) %No existing nuclei mask
             disp('Finding nuclei. This may take a few minutes.')
             if (isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist))
                 nucleiObj.stitchDAPImask();
@@ -97,29 +96,30 @@ function guiHandle = launchD2ThresholdGUI(varargin)
                 nucleiObj.stitchDAPImask2();
             end
             nucleiObj.findNuclei();
-%             disp('Saving nuclei file.') Table will be automatically saved when closing GUI.
-%             nucleiObj.saveNucleiTable(); 
-        elseif isfile(n.Results.cellPose) %Load pre-stitched cellpose mask
-            fprintf('Loading pre-stitched cellpose mask:%s.\nResize factor is %d.\n', n.Results.cellPose, n.Results.maskResizeFactor)
-            nucleiObj.loadCellPoseMasks(n.Results.cellPose, n.Results.maskResizeFactor);
-%           disp('Saving nuclei file.') 
-%           nucleiObj.saveNucleiTable();
-        elseif isfolder(n.Results.cellPose) %Load & stitch cellpose masks
+        elseif ~isempty(n.Results.nucleiMasks) %Priority to load pre-stitched masks
+            fprintf('Loading nuclei mask file:%s.\nResize factor is %d.\n', n.Results.nucleiMasks, n.Results.maskResizeFactor)
+            try %first try loading as image (label matrix)
+                nucleiObj.loadLabelMat(n.Results.nucleiMasks, n.Results.maskResizeFactor);
+            catch ME
+                if (strcmp(ME.identifier,'MATLAB:imagesci:imread:fileFormat'))
+                    %try loading as outlines file
+                    nucleiObj.loadNucleiOutlines(n.Results.nucleiMasks, n.Results.maskResizeFactor);
+                else
+                    rethrow(ME)
+                end
+            end
+        elseif ~isempty(n.Results.cellPose) %Load & stitch cellpose masks
             if isfile(n.Results.cellPoseTileTable)
                 fprintf('Stitching cellpose masks in directory: %s.\nResize factor is %d.\n', n.Results.cellPose, n.Results.maskResizeFactor)
                 nucleiObj.stitchCellPoseMasks(n.Results.cellPoseTileTable, n.Results.cellPose, n.Results.maskResizeFactor);
-%               nucleiObj.saveNucleiTable();
             else
                 fprintf('Unable to find cellpose file table: %s.\nThe file is need for stitching maks in %s\n', n.Results.cellPoseTileTable, n.Results.cellPose)
-                disp('If you intended to input a pre-stitched mask, please specify the full filename rather than the name of a directory.')
+                disp('If you intended to input a pre-stitched mask, please use the nucleiMasks parameter.')
             end
-         else
-            fprintf('Unable to find file or folder %s', n.Results.cellPose)
-            return
-         end
+        end
     end
     nucleiObj.addColors();
-    nucleiObj.updateAllMasks(); 
+    nucleiObj.updateAllMasks();
 %----------------------------------------------------------------
     spotsObj = spotTable(scanObj, maskObj, nucleiObj, 'spotsFile',n.Results.spotsFile,'sigma',n.Results.sigma,'thresholds',n.Results.thresholds,'aTrousMinThreshFactor',n.Results.aTrousMinThreshFactor);
     if ~isfile(n.Results.spotsFile)
