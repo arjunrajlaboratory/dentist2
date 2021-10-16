@@ -16,7 +16,7 @@ Table of contents
   * [Thumbnail axes](#thumbnail-axes)
   * [Threshold axes](#threshold-axes)
   * [Adding and deleting masks and nuclei](#adding-and-deleting-masks-and-nuclei)
-* [Importing CellPose nuclei masks](#importing-cellpose-nuclei-masks)
+* [Importing nuclei masks](#importing-nuclei-masks)
 * [Loading single-channel .tif scan](#loading-single-channel-tif-scans)
 * [Troubleshooting](#troubleshooting)
 
@@ -154,25 +154,27 @@ You can use the combination of "delete cells" and "add cells" to divide 2+ cells
 
 **Please note, if you click on one of the add mask, add cells, or delete cells buttons, but don't want to complete the operation, try clicking the Esc key. Alternatively, click on an empty area in the main axes then press Enter.**
 
-Importing CellPose nuclei masks
+Importing nuclei masks
 ===============================
-If you use CellPose to segment nuclei, Dentist2 can use these outlines instead of it's default algorithm to identify cells. If you have a single CellPose outlines file (i.e. you ran cellpose on the pre-stitched scan), include the file name when running launchD2ThresholdGUI() as below:
+If you use another algorithm to segment nuclei, you can input the nuclei masks into dentist2 using the 'nucleiMasks' parameter. The expected input is either a label matrix (2D image with the position of each mask labeled with a unique integer; see example [here]()) or a text file containing, per row, the boundary coordinates of each mask (i.e. mask outlines; see example [here]()). Input the mask file when running launchD2ThresholdGUI() as below:
 ```matlab
->>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_outlines.txt');
+>>h = launchD2ThresholdGUI('nucleiMasks', 'path/to/nucleiLabelMatrix.tif');
 ```
-Alternatively, if you ran CellPose on multiple image tiles that need to be stitched, specify the path to the folder containing the CellPose outlines as well as the name of a file that lists the position of each tile. For example: 
+Dentist2 also includes an option to "stitch" masks from separate, overlapping tiles of a larger scan. To use this feature, use the 'cellPose' parameter and specify a folder containing the mask outlines for each tile (this feature currently does not support tiled label matrices currently). You will also need to use the 'cellPoseTileTable' parameter and specify the name of a file that lists the position of each tile. For example: 
 ```matlab
 >>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv');
 ```
-An example of the cellPoseTilePositions.csv file can be found [here](). In addition, you may use +d2utils/splitStitchedScan.m to generate both the overlapping image tiles from a pre-stitched scan and the cellPoseTilePositions.csv file. For each outline in tile i, Dentist2 will determine if the outline overlaps any outlines from previous neighboring tiles, and if so, the overlapping outlines will be merged. This is to avoid duplicating nuclei that fall on tile boundaries. If your scan has a lot of nuclei, this step may take a very long time. You may be better off just running CellPose on a larger (stitched) image.  
+An example of the cellPoseTilePositions.csv file can be found [here](). 
 
-Note that if you ran CellPose on a resized image (to save on memory), you will want to specify the resize factor when running launchD2ThresholdGUI() as below:
+You may use +d2utils/splitStitchedScan.m to generate both the overlapping image tiles from a pre-stitched scan and the cellPoseTilePositions.csv file. For each outline in tile i, dentist2 will determine if the outline overlaps any outlines from previous neighboring tiles, and if so, the overlapping outlines will be merged. This is to avoid duplicating nuclei that fall on tile boundaries. If your scan has a lot of nuclei, this step may take a very long time. You may be better off just running the segmenting algorithm on the larger (stitched) image.  
+
+Note that if you ran your segmenting algorithm on resized images (to save on memory), you can specify the resize factor when running launchD2ThresholdGUI() as below:
 ```matlab
 >>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_outlines.txt', 'maskResizeFactor', 4); %Indicates a resize factor of 4. 
 ```
 or 
 ```matlab
->>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv', 'maskResizeFactor', 4);
+>>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv', 'maskResizeFactor', [2 4]); %Indicates a vertical resize factor of 2 and horizontal resize factor of 4. 
 ```
 Loading single-channel .tif scans
 =================================
