@@ -6,14 +6,14 @@ function guiHandle = launchD2IFGUI(varargin)
     n.addParameter('nucBoundariesFile', 'nucBoundariesIF.csv', @ischar); 
     n.addParameter('cellBoundariesFile', 'cellBoundariesIF.csv', @ischar); 
     n.addParameter('IFquantFile', 'IFquantTable.csv', @ischar); 
-    n.addParameter('preStitchedScan', '', @ischar);
+    n.addParameter('preStitchedScan', '', @(x) d2utils.checkFile(x));
     n.addParameter('preStitchedScanFilelist','', @(x)validateattributes(x,{'cell'},{'size',[1 nan]}));
-    n.addParameter('cellPoseNuclei', '', @ischar);
-    n.addParameter('cellPoseCyto', '', @ischar);
+    n.addParameter('nucleiMasks', '', @(x) d2utils.checkFile(x));
+    n.addParameter('cellMasks', '', @(x) d2utils.checkFile(x));
     n.addParameter('withNuc', 'some', @(x)mustBeMember(x, {'none', 'some', 'all'}));
     n.addParameter('withCyto', true, @islogical);
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'scalar', '>', 0}));
-    n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @ischar);
+    n.addParameter('cellPoseTileTable', 'cellPoseTilePositions.csv', @(x) d2utils.checkFile(x));
     
     n.parse(varargin{:});
 %----------------------------------------------------------------
@@ -93,10 +93,10 @@ function guiHandle = launchD2IFGUI(varargin)
         IFboundariesObj.cellBoundariesFile = n.Results.cellBoundariesFile;
         IFquantObj.IFquantFile = n.Results.IFquantFile;
         if ~strcmp(n.Results.withNuc, 'none')
-            if isfile(sprintf('%s_masks.tif', n.Results.cellPoseNuclei)) %Load pre-stitched cellpose nuclei mask
-                disp('Loading cellpose nuclei boundaries.')
-                IFboundariesObj.loadCellPoseDapi(sprintf('%s_masks.tif', n.Results.cellPoseNuclei), sprintf('%s_outlines.txt',  n.Results.cellPoseNuclei));
-%                 IFboundariesObj.loadCellPoseDapi2(sprintf('%s_masks.tif', n.Results.cellPoseNuclei));
+            if ~isempty(n.Results.nucleiMasks) %Load pre-stitched cellpose nuclei mask
+                fprintf('Loading nuclei mask file:%s.\n', n.Results.nucleiMasks)
+%                 IFboundariesObj.loadCellPoseDapi(sprintf('%s_masks.tif', n.Results.cellPoseNuclei), sprintf('%s_outlines.txt',  n.Results.cellPoseNuclei));
+                IFboundariesObj.loadCellPoseDapi2(n.Results.nucleiMasks);
                 IFboundariesObj.labelMat2nucTable();
             else
                 disp('masking dapi')
@@ -111,10 +111,11 @@ function guiHandle = launchD2IFGUI(varargin)
         end
         
         if n.Results.withCyto
-            if isfile(sprintf('%s_masks.tif', n.Results.cellPoseCyto))
-                disp('Loading cellpose cytoplasmic boundaries.')
-                IFboundariesObj.cellPoseCytoFile = n.Results.cellPoseCyto;
-                IFboundariesObj.loadCellPoseCyto(sprintf('%s_masks.tif', n.Results.cellPoseCyto), sprintf('%s_outlines.txt',  n.Results.cellPoseCyto));
+            if ~isempty(n.Results.cellMasks)
+                fprintf('Loading cell mask file:%s.\n', n.Results.cellMasks)
+                IFboundariesObj.cellPoseCytoFile = n.Results.cellMasks;
+%                 IFboundariesObj.loadCellPoseCyto(sprintf('%s_masks.tif', n.Results.cellPoseCyto), sprintf('%s_outlines.txt',  n.Results.cellPoseCyto));
+                IFboundariesObj.loadCellPoseCyto2(n.Results.cellMasks);
                 IFboundariesObj.labelMat2cytoTable();
                 disp('Quantifying nuclei and cytoplasmic IF signal.')
                 switch n.Results.withNuc

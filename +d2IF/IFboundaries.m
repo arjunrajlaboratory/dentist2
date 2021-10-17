@@ -315,9 +315,9 @@ classdef IFboundaries < handle
                 tmpBB = p.dapiRP(i).BoundingBox;
 %                 tmpBB = [fliplr(floor(tmpBB(1:2))), fliplr(tmpBB(3:4))];
                 %Create buffer
-                tmpShift = ceil(tmpBB(4:-1:3)*0.1);
-                tmpStart = max([1,1], floor(tmpBB(2:-1:1))-tmpShift);
-                tmpEnd = min(tmpStart+tmpBB(4:-1:3)+(tmpShift*2), size(p.dapiLabelMat)); %Could make this stitchDim
+%                 tmpShift = ceil(tmpBB(4:-1:3)*0.1); previously buffer = 10%, now 10 pixels.
+                tmpStart = max([1,1], floor(tmpBB(2:-1:1))-10);
+                tmpEnd = min(tmpStart+tmpBB(4:-1:3)+20, p.scanObj.stitchDim); 
                 
                 tmpRegionMask = p.dapiLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
                 tmpDapiMask = tmpRegionMask == i;
@@ -339,9 +339,9 @@ classdef IFboundaries < handle
             for i = 1:height(p.cellBoundaries2) %can make this parfor?
                 tmpBB = p.cellBoundaries2.cellBB(i,:);
                 %Create buffer
-                tmpShift = ceil(tmpBB(3:4)*0.1);
-                tmpStart = max([1,1], tmpBB(1:2)-tmpShift);
-                tmpEnd = min(tmpStart+tmpBB(3:4)+(tmpShift*2), size(p.cytoLabelMat)); %Could make this stitchDim
+%                 tmpShift = ceil(tmpBB(3:4)*0.1); previously buffer = 10%, now 10 pixels.
+                tmpStart = max([1,1], tmpBB(1:2)-10);
+                tmpEnd = min(tmpStart+tmpBB(3:4)+20, p.scanObj.stitchDim);
                 
                 tmpRegionMask = p.cytoLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
                 tmpCellMask = tmpRegionMask == i;
@@ -364,9 +364,9 @@ classdef IFboundaries < handle
             for i = 1:numel(p.cytoRP) %can make this parfor?
                 tmpBB = p.cytoRP(i).BoundingBox;
                 %Create buffer
-                tmpShift = ceil(tmpBB(4:-1:3)*0.1);
-                tmpStart = max([1,1], floor(tmpBB(2:-1:1))-tmpShift);
-                tmpEnd = min(tmpStart+tmpBB(4:-1:3)+(tmpShift*2), size(p.cytoLabelMat)); %Could make this stitchDim
+%                 tmpShift = ceil(tmpBB(4:-1:3)*0.1); previously buffer = 10%, now 10 pixels.
+                tmpStart = max([1,1], floor(tmpBB(2:-1:1))-10);
+                tmpEnd = min(tmpStart+tmpBB(4:-1:3)+20, p.scanObj.stitchDim);
                 
                 tmpRegionMask = p.cytoLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
                 tmpCellMask = tmpRegionMask == i;

@@ -55,7 +55,10 @@ classdef IFtable < handle
         end
         
         function p = quantAllLabelMat(p, varargin)
-        %Uses polyshapes to mask nuclei and cells.
+        %Extracts local rectangle surround each nuclei (using info in
+        %p.IFboundaries.dapiRP). Then uses bwboundaries to find nuclei 
+        %perimiters (similar to p.IFboundaries.labelMat2nucTable). 
+        %Then uses imdilate to define cytoplasmic region surrounding nucleus.
             if nargin == 1
                 channelsToQaunt = p.channels;
             elseif nargin ==2
@@ -63,51 +66,43 @@ classdef IFtable < handle
             end
             
             nRows = numel(p.IFboundaries.dapiRP) * numel(channelsToQaunt);
-            meanNuc = zeros(nRows,1);
-            meanCyto = zeros(nRows,1);
-            sumNuc = zeros(nRows,1);
-            sumCyto = zeros(nRows,1);
+            meanNucArray = zeros(nRows,1);
+            meanCytoArray = zeros(nRows,1);
+            sumNucArray = zeros(nRows,1);
+            sumCytoArray = zeros(nRows,1);
             channelStatus = false(nRows,numel(p.channels));
             nucBoundariesTmp = cell(0, numel(p.IFboundaries.dapiRP));
             cellBoundariesTmp = cell(0, numel(p.IFboundaries.dapiRP));
+            strelMat = strel('disk', p.radius); %Consider other strel. Including tmpDapiMask. 
+            buffer = 2*p.radius;
             for i = 1:numel(p.IFboundaries.dapiRP) %can make this parfor?
                 tmpBB = p.IFboundaries.dapiRP(i).BoundingBox;
-                tmpSize = tmpBB(3:4) + (2*p.radius);
-                tmpStart = max([1,1], tmpBB(1:2)-p.radius-5); %Add a buffer beyond the p.radius
-                tmpEnd = min(tmpStart+tmpSize+10, size(p.IFboundaries.dapiLabelMat)); %Could make this stitchDim
+                tmpSize = tmpBB(4:-1:3) + buffer;
+                tmpStart = max([1,1], floor(tmpBB(2:-1:1))-p.radius-5); %Add a buffer beyond the p.radius
+                tmpEnd = min(tmpStart+tmpSize+10, p.scanObj.stitchDim); 
                 
                 tmpRegionMask = p.IFboundaries.dapiLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
                 tmpDapiMask = tmpRegionMask == i;
                 %Consider switching from masks to polyshapes below (and
                 %expanding polyshape with polybuffer instead of imdilate). 
-                tmpDapiMaskDilated = imdilate(tmpDapiMask, strel('disk', p.radius)); %Consider other strel. Including tmpDapiMask. 
+                tmpDapiMaskDilated = imdilate(tmpDapiMask, strelMat); 
                 tmpCytoMask = tmpDapiMaskDilated & ~logical(tmpRegionMask);
                 tmpCellMask = or(tmpCytoMask, tmpDapiMask);
                 tmpNucBoundary = bwboundaries(tmpDapiMask, 'noholes');
                 tmpCellBoundary = bwboundaries(tmpCellMask, 'noholes');
                 nucBoundariesTmp{i} = cellfun(@(x) x+tmpStart-1, tmpNucBoundary, 'UniformOutput', false);
                 cellBoundariesTmp{i} = cellfun(@(x) x+tmpStart-1, tmpCellBoundary, 'UniformOutput', false);
+                tmpBB2 = [tmpStart, tmpEnd - tmpStart+1]; %+1 to offset -1 in scanObj.getImageRect
                 for ii = 1:numel(channelsToQaunt)
-                    stitchIdx = ismember(p.channels, channelsToQaunt(ii)); %Redundant in some cases but flexible
-                    tmpImage = p.scanObj.stitchedScans.stitches{stitchIdx}(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
-                    tmpSz = tmpEnd - tmpStart;
-                    tmpMasks = p.maskObj.getChannelMasksInRect([tmpStart, tmpSz], channelsToQaunt(ii));
-                    if ~isempty(tmpMasks)
-                        tmpMasks = convertvars(tmpMasks, {'x', 'y'}, 'double');
-                        maskIDs = unique(tmpMasks.maskID);
-                        for iii = 1:numel(maskIDs)
-                            bwmask = poly2mask(tmpMasks{tmpMasks.maskID == maskIDs(iii), 'y'}-tmpStart(2), tmpMasks{tmpMasks.maskID == maskIDs(iii), 'x'}-tmpStart(1), tmpSz(1), tmpSz(2));
-                            tmpDapiMask(bwmask) = false;
-                            tmpCytoMask(bwmask) = false;
-                        end
-                    end
+                    [meanNuc, meanCyto, sumNuc, sumCyto] = p.quantCellInChannel(tmpDapiMask, tmpCytoMask, tmpBB2, channelsToQaunt(ii));
                     tmpIdx = (i-1)*numel(channelsToQaunt)+ii;
-                    meanNuc(tmpIdx) = mean(tmpImage(tmpDapiMask));
-                    sumNuc(tmpIdx) = sum(tmpImage(tmpDapiMask));
-                    meanCyto(tmpIdx) = mean(tmpImage(tmpCytoMask));
-                    sumCyto(tmpIdx) = sum(tmpImage(tmpCytoMask));
+                    meanNucArray(tmpIdx) = meanNuc;
+                    sumNucArray(tmpIdx) = sumNuc;
+                    meanCytoArray(tmpIdx) = meanCyto;
+                    sumCytoArray(tmpIdx) = sumCyto;
+                    stitchIdx = ismember(p.channels, channelsToQaunt(ii)); %Redundant in some cases but flexible
                     channelStatus(tmpIdx,:) = stitchIdx;
-                end
+                end 
             end
             %Update nucBoundaries
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
@@ -126,20 +121,24 @@ classdef IFtable < handle
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
             warning('on', 'MATLAB:polyshape:boundary3Points')
             %Update IFquant
-            [cellCoordsX, cellCoordsY]  = cellfun(@(x) centroid(x, 1:x.NumRegions), nucBoundariesArray, 'UniformOutput', false); 
+            [cellCoordsX, cellCoordsY]  = cellfun(@(x) centroid(x, 1:x.NumRegions), nucBoundariesArray, 'UniformOutput', false); %Could pull this from p.IFboundaries.dapiRP instead
             cellCoords = cellfun(@(x) single(round(mean(x, 1))), [cellCoordsX; cellCoordsY], 'UniformOutput', false); 
             cellCoords = repelem(cellCoords', numel(p.channels), 1);
             status = true(nRows,1);
             maskID = single(zeros(nRows,1));
             cellIDs = repelem(1:numel(p.IFboundaries.dapiRP), numel(p.channels));
-            p.IFquant = array2table([cellIDs',cell2mat(cellCoords), status, channelStatus, meanNuc, meanCyto, sumNuc, sumCyto, maskID],...
+            p.IFquant = array2table([cellIDs',cell2mat(cellCoords), status, channelStatus, meanNucArray, meanCytoArray, sumNucArray, sumCytoArray, maskID],...
                 'VariableNames', [{'cellID', 'x', 'y', 'status'}, p.channels, {'meanNuc', 'meanCyto',  'sumNuc', 'sumCyto','maskID'}]);
             p.IFquant = convertvars(p.IFquant, [{'status'}, p.channels], 'logical');
             p.addEmptyRows(1000);
         end
         
         function p = quantAllLabelMat2(p, varargin)
-            %Uses polybuffer instead of imdilate
+            %Uses polybuffer instead of imdilate to define cytoplasmic
+            %region surrounding nucleus. This functions assumes you already
+            %have nuclei boundaries in p.IFboundaries.nucBoundaries2
+            %i.e. you've run p.IFboundaries.makeNucleiLabelMat or
+            %p.IFboundaries.labelMat2nucTable if using pre-segmented nuclei masks. 
             if nargin == 1
                 channelsToQaunt = p.channels;
             elseif nargin ==2
