@@ -96,10 +96,11 @@ function guiHandle = launchD2IFGUI(varargin)
             if isfile(sprintf('%s_masks.tif', n.Results.cellPoseNuclei)) %Load pre-stitched cellpose nuclei mask
                 disp('Loading cellpose nuclei boundaries.')
                 IFboundariesObj.loadCellPoseDapi(sprintf('%s_masks.tif', n.Results.cellPoseNuclei), sprintf('%s_outlines.txt',  n.Results.cellPoseNuclei));
+%                 IFboundariesObj.loadCellPoseDapi2(sprintf('%s_masks.tif', n.Results.cellPoseNuclei));
                 IFboundariesObj.labelMat2nucTable();
             else
                 disp('masking dapi')
-                if and(isempty(n.Results.preStitchedScan),isempty(n.Results.preStitchedScanFilelist))
+                if isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist)
                     IFboundariesObj.stitchDAPImask();
                 else
                      IFboundariesObj.stitchDAPImask2();

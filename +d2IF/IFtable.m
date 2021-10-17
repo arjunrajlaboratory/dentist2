@@ -21,7 +21,8 @@ classdef IFtable < handle
             p.scanObj = scanObject;
             p.maskObj = maskObj;
             p.IFboundaries = IFboundaries;
-            p.channels = p.scanObj.stitchedScans.labels;
+            p.channels = p.scanObj.channels(ismember(p.scanObj.channelTypes,{'FISH'}));
+%             p.channels = p.scanObj.stitchedScans.labels;
             if nargin == 3
                 fprintf('New IFquant Table\n');
                 p.IFquant = table('size', [0,numel(p.channels)+ 9],...

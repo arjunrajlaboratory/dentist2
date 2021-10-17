@@ -12,6 +12,7 @@ classdef IFboundaries < handle
        dapiLabelMat
        cytoLabelMat
        dapiRP
+       cytoRP
        randomColors
        nucBoundariesFile = 'nucBoundariesIF.csv'
        cellBoundariesFile = 'cellBoundariesIF.csv'
@@ -32,7 +33,8 @@ classdef IFboundaries < handle
             
             p.scanObj = n.Results.scanObject;
             p.maskObj = n.Results.maskObj;
-            p.channels = p.scanObj.stitchedScans.labels;
+            p.channels = p.scanObj.channels(ismember(p.scanObj.channelTypes,{'FISH'}));
+%             p.channels = p.scanObj.stitchedScans.labels;
             p.randomColors = single(d2utils.distinguishable_colors(50));
             if isfile(n.Results.nucleiFile)
                 p.nucBoundariesFile = n.Results.nucleiFile;
@@ -220,7 +222,6 @@ classdef IFboundaries < handle
                 p.dapiLabelMat = imresize(tmpLabelMat, p.scanObj.stitchDim, 'nearest');
                 scaleFactor = p.scanObj.stitchDim./size(tmpLabelMat);
             end
-            
             warning('off', 'MATLAB:polyshape:repairedBySimplify')
             warning('off', 'MATLAB:polyshape:boundary3Points')
             polyVect = d2utils.parseCellposeOutlines(outlineFile, 'scaleFactor', scaleFactor, 'flip', true);
@@ -235,7 +236,6 @@ classdef IFboundaries < handle
 %             tmpCentroid = cellfun(@(x) d2utils.poly2centroid(x)*scaleFactor,polyArray, 'UniformOutput', false);
 %             tmpBB = cellfun(@(x) d2utils.polygonBoundingBox2(x)*scaleFactor,polyArray, 'UniformOutput', false);
             p.dapiRP = cell2struct([tmpArea', tmpCentroid, tmpBB'], {'Area', 'Centroid', 'BoundingBox'}, 2);
-            
 %             nucBoundariesArray = cellfun(@(x) single(x.Vertices), nucBoundariesArray, 'UniformOutput', false);
 %             nucBoundariesHeight = cellfun(@(x) height(x), nucBoundariesArray, 'UniformOutput', true);
 %             nucIDArray = repelem(1:numel(nucBoundariesHeight), nucBoundariesHeight);
@@ -245,6 +245,18 @@ classdef IFboundaries < handle
             p.nucBoundaries2 = cell2table([num2cell((1:numel(nucBoundariesArray))'), nucBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'nucBoundary', 'nucBB'}, p.channels]);
             warning('on', 'MATLAB:polyshape:repairedBySimplify')
             warning('on', 'MATLAB:polyshape:boundary3Points')
+        end
+        
+        function p = loadCellPoseDapi2(p, labelMatFile)
+            tmpLabelMat = imread(labelMatFile);
+            if all(size(tmpLabelMat) ==  p.scanObj.stitchDim)
+                p.dapiLabelMat =  tmpLabelMat;
+                %                 scaleFactor = [1, 1];
+            else
+                p.dapiLabelMat = imresize(tmpLabelMat, p.scanObj.stitchDim, 'nearest');
+                %                 scaleFactor = p.scanObj.stitchDim./size(tmpLabelMat);
+            end
+            p.dapiRP = regionprops(p.dapiLabelMat);
         end
         
         function p = loadCellPoseCyto(p, labelMatFile, outlineFile)
@@ -283,14 +295,29 @@ classdef IFboundaries < handle
             warning('on', 'MATLAB:polyshape:boundary3Points')
         end
         
+         function p = loadCellPoseCyto2(p, labelMatFile)
+            tmpLabelMat = imread(labelMatFile);
+            if all(size(tmpLabelMat) ==  p.scanObj.stitchDim)
+                p.cytoLabelMat =  tmpLabelMat;
+%                 scaleFactor = [1, 1];
+            else
+                p.cytoLabelMat = imresize(tmpLabelMat, p.scanObj.stitchDim, 'nearest');
+%                 scaleFactor = p.scanObj.stitchDim./size(tmpLabelMat);
+            end
+            
+            p.cytoRP = regionprops(p.cytoLabelMat);
+            
+        end
+        
         function p = labelMat2nucTable(p)
             nucBoundariesTmp = cell(0, numel(p.dapiRP));
             for i = 1:numel(p.dapiRP) %can make this parfor?
                 tmpBB = p.dapiRP(i).BoundingBox;
+%                 tmpBB = [fliplr(floor(tmpBB(1:2))), fliplr(tmpBB(3:4))];
                 %Create buffer
-                tmpShift = ceil(tmpBB(3:4)*0.1);
-                tmpStart = max([1,1], tmpBB(1:2)-tmpShift);
-                tmpEnd = min(tmpStart+tmpBB(3:4)+(tmpShift*2), size(p.dapiLabelMat)); %Could make this stitchDim
+                tmpShift = ceil(tmpBB(4:-1:3)*0.1);
+                tmpStart = max([1,1], floor(tmpBB(2:-1:1))-tmpShift);
+                tmpEnd = min(tmpStart+tmpBB(4:-1:3)+(tmpShift*2), size(p.dapiLabelMat)); %Could make this stitchDim
                 
                 tmpRegionMask = p.dapiLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
                 tmpDapiMask = tmpRegionMask == i;
@@ -315,6 +342,31 @@ classdef IFboundaries < handle
                 tmpShift = ceil(tmpBB(3:4)*0.1);
                 tmpStart = max([1,1], tmpBB(1:2)-tmpShift);
                 tmpEnd = min(tmpStart+tmpBB(3:4)+(tmpShift*2), size(p.cytoLabelMat)); %Could make this stitchDim
+                
+                tmpRegionMask = p.cytoLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
+                tmpCellMask = tmpRegionMask == i;
+                tmpCellBoundary = bwboundaries(tmpCellMask, 'noholes');
+                cytoBoundariesTmp{i} = cellfun(@(x) x+tmpStart-1, tmpCellBoundary, 'UniformOutput', false);
+            end
+            %Update cellBoundaries
+            warning('off', 'MATLAB:polyshape:repairedBySimplify')
+            cellBoundariesArray = cellfun(@(x) polyshape(cell2mat(x)), cytoBoundariesTmp, 'UniformOutput', false);
+            cellBoundariesArray = cellfun(@(x) union(rmholes(x)), cellBoundariesArray, 'UniformOutput', false); %Remove holes to simplify plotting
+            cellBoundariesArray = cellfun(@(x) d2utils.largestPolyRegion(x), cellBoundariesArray, 'UniformOutput', false); %Keep only largest region to simplify plotting. To keep disconnected regions, need to update overlayCells in IFcontroller 
+            tmpBB = cellfun(@(x) d2utils.polyshapeBoundingBox(x), cellBoundariesArray, 'UniformOutput', false);
+            status = true(numel(cellBoundariesArray), numel(p.channels));
+            p.cellBoundaries2 = cell2table([num2cell((1:numel(cellBoundariesArray))'), cellBoundariesArray', tmpBB', num2cell(status)], 'VariableNames', [{'cellID', 'cellBoundary', 'cellBB'}, p.channels]);
+            warning('on', 'MATLAB:polyshape:repairedBySimplify')
+        end
+        
+        function p = labelMat2cytoTable2(p)
+            cytoBoundariesTmp = cell(0, numel(p.cytoRP));
+            for i = 1:numel(p.cytoRP) %can make this parfor?
+                tmpBB = p.cytoRP(i).BoundingBox;
+                %Create buffer
+                tmpShift = ceil(tmpBB(4:-1:3)*0.1);
+                tmpStart = max([1,1], floor(tmpBB(2:-1:1))-tmpShift);
+                tmpEnd = min(tmpStart+tmpBB(4:-1:3)+(tmpShift*2), size(p.cytoLabelMat)); %Could make this stitchDim
                 
                 tmpRegionMask = p.cytoLabelMat(tmpStart(1):tmpEnd(1), tmpStart(2):tmpEnd(2));
                 tmpCellMask = tmpRegionMask == i;
