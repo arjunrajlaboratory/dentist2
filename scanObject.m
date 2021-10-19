@@ -38,9 +38,10 @@ classdef scanObject < handle
             n = inputParser;
             n.addParameter('scanSummary', '', @ischar);
             n.addParameter('scanFile', '', @ischar); 
-            n.addParameter('prestitchedScanFileList', '', @(x) validateattributes(x,{'cell'},{'size',[1 nan]})); 
+            n.addParameter('prestitchedScanFileList', {}, @(x) validateattributes(x,{'cell'},{'size',[1 nan]})); %Probably more accurate to have isempty(x) || (isvector(x) && iscellstr(x))
             n.addParameter('scanDim', [0,0], @(x)validateattributes(x,{'numeric'},{'size',[1 2]}));
-            n.addParameter('channelTypes',{},@iscell)
+            n.addParameter('channels',{}, @(x) validateattributes(x,{'cell'},{'size',[1 nan]})) %Probably more accurate to have isempty(x) || (isvector(x) && iscellstr(x))
+            n.addParameter('channelTypes',{},@(x) all(ismember(x, {'dapi', 'FISH', 'other'})))
             n.parse(varargin{:});
             
             if ~isempty(n.Results.scanSummary) % a scan summary (Eg. scanSummary.txt) was given, load it
@@ -52,22 +53,33 @@ classdef scanObject < handle
                 if ~isempty(n.Results.scanFile) && all(n.Results.scanDim)
                     fprintf('Loading file %s\n', n.Results.scanFile)
                     p.scanFile = n.Results.scanFile;
-                    p.channels = d2utils.readND2Channels(p.scanFile);
+                    p.channels = d2utils.loadChannelsND2(p.scanFile, n.Results.channels);
                     p.loadChannelTypes(n.Results.channelTypes)
                     p.scanDim = n.Results.scanDim;
                     p.defaultScanParameters()
                 elseif ~isempty(n.Results.scanFile) %If loading pre-stitched scan. 
                     fprintf('Loading pre-stiched scan file: %s\n', n.Results.scanFile)
                     p.scanFile = n.Results.scanFile;
-                    p.channels = d2utils.readND2Channels(p.scanFile);
-                    p.loadChannelTypes(n.Results.channelTypes)
-                    p.loadPrestitchedScans();
+                    [~,~,ext] = fileparts(p.scanFile);
+                    if strcmpi(ext, '.nd2')
+                        p.channels = d2utils.loadChannelsND2(p.scanFile, n.Results.channels);
+                        p.loadChannelTypes(n.Results.channelTypes)
+                        p.loadPrestitchedScans();
+                    elseif any(strcmpi(ext, {'.tif', '.tiff'}))
+                        p.channels = d2utils.loadChannelsTiff(p.scanFile, n.Results.channels);
+                        p.loadChannelTypes(n.Results.channelTypes)
+                        p.loadPrestitchedScansTiff(p.scanFile, n.Results.channels);
+                    end
                 elseif ~isempty(n.Results.prestitchedScanFileList)
                     temp=join(n.Results.prestitchedScanFileList,'  ');
                     fprintf('Loading pre-stitched scan file list:%s\n',temp{1})
                     p.scanFile='';
                     p.prestitchedScanFileList=n.Results.prestitchedScanFileList;
-                    p.channels=replace(p.prestitchedScanFileList,'.tif','');
+                    if isempty(n.Results.channels)
+                        p.channels=replace(p.prestitchedScanFileList,'.tif','');
+                    else
+                        p.channels = n.Results.channels;
+                    end
                     p.loadChannelTypes(n.Results.channelTypes)
                     p.loadPrestitchedScansFromFilelist()
                 else
@@ -143,6 +155,34 @@ classdef scanObject < handle
              p.stitchDim = size(p.dapiStitch);
          end
          
+         function p = loadPrestitchedScansTiff(p, userInputChannels, userInputChannelTypes)
+%              if isempty(userInputChannels)
+%                  error('To load multichannel tiff file, please specify channels with the "channels" parameter.')
+%              elseif numel(userInputChannels) ~= numel(unique(userInputChannels)) %Consider replacing with function to auto rename duplicates
+%                  error('Please specify only unique channel names.')
+%              end
+%              stackInfo = imfinfo(p.scanFile);
+%              if numel(stackInfo) ~= numel(userInputChannels)
+%                  error('Pleaes input 1 channel name for each channel in your scan file.\nThe input scan file: %s contains %d channels.\n%d channel names were specified\n', p.scanFile, numel(stackInfo), numel(channels))
+%              end
+%              p.channels = userInputChannels;
+%              p.loadChannelTypes(userInputChannelTypes);
+             %first load dapi. Assumes there is 1 dapi channel to load
+             dapiIdx = find(strcmpi('dapi', p.channelTypes));
+             p.dapiStitch = imread(p.scanFile, 'Index', dapiIdx);
+             %load other channels
+             nonDapiChannels=p.channels(~strcmpi('dapi', p.channelTypes));
+             p.stitchedScans.labels = nonDapiChannels;
+             p.stitchedScans.stitches = cell(1,numel(nonDapiChannels));
+             for i = 1:numel(nonDapiChannels)
+                 channelIdx = find(strcmpi(nonDapiChannels{i}, p.channels));
+                 fprintf('   bfGetPlane: %s (%i of %i non-dapi channels) with channelType=%s\n',nonDapiChannels{i},i,numel(nonDapiChannels),p.channelTypes{channelIdx})
+                 p.stitchedScans.stitches{i} = imread(p.scanFile, 'Index', channelIdx);
+             end
+             p.scanDim = [1 1];
+             p.stitchDim = size(p.dapiStitch);
+         end
+         
          function p = loadPrestitchedScansFromFilelist(p) % Ian D added
              
              %first load dapi
@@ -161,8 +201,8 @@ classdef scanObject < handle
              p.scanDim = [1 1];
              p.stitchDim = size(p.dapiStitch);
          end
-         
-         function loadChannelTypes(p,userInputChannelTypes)
+        
+         function loadChannelTypes(p,userInputChannelTypes) % Ian D added
              if isempty(userInputChannelTypes)
              % make default channelTypes based on filenames.
              %      anything with 'dapi' (case insensitive) in name = dapi
@@ -170,7 +210,7 @@ classdef scanObject < handle
              %      otherwise it is 'FISH'
                 indOther=[];
                 indDapi=find(contains(lower(p.channels),'dapi'));
-                if length(indDapi)>1 && sum(ismember(p.channels,'dapi'))==1 % but there's just one exact match of 'dapi', use this and channelType of the ris 'other'
+                if length(indDapi)>1 && sum(ismember(p.channels,'dapi'))==1 % but there's just one exact match of 'dapi', use this and channelType of the rest 'other'
                     indOther=find(contains(lower(p.channels),'dapi') & ~ismember(p.channels,'dapi'));
                     indDapi=find(ismember(p.channels,'dapi'));
                 else
@@ -179,7 +219,7 @@ classdef scanObject < handle
                         indOther=indDapi(2:end);
                         indDapi=indDapi(1);
                     elseif isempty(indDapi)
-                        error("no channel with dapi in the name was found. Try to input a channelTypes cell array, with a cell for each channel. For a 5 channel file, it would be like this: launchD2ThresholdGUI(__,'channelTypes',{'dapi','FISH','FISH','other','FISH'}")
+                        error("no channel with dapi in the name was found. Try to input a channelTypes cell array, with a type for each channel. For a 5 channel file, it would be like this: launchD2ThresholdGUI(__,'channelTypes',{'dapi','FISH','FISH','other','FISH'}")
                     end
                 end
                 indTrans=find(contains(lower(p.channels),{'trans','brightfield'}));
@@ -230,16 +270,15 @@ classdef scanObject < handle
 %              end
          end
          
-         function checkOverChannelTypes(p,channelTypes)
+         function checkOverChannelTypes(p,channelTypes) % Ian D added
              mustBeMember(channelTypes,{'dapi','FISH','other'})
              if length(channelTypes)~=length(p.channels)
                  error('There are %i cells in channelTypes but there are %i channels',length(channelTypes),length(p.channels))
              end
-             mustBeMember(channelTypes,{'dapi','FISH','other'})
              if sum(ismember(channelTypes,'dapi'))>1
-                 error("there should be 1 dapi in the input channelTypes, but instead you have %i. If you actually do have more than one dapi channel, you must pick one to be processed as dapi and the rest can have channelType 'other'",sum(ismember(channelTypes,'dapi')))
+                 error("There should be 1 dapi in the input channelTypes, but instead you have %i. If you actually do have more than one dapi channel, you must pick one to be processed as dapi and the rest can have channelType 'other'",sum(ismember(channelTypes,'dapi')))
              elseif sum(ismember(channelTypes,'dapi'))==0
-                 error("one of the elements of channelTypes should be 'dapi'")
+                 error("One of the elements of channelTypes should be 'dapi'")
              end
          end
          

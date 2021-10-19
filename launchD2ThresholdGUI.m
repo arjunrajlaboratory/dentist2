@@ -40,6 +40,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
             fprintf('Loading stitched scans.\nThis may take several minutes.\n')
             scanObj.loadStitches();
         else
+            %Need to update this to throw error if no dapi channel
             disp('Stitching DAPI channel. This may take a few minutes.')
             scanObj.stitchDAPI();
             if n.Results.subtractBackground
@@ -65,6 +66,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     else % then ~isempty(n.Results.preStitchedScan)
         fprintf('Loading pre-stitched scans.\nThis may take several minutes.\n')
         scanObj = scanObject('scanFile', n.Results.preStitchedScan,'channelTypes',n.Results.channelTypes);
+        %Need to update this to throw error if no dapi channel
         scanObj.scanSummaryFile = n.Results.scanSummary;
         if ~isfile(n.Results.scanSummary)
             scanObj.saveScanSummary();
@@ -88,7 +90,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         fprintf('Unable to detect %s in your current directory. Creating a new nuclei object\n', n.Results.nucleiFile)
         nucleiObj = nucleiTable(scanObj, maskObj);
         nucleiObj.nucleiFile = n.Results.nucleiFile;
-        if isempty(n.Results.nucleiMasks) && isempty(n.Results.cellPose) %No existing nuclei mask
+        if isempty(n.Results.nucleiMasks) && isempty(n.Results.cellPose) %No input nuclei mask
             disp('Finding nuclei. This may take a few minutes.')
             if (isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist))
                 nucleiObj.stitchDAPImask();
