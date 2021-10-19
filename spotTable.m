@@ -667,6 +667,13 @@ classdef spotTable < handle
                 scanSummaryTable = d2utils.parseScanSummary(inFileName);
                 if ismember('spotChannels', scanSummaryTable.Row)
                     p.spotChannels = split(scanSummaryTable{'spotChannels',1}{:})';
+                    %Check if spot channels in the scan summary file match
+                    %the channels in scanObject. If not, there may be
+                    %issues later. Alternatively, don't read spotChannels
+                    %from scan summary, just copy from scan object. 
+                    if ~all(ismember(p.spotChannels, p.scanObj.channels(ismember(p.scanObj.channelTypes,{'FISH'}))))
+                        error('Spot channels in scan summary file: %s do not match FISH channels in the scan object. You may need to edit or delete %s and try running again.', inFileName, inFileName)
+                    end
                     fprintf('Setting %s as spot channels.\n', scanSummaryTable{'spotChannels',1}{:});
                 else
                     p.spotChannels = p.scanObj.channels(ismember(p.scanObj.channelTypes,{'FISH'}));

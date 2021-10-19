@@ -6,7 +6,8 @@ function guiHandle = launchD2ThresholdGUI(varargin)
     n.addParameter('spotsFile', 'spots.csv', @ischar); 
     n.addParameter('preStitchedScan', '', @(x) d2utils.checkFile(x));
     n.addParameter('preStitchedScanFilelist','', @(x)validateattributes(x,{'cell'},{'size',[1 nan]}));
-    n.addParameter('channelTypes',{}, @(x)iscell(x) && all(ismember(x,{'dapi','FISH','other'})) && size(x,1)==1);
+    n.addParameter('channelNames',{}, @(x) isvector(x) && iscellstr(x));
+    n.addParameter('channelTypes',{}, @(x) iscell(x) && all(ismember(x,{'dapi','FISH','other'})) && size(x,1)==1);
     n.addParameter('nucleiMasks', '', @(x) d2utils.checkFile(x)); 
     n.addParameter('maskResizeFactor', 1, @(x)validateattributes(x,{'numeric'}, {'vector', '>', 0})); %Consider updating to limit ncol to 1 | 2
     n.addParameter('cellPose', '', @(x) d2utils.checkDir(x));
@@ -22,7 +23,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
 
     if isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist)
         if isfile(n.Results.scanSummary)
-            scanObj = scanObject('scanSummary', n.Results.scanSummary,'channelTypes',n.Results.channelTypes);
+            scanObj = scanObject('scanSummary', n.Results.scanSummary,'channels', n.Results.channelNames, 'channelTypes',n.Results.channelTypes);
         else
             fprintf('Unable to detect %s in your current directory.\n. Make sure to run the d2StitchingGUI before launching the d2ThresholdGUI.\n You may also want to check your path and %s and try again. ', n.Results.scanSummary, n.Results.scanSummary)
             return
@@ -65,7 +66,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         end
     else % then ~isempty(n.Results.preStitchedScan)
         fprintf('Loading pre-stitched scans.\nThis may take several minutes.\n')
-        scanObj = scanObject('scanFile', n.Results.preStitchedScan,'channelTypes',n.Results.channelTypes);
+        scanObj = scanObject('scanFile', n.Results.preStitchedScan,'channels', n.Results.channelNames,'channelTypes',n.Results.channelTypes);
         %Need to update this to throw error if no dapi channel
         scanObj.scanSummaryFile = n.Results.scanSummary;
         if ~isfile(n.Results.scanSummary)
@@ -92,7 +93,7 @@ function guiHandle = launchD2ThresholdGUI(varargin)
         nucleiObj.nucleiFile = n.Results.nucleiFile;
         if isempty(n.Results.nucleiMasks) && isempty(n.Results.cellPose) %No input nuclei mask
             disp('Finding nuclei. This may take a few minutes.')
-            if (isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist))
+            if isempty(n.Results.preStitchedScan) && isempty(n.Results.preStitchedScanFilelist)
                 nucleiObj.stitchDAPImask();
             else
                 nucleiObj.stitchDAPImask2();

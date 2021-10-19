@@ -40,14 +40,14 @@ classdef scanObject < handle
             n.addParameter('scanFile', '', @ischar); 
             n.addParameter('prestitchedScanFileList', {}, @(x) validateattributes(x,{'cell'},{'size',[1 nan]})); %Probably more accurate to have isempty(x) || (isvector(x) && iscellstr(x))
             n.addParameter('scanDim', [0,0], @(x)validateattributes(x,{'numeric'},{'size',[1 2]}));
-            n.addParameter('channels',{}, @(x) validateattributes(x,{'cell'},{'size',[1 nan]})) %Probably more accurate to have isempty(x) || (isvector(x) && iscellstr(x))
+            n.addParameter('channels',{}, @(x) isempty(x) || (isvector(x) && iscellstr(x))) 
             n.addParameter('channelTypes',{},@(x) all(ismember(x, {'dapi', 'FISH', 'other'})))
             n.parse(varargin{:});
             
             if ~isempty(n.Results.scanSummary) % a scan summary (Eg. scanSummary.txt) was given, load it
                     fprintf('Loading %s\n', n.Results.scanSummary);
                     p.scanSummaryFile = n.Results.scanSummary;
-                    p.loadScanSummary();
+                    p.loadScanSummary(n.Results.channels);
                     p.loadChannelTypes(n.Results.channelTypes) % user-input would override the channelTypes from scanSummaryFile
             else
                 if ~isempty(n.Results.scanFile) && all(n.Results.scanDim)
@@ -610,20 +610,23 @@ classdef scanObject < handle
         
         function [splitTiles, startPositions] = splitStitch(p, channels, varargin)
             if nargin == 2
-                blockSize = min([1000, p.stitchDim/2]); %Default chunk size
+                blockSize = min([1024 1024], p.stitchDim); %Default chunk size
             elseif narging == 3
                 blockSize = varargin{1};
             end
             if all(p.scanDim == 1) %If pre-stitched scan or single tile
-                rowSplit = [repmat(blockSize,1, floor(p.stitchDim(1)/blockSize)), mod(p.stitchDim(1), blockSize)]; 
-                colSplit = [repmat(blockSize,1, floor(p.stitchDim(2)/blockSize)), mod(p.stitchDim(2), blockSize)];
+                rowSplit = [repmat(blockSize(1),1, floor(p.stitchDim(1)/blockSize(1))), mod(p.stitchDim(1), blockSize(1))]; 
+                colSplit = [repmat(blockSize(2),1, floor(p.stitchDim(2)/blockSize(2))), mod(p.stitchDim(2), blockSize(2))];
+                %Remove 0s when stitchDim is divisible by block size
+                rowSplit = rowSplit(rowSplit~=0);
+                colSplit = colSplit(colSplit~=0);
                 splitTiles = cell(numel(rowSplit) * numel(colSplit), numel(channels));
                 for i = 1:numel(channels)
                     channelIdx = ismember(p.stitchedScans.labels, channels{i});
                     tmpMat =  mat2cell(p.stitchedScans.stitches{channelIdx}, rowSplit, colSplit);
                     splitTiles(:,i) = reshape(tmpMat, 1,[]);
                 end
-                startPositions = combvec(1:blockSize:p.stitchDim(1), 1:blockSize:p.stitchDim(2))';
+                startPositions = combvec(1:blockSize(1):p.stitchDim(1), 1:blockSize(2):p.stitchDim(2))';
 %                 startPositions = combvec(linspace(0, (nRowSplit-1)*blockSize, nRowSplit), linspace(0, (colSplit-1)*blockSize, nColSplit))';
             else %tiled scan
                 splitTiles = cell(numel(p.scanMatrix), numel(channels));
@@ -667,7 +670,7 @@ classdef scanObject < handle
             p.tilesTable = readtable(p.tilesTableName, opts);
         end
         
-        function loadScanSummary(p)
+        function loadScanSummary(p, userInputChannels)
             scanSummaryTable = d2utils.parseScanSummary(p.scanSummaryFile);
             p.scanFile = scanSummaryTable{'scanFileName',1}{:};%Could possibly check that the scanFile tilesTable exist
             p.tilesTableName = scanSummaryTable{'tilesTableName',1}{:};
@@ -681,7 +684,7 @@ classdef scanObject < handle
             p.columnTransformCoords = str2double(split(scanSummaryTable{'columnTransform',1})');
             
             p.scanMatrix = d2utils.makeScanMatrix(p.scanDim, 'start', p.startPos, 'snake', p.snake,'direction', p.direction); 
-            p.channels = d2utils.readND2Channels(p.scanFile);
+            p.channels = d2utils.loadChannelsND2(p.scanFile, userInputChannels);
             
             if any(strcmp(scanSummaryTable.Properties.RowNames,'channelTypes')) %For compatibility with older version of dentist2
                 p.channelTypes = split(scanSummaryTable{'channelTypes',1});
