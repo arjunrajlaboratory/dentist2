@@ -135,49 +135,46 @@ classdef scanObject < handle
          function p = loadPrestitchedScans(p)
              reader = bfGetReader(p.scanFile);
              reader.setSeries(0); %Will only load the first scan 
-             %first load dapi. Assumes there is 1 dapi channel to load
-             channelIdx = find(ismember(p.channelTypes, 'dapi'));
-             iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-             fprintf('   bfGetPlane: dapi\n')
-             p.dapiStitch = bfGetPlane(reader, iPlane);
+             %Try loading dapi. Assumes there is 1 dapi channel to load
+             channelIdx = find(ismember(p.channelTypes, 'dapi'), 1);
+             if ~isempty(channelIdx)
+                 iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+                 fprintf('   bfGetPlane: dapi\n')
+                 p.dapiStitch = bfGetPlane(reader, iPlane);
+             end
              %load other channels
              nonDapiChannels=p.channels(~ismember(p.channelTypes, 'dapi'));
-             p.stitchedScans.labels = nonDapiChannels;
-             p.stitchedScans.stitches = cell(1,numel(nonDapiChannels));
-             for i = 1:numel(nonDapiChannels)
-                 channelIdx = find(ismember(p.channels, nonDapiChannels{i}));
-                 iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
-                 fprintf('   bfGetPlane: %s (%i of %i non-dapi channels) with channelType=%s\n',nonDapiChannels{i},i,numel(nonDapiChannels),p.channelTypes{channelIdx})
-                 p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
+             if ~isempty(nonDapiChannels)
+                 p.stitchedScans.labels = nonDapiChannels;
+                 p.stitchedScans.stitches = cell(1,numel(nonDapiChannels));
+                 for i = 1:numel(nonDapiChannels)
+                     channelIdx = find(ismember(p.channels, nonDapiChannels{i}));
+                     iPlane = reader.getIndex(0, channelIdx - 1, 0) + 1;
+                     fprintf('   bfGetPlane: %s (%i of %i non-dapi channels) with channelType=%s\n',nonDapiChannels{i},i,numel(nonDapiChannels),p.channelTypes{channelIdx})
+                     p.stitchedScans.stitches{i} = bfGetPlane(reader, iPlane);
+                 end
              end
              reader.close()
              p.scanDim = [1 1];
              p.stitchDim = size(p.dapiStitch);
          end
          
-         function p = loadPrestitchedScansTiff(p, userInputChannels, userInputChannelTypes)
-%              if isempty(userInputChannels)
-%                  error('To load multichannel tiff file, please specify channels with the "channels" parameter.')
-%              elseif numel(userInputChannels) ~= numel(unique(userInputChannels)) %Consider replacing with function to auto rename duplicates
-%                  error('Please specify only unique channel names.')
-%              end
-%              stackInfo = imfinfo(p.scanFile);
-%              if numel(stackInfo) ~= numel(userInputChannels)
-%                  error('Pleaes input 1 channel name for each channel in your scan file.\nThe input scan file: %s contains %d channels.\n%d channel names were specified\n', p.scanFile, numel(stackInfo), numel(channels))
-%              end
-%              p.channels = userInputChannels;
-%              p.loadChannelTypes(userInputChannelTypes);
+         function p = loadPrestitchedScansTiff(p)
              %first load dapi. Assumes there is 1 dapi channel to load
-             dapiIdx = find(strcmpi('dapi', p.channelTypes));
-             p.dapiStitch = imread(p.scanFile, 'Index', dapiIdx);
+             dapiIdx = find(strcmpi('dapi', p.channelTypes), 1);
+             if ~isempty(dapiIdx)
+                 p.dapiStitch = imread(p.scanFile, 'Index', dapiIdx);
+             end
              %load other channels
              nonDapiChannels=p.channels(~strcmpi('dapi', p.channelTypes));
-             p.stitchedScans.labels = nonDapiChannels;
-             p.stitchedScans.stitches = cell(1,numel(nonDapiChannels));
-             for i = 1:numel(nonDapiChannels)
-                 channelIdx = find(strcmpi(nonDapiChannels{i}, p.channels));
-                 fprintf('   bfGetPlane: %s (%i of %i non-dapi channels) with channelType=%s\n',nonDapiChannels{i},i,numel(nonDapiChannels),p.channelTypes{channelIdx})
-                 p.stitchedScans.stitches{i} = imread(p.scanFile, 'Index', channelIdx);
+             if ~isempty(nonDapiChannels)
+                 p.stitchedScans.labels = nonDapiChannels;
+                 p.stitchedScans.stitches = cell(1,numel(nonDapiChannels));
+                 for i = 1:numel(nonDapiChannels)
+                     channelIdx = find(strcmpi(nonDapiChannels{i}, p.channels));
+                     fprintf('   bfGetPlane: %s (%i of %i non-dapi channels) with channelType=%s\n',nonDapiChannels{i},i,numel(nonDapiChannels),p.channelTypes{channelIdx})
+                     p.stitchedScans.stitches{i} = imread(p.scanFile, 'Index', channelIdx);
+                 end
              end
              p.scanDim = [1 1];
              p.stitchDim = size(p.dapiStitch);
@@ -218,8 +215,8 @@ classdef scanObject < handle
                         fprintf('WARNING: more than one channel was detected with dapi in the channel name (case insensitive). The first one (%s) will be used as the dapi channel, and the others will be assigned channelType other\n',p.channels{indDapi(1)})
                         indOther=indDapi(2:end);
                         indDapi=indDapi(1);
-                    elseif isempty(indDapi)
-                        error("no channel with dapi in the name was found. Try to input a channelTypes cell array, with a type for each channel. For a 5 channel file, it would be like this: launchD2ThresholdGUI(__,'channelTypes',{'dapi','FISH','FISH','other','FISH'}")
+%                     elseif isempty(indDapi) %Ben updated 10/20/21 - allow for scans with no 'dapi' channels 
+%                         error("no channel with dapi in the name was found. Try to input a channelTypes cell array, with a type for each channel. For a 5 channel file, it would be like this: launchD2ThresholdGUI(__,'channelTypes',{'dapi','FISH','FISH','other','FISH'}")
                     end
                 end
                 indTrans=find(contains(lower(p.channels),{'trans','brightfield'}));
@@ -277,8 +274,9 @@ classdef scanObject < handle
              end
              if sum(ismember(channelTypes,'dapi'))>1
                  error("There should be 1 dapi in the input channelTypes, but instead you have %i. If you actually do have more than one dapi channel, you must pick one to be processed as dapi and the rest can have channelType 'other'",sum(ismember(channelTypes,'dapi')))
-             elseif sum(ismember(channelTypes,'dapi'))==0
-                 error("One of the elements of channelTypes should be 'dapi'")
+%              elseif sum(ismember(channelTypes,'dapi'))==0 %Ben commented
+%              out to allow loading scans without nuclei for d2IF, for example.
+%                  error("One of the elements of channelTypes should be 'dapi'")
              end
          end
          
