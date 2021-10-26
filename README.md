@@ -164,7 +164,7 @@ Dentist2 also includes an option to "stitch" masks from separate, overlapping ti
 ```matlab
 >>h = launchD2ThresholdGUI('cellPose', 'path/to/cp_directory/', 'cellPoseTileTable', 'cellPoseTilePositions.csv');
 ```
-An example of the cellPoseTilePositions.csv file can be found [here](). 
+An example of the cellPoseTilePositions.csv file can be found [here](https://www.dropbox.com/s/28udv1pdlmy3wis/cellPoseTilePositions.csv?dl=0). 
 
 You may use +d2utils/splitStitchedScan.m to generate both the overlapping image tiles from a pre-stitched scan and the cellPoseTilePositions.csv file. For each outline in tile i, dentist2 will determine if the outline overlaps any outlines from previous neighboring tiles, and if so, the overlapping outlines will be merged. This is to avoid duplicating nuclei that fall on tile boundaries. If your scan has a lot of nuclei, this step may take a very long time. You may be better off just running the segmenting algorithm on the larger (stitched) image.  
 
