@@ -156,7 +156,7 @@ You can use the combination of "delete cells" and "add cells" to divide 2+ cells
 
 Importing nuclei masks
 ===============================
-If you use another algorithm to segment nuclei, you can input the nuclei masks into dentist2 using the 'nucleiMasks' parameter. The expected input is either a label matrix (2D image with the position of each mask labeled with a unique integer; see example [here]()) or a text file containing, per row, the boundary coordinates of each mask (i.e. mask outlines; see example [here]()). Input the mask file when running launchD2ThresholdGUI() as below:
+If you use another algorithm to segment nuclei, you can input the nuclei masks into dentist2 using the 'nucleiMasks' parameter. The expected input is either a label matrix (2D image with the position of each mask labeled with a unique integer; see example [here](https://www.dropbox.com/s/f053aeddvd40vbd/RGFullScanDapi_cp_masks.tif?dl=0)) or a text file containing, per row, the boundary coordinates of each mask (i.e. mask outlines; see example [here](https://www.dropbox.com/s/cjcqwycls59qwul/RGFullScanDapi_cp_outlines.txt?dl=0)). Input the mask file when running launchD2ThresholdGUI() as below:
 ```matlab
 >>h = launchD2ThresholdGUI('nucleiMasks', 'path/to/nucleiLabelMatrix.tif');
 ```
