@@ -168,7 +168,7 @@ classdef maskTable < handle
             maskIDs(maskIDs==0) = [];
             removedMaskIDs = [];
             globalMask = [];
-            removedMaskBB = [];
+            removedMaskBB = {};
             for i = 1:numel(maskIDs)
                 if any(inpolygon(points(:,2), points(:,1), masksInRect{masksInRect.maskID == maskIDs(i), 'x'}, masksInRect{masksInRect.maskID == maskIDs(i), 'y'}))
                     removedMaskIDs = [removedMaskIDs, maskIDs(i)];

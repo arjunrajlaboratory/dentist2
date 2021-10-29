@@ -635,11 +635,11 @@ classdef d2IFController < handle
                 tmpPoints = d2utils.getPtsInsideView([x, y], p.viewRect);
             end
             if ~isempty(tmpPoints)
-                cellMaskIDs = p.IFboundaries.maskObj.removeMasksByLocalPoints(tmpPoints, p.viewRect);
+                [cellMaskIDs, ~, ~] = p.IFboundaries.maskObj.removeMasksByLocalPoints(tmpPoints, p.viewRect);
                 if ~isempty(cellMaskIDs)
                     p.IFtable.removeCellMasks(cellMaskIDs, p.IFboundaries.channels(p.channelIdx));
                 end
-                [~,imgMaskBB] = p.IFtable.maskObj.removeMasksByLocalPoints(tmpPoints, p.viewRect);
+                [~, ~, imgMaskBB] = p.IFtable.maskObj.removeMasksByLocalPoints(tmpPoints, p.viewRect);
                 if ~isempty(imgMaskBB)
                     p.IFtable.requantCellsInBB(imgMaskBB, p.IFtable.channels(p.channelIdx));
                 end
