@@ -59,7 +59,7 @@ classdef d2IFController < handle
                             {'meanNuc', 'meanCyto', 'sumNuc', 'sumCyto'}); %Hard-coded for now. Can make this more functional in the future
             p.quantMetric = get(p.viewObj.quantMetric.SelectedObject, 'String');
 %             p.IFtable.makeCentroidList(p.quantMetricDict(p.quantMetric));
-            p.numCells = height(p.IFtable.centroidLists{p.channelIdx});
+            p.numCells = size(p.IFtable.centroidLists{p.channelIdx}, 1);
             if isempty(p.IFtable.centroidLists{p.channelIdx})
                 p.showImage();
                 p.overlayMasks();
@@ -99,7 +99,7 @@ classdef d2IFController < handle
         
         function updateCentroidListView(p)
             set(p.viewObj.centroidList, 'String', string(p.IFtable.centroidLists{p.channelIdx}{:,4})); %  %Add var (e.g. meanNuc, meanCyto etc.)
-            p.numCells = height(p.IFtable.centroidLists{p.channelIdx}); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
+            p.numCells = size(p.IFtable.centroidLists{p.channelIdx}, 1); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
         end
         
         function p = centroidSelected(p, ~, ~)
@@ -316,7 +316,7 @@ classdef d2IFController < handle
                 hold(p.viewObj.mainAxes, 'on')
                 p.cellPlotH = patch(cellYmat, cellXmat, reshape(cellsInView.colors, [], 1, 3),...
                     'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'NucBoundary');
-%                 for i = 1:height(cellsInView)
+%                 for i = 1:size(cellsInView, 1)
 %                     patch(cellsInView.cellBoundary(i).Vertices(:,2), cellsInView.cellBoundary(i).Vertices(:,1), cellsInView.colors(i,:),...
 %                     'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'CellBoundary');
 %                 end
@@ -339,7 +339,7 @@ classdef d2IFController < handle
                     'FaceAlpha', 0.3, 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'NucBoundary');
 %                 if any(~noHolesIdx) Old strategy for plotting nuclei with holes
 %                     tmpNuc = nucleiInView(~noHolesIdx, :)
-%                     for i = 1:height(tmpNuc)
+%                     for i = 1:size(tmpNuc, 1)
 %                         tmpPoly = polyshape(fliplr(tmpNuc.nucBoundary(i).Vertices));
 %                         plot(tmpPoly, 'FaceAlpha', 0.3, 'FaceColor', tmpNuc.colors(i,:), 'Parent', p.viewObj.mainAxes, 'HitTest','off', 'Tag', 'NucBoundary');
 %                     end

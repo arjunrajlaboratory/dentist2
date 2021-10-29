@@ -70,7 +70,7 @@ classdef IFboundaries < handle
         end
         
         function p = addEmptyRows(p, n)
-            newNuclei = table('Size', [n, width(p.nucBoundaries2)],...
+            newNuclei = table('Size', [n, size(p.nucBoundaries2, 2)],...
                 'VariableNames', p.nucBoundaries2.Properties.VariableNames,...
                 'VariableTypes', varfun(@class, p.nucBoundaries2, 'output','cell'));
             newNuclei{:,p.channels} = false(n, numel(p.channels));
@@ -80,7 +80,7 @@ classdef IFboundaries < handle
             end
             p.nucBoundaries2 = [p.nucBoundaries2; newNuclei];
             
-            newCells = table('Size', [n, width(p.cellBoundaries2)],...
+            newCells = table('Size', [n, size(p.cellBoundaries2, 2)],...
                 'VariableNames', p.cellBoundaries2.Properties.VariableNames,...
                 'VariableTypes', varfun(@class, p.cellBoundaries2, 'output','cell'));
             newCells{:,p.channels} = false(n, numel(p.channels));
@@ -237,7 +237,7 @@ classdef IFboundaries < handle
 %             tmpBB = cellfun(@(x) d2utils.polygonBoundingBox2(x)*scaleFactor,polyArray, 'UniformOutput', false);
             p.dapiRP = cell2struct([tmpArea', tmpCentroid, tmpBB'], {'Area', 'Centroid', 'BoundingBox'}, 2);
 %             nucBoundariesArray = cellfun(@(x) single(x.Vertices), nucBoundariesArray, 'UniformOutput', false);
-%             nucBoundariesHeight = cellfun(@(x) height(x), nucBoundariesArray, 'UniformOutput', true);
+%             nucBoundariesHeight = cellfun(@(x) size(x, 1), nucBoundariesArray, 'UniformOutput', true);
 %             nucIDArray = repelem(1:numel(nucBoundariesHeight), nucBoundariesHeight);
 %             p.nucBoundaries = array2table([single(nucIDArray'), vertcat(nucBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
             %Try storying boundaries as polyshape.
@@ -285,7 +285,7 @@ classdef IFboundaries < handle
 %             p.dapiRP = cell2struct([tmpArea', tmpCentroid, tmpBB'], {'Area', 'Centroid', 'BoundingBox'}, 2);
             
 %             nucBoundariesArray = cellfun(@(x) single(x.Vertices), nucBoundariesArray, 'UniformOutput', false);
-%             nucBoundariesHeight = cellfun(@(x) height(x), nucBoundariesArray, 'UniformOutput', true);
+%             nucBoundariesHeight = cellfun(@(x) size(x, 1), nucBoundariesArray, 'UniformOutput', true);
 %             nucIDArray = repelem(1:numel(nucBoundariesHeight), nucBoundariesHeight);
 %             p.nucBoundaries = array2table([single(nucIDArray'), vertcat(nucBoundariesArray{:})], 'VariableNames', {'cellID', 'x', 'y'});
             %Try storying boundaries as polyshape.
@@ -335,8 +335,8 @@ classdef IFboundaries < handle
         end
         
         function p = labelMat2cytoTable(p)
-            cytoBoundariesTmp = cell(0, height(p.cellBoundaries2));
-            for i = 1:height(p.cellBoundaries2) %can make this parfor?
+            cytoBoundariesTmp = cell(0, size(p.cellBoundaries2, 1));
+            for i = 1:size(p.cellBoundaries2, 1) %can make this parfor?
                 tmpBB = p.cellBoundaries2.cellBB(i,:);
                 %Create buffer
 %                 tmpShift = ceil(tmpBB(3:4)*0.1); previously buffer = 10%, now 10 pixels.
@@ -386,13 +386,13 @@ classdef IFboundaries < handle
         
         function p = assignNucToCyto(p)
             p.deleteEmptyRows; %Delete empty rows
-            newNuclei = table('Size', [height(p.cellBoundaries2), width(p.nucBoundaries2)],...
+            newNuclei = table('Size', [size(p.cellBoundaries2, 1), size(p.nucBoundaries2, 2)],...
                 'VariableNames', p.nucBoundaries2.Properties.VariableNames,...
                 'VariableTypes', varfun(@class, p.nucBoundaries2, 'output','cell'));
             newNuclei.cellID = p.cellBoundaries2.cellID;
             extraNuclei = {};
             extraNucleiBB = {};
-            for i = 1:height(p.nucBoundaries2)
+            for i = 1:size(p.nucBoundaries2, 1)
                 tmpCytoInRect = p.getAllCellBoundariesInRect(p.nucBoundaries2.nucBB(i, :));
                 overlapIdx = overlaps(p.nucBoundaries2.nucBoundary(i),tmpCytoInRect.cellBoundary);
                 overlapN = sum(overlapIdx);
@@ -405,7 +405,7 @@ classdef IFboundaries < handle
 %                     newNuclei{newNucleiIdx, 'nucBB'} = union(p.nucBoundaries2.nucBB(i));
                 elseif overlapN > 1
                     tmpCyto = tmpCytoInRect(overlapIdx, :);
-                    for ii = 1:height(tmpCyto)
+                    for ii = 1:size(tmpCyto, 1)
                         nucInCyto = intersect(tmpCyto.cellBoundary(ii), p.nucBoundaries2.nucBoundary(i));
                         nucInCytoIdx = newNuclei.cellID == tmpCyto.cellID(ii);
                         newNuclei{nucInCytoIdx, 'nucBoundary'} = union(newNuclei{nucInCytoIdx, 'nucBoundary'}, nucInCyto);
@@ -435,7 +435,7 @@ classdef IFboundaries < handle
             numHoles = [p.nucBoundaries2.nucBoundary.NumHoles];
             p.addEmptyRows(sum(numHoles)); %Technically don't need to add rows to cell boundaries.
             tmpNuc = p.nucBoundaries2(numHoles>0, :);
-            for i = height(tmpNuc)
+            for i = size(tmpNuc, 1)
                 tmpHoles = holes(tmpNuc.nucBoundary(i));
                 for ii = 1:numel(p.channels)
                     for iii = numel(tmpHoles)
@@ -476,8 +476,8 @@ classdef IFboundaries < handle
         
         function p = addColors(p)
             %Note: assigns colors to all cells and nuclei, even if status = false. 
-            colorArray = [repmat(p.randomColors, floor(height(p.nucBoundaries2)/height(p.randomColors)), 1);...
-                p.randomColors(1:mod(height(p.nucBoundaries2), height(p.randomColors)), :)];
+            colorArray = [repmat(p.randomColors, floor(size(p.nucBoundaries2, 1)/size(p.randomColors, 1)), 1);...
+                p.randomColors(1:mod(size(p.nucBoundaries2, 1), size(p.randomColors, 1)), :)];
            
             p.nucBoundaries2.colors = colorArray;
             [~, cellIdx] = ismember(p.nucBoundaries2.cellID, p.cellBoundaries2.cellID); %in case there is variable # or order of cellID (there shouldn't be). 

@@ -32,7 +32,7 @@ classdef maskTable < handle
                 p.masksFile = varargin{1};
                 tmpMasks = readtable(varargin{1},'TextType','string');
                 tmpMasks = convertvars(tmpMasks,{'maskID', 'x', 'y'},'single');
-                p.masks = convertvars(tmpMasks,4:width(tmpMasks),'logical');
+                p.masks = convertvars(tmpMasks,4:size(tmpMasks, 2),'logical');
                 p.allMasks2BB();
                 p.addEmptyMasks();
                 p.addEmptyMasksBB();
@@ -43,7 +43,7 @@ classdef maskTable < handle
             
             tempMaskID = single(max(p.masks.maskID)+1);
             
-             if sum(p.masks.maskID == 0) < height(maskPoly)
+             if sum(p.masks.maskID == 0) < size(maskPoly, 1)
                 p.addEmptyMasks();               
             end
             
@@ -72,7 +72,8 @@ classdef maskTable < handle
             
             tempMaskID = single(max(p.masks.maskID)+1);
             
-            if sum(p.masks.maskID == 0) < height(maskPoly)
+            numMasks = size(maskPoly,1);
+            if sum(p.masks.maskID == 0) < numMasks
                 p.addEmptyMasks();                
             end
             
@@ -84,10 +85,10 @@ classdef maskTable < handle
             
             channelIdx = ismember(p.channels, channelOrChannels);
             
-            tmpCoords = table(repmat(tempMaskID,  height(maskPoly), 1), single(maskPoly(:,2)), single(maskPoly(:,1)), 'VariableNames',{'maskID', 'x', 'y'});
-            tmpChannelTable = array2table(repmat(channelIdx, height(maskPoly), 1), 'VariableNames', p.channels);
+            tmpCoords = table(repmat(tempMaskID,  numMasks, 1), single(maskPoly(:,2)), single(maskPoly(:,1)), 'VariableNames',{'maskID', 'x', 'y'});
+            tmpChannelTable = array2table(repmat(channelIdx, numMasks, 1), 'VariableNames', p.channels);
             startIdx = find(p.masks.maskID == 0, 1, 'first');
-            p.masks(startIdx:startIdx+height(maskPoly)-1,:) = [tmpCoords, tmpChannelTable];
+            p.masks(startIdx:startIdx+numMasks-1,:) = [tmpCoords, tmpChannelTable];
             
             BB = d2utils.polygonBoundingBox(fliplr(maskPoly));
             tmpCoords = cell2table({tempMaskID, single(BB)}, 'VariableNames',{'maskID', 'BB'});

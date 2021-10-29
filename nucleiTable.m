@@ -98,11 +98,12 @@ classdef nucleiTable < handle
             centroids = single(centroids);
             area = single([rp.Area]);
             
-            status = true(height(centroids), 1);
-            maskID = single(zeros(height(centroids), 1));
-            colors = single(zeros(height(centroids),3));
+            numCentroids = size(centroids, 1);
+            status = true(numCentroids, 1);
+            maskID = single(zeros(numCentroids, 1));
+            colors = single(zeros(numCentroids,3));
 
-            p.nuclei = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
+            p.nuclei = table((1:numCentroids)',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
                 'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
             p.addEmptyRows(1000);
         end
@@ -144,11 +145,12 @@ classdef nucleiTable < handle
             centroids = single(centroids);
             area = single([rp.Area]);
             
-            status = true(height(centroids), 1);
-            maskID = single(zeros(height(centroids), 1));
-            colors = single(zeros(height(centroids),3));
+            numCentroids = size(centroids,1);
+            status = true(numCentroids, 1);
+            maskID = single(zeros(numCentroids, 1));
+            colors = single(zeros(numCentroids,3));
 
-            p.nuclei = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
+            p.nuclei = table((1:numCentroids)',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
                 'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
             p.addEmptyRows(1000);
         end
@@ -251,17 +253,18 @@ classdef nucleiTable < handle
             centroids = single(centroids);
             area = single([rp.Area]);
             
-            status = true(height(centroids), 1);
-            maskID = single(zeros(height(centroids), 1));
-            colors = single(zeros(height(centroids),3));
+            numCentroids = size(centroids,1);
+            status = true(numCentroids, 1);
+            maskID = single(zeros(numCentroids, 1));
+            colors = single(zeros(numCentroids,3));
 
-            p.nuclei = table((1:height(centroids))',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
+            p.nuclei = table((1:numCentroids)',centroids(:,2),centroids(:,1), status, maskID, area', colors,...
                 'VariableNames', {'nucID', 'x', 'y', 'status', 'maskID', 'nucleusArea', 'colors'});
             p.addEmptyRows(1000);
         end
         
         function p = addEmptyRows(p, n)
-            newRows = table('Size', [n, width(p.nuclei)],...
+            newRows = table('Size', [n, size(p.nuclei, 2)],...
                 'VariableNames', p.nuclei.Properties.VariableNames,...
                 'VariableTypes', varfun(@class,p.nuclei,'output','cell'));
             newRows.status = false(n, 1);
@@ -313,8 +316,8 @@ classdef nucleiTable < handle
         function p = addColors(p)
             randomColors  = single(d2utils.distinguishable_colors(50));
             %randomColors = randomColors(randperm(50), :);
-            p.nuclei.colors(p.nuclei.status, :) = [repmat(randomColors, floor(sum(p.nuclei.status)/height(randomColors)), 1);...
-                randomColors(1:mod(sum(p.nuclei.status), height(randomColors)), :)];
+            p.nuclei.colors(p.nuclei.status, :) = [repmat(randomColors, floor(sum(p.nuclei.status)/size(randomColors, 1)), 1);...
+                randomColors(1:mod(sum(p.nuclei.status), size(randomColors, 1)), :)];
         end
         
         function p = addCell(p, x, y)

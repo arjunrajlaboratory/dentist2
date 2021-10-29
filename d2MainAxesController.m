@@ -60,7 +60,7 @@ classdef d2MainAxesController < handle
             p.currentChannel = p.nondapiChannelsInView{p.channelIdx};
             p.plotScatterMain();
             p.updateImageInView();
-            p.numCells = height(p.spotTable.centroidLists{ismember(p.spotTable.spotChannels, p.currentChannel)});
+            p.numCells = size(p.spotTable.centroidLists{ismember(p.spotTable.spotChannels, p.currentChannel)}, 1);
             %p.updateMainAxes()
         end
         
@@ -99,7 +99,7 @@ classdef d2MainAxesController < handle
             spotChannelIdx=ismember(p.spotTable.spotChannels,p.currentChannel);
             if any(spotChannelIdx)
                 p.viewObj.centroidList.String = string(p.spotTable.centroidLists{spotChannelIdx}.GroupCount);
-                p.numCells = height(p.spotTable.centroidLists{spotChannelIdx}); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
+                p.numCells = size(p.spotTable.centroidLists{spotChannelIdx}, 1); %Although this value doesn't depend on the channel. Easy to put this here rather than everywhere where cell # can change. 
             else
                 p.viewObj.centroidList.String={};
                 p.numCells=0;
@@ -384,7 +384,7 @@ classdef d2MainAxesController < handle
                 
                 outTableTmp = p.spotTable.centroidTableInRect(spotChannelIdx, p.viewRect);
                 randomColors  = single(d2utils.distinguishable_colors(50));
-                outTableTmp.colors = randomColors(randi(50, height(outTableTmp), 1),:);
+                outTableTmp.colors = randomColors(randi(50, size(outTableTmp, 1), 1),:);
                 
                 %Update centroid list with new colors
                 idx = ismember(p.spotTable.centroidLists{spotChannelIdx}.nucID, outTableTmp.nucID);

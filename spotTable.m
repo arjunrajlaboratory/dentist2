@@ -394,7 +394,7 @@ classdef spotTable < handle
                 x = [x ; cell2mat(tempX)];
                 y = [y ; cell2mat(tempY)];
                 intensity = [intensity ; cell2mat(tempIntensity)];
-                channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
+                channel = [channel ; repmat(string(p.spotChannels{i}),size(cell2mat(tempX), 1),1)];
             end 
             
             spotID = single((1:length(x)))';
@@ -437,7 +437,7 @@ classdef spotTable < handle
                 x = [x ; cell2mat(tempX)];
                 y = [y ; cell2mat(tempY)];
                 intensity = [intensity ; cell2mat(tempIntensity)];
-                channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
+                channel = [channel ; repmat(string(p.spotChannels{i}),size(cell2mat(tempX), 1),1)];
             end 
             
             n = length(x);
@@ -497,7 +497,7 @@ classdef spotTable < handle
                 x = [x ; cell2mat(tempX)];
                 y = [y ; cell2mat(tempY)];
                 intensity = [intensity ; cell2mat(tempIntensity)];
-                channel = [channel ; repmat(string(p.spotChannels{i}),height(cell2mat(tempX)),1)];
+                channel = [channel ; repmat(string(p.spotChannels{i}),size(cell2mat(tempX), 1),1)];
             end
             
             n = length(x);
@@ -535,7 +535,7 @@ classdef spotTable < handle
             x = cell2mat(tempX);
             y = cell2mat(tempY);
             intensity = cell2mat(tempIntensity);
-            n = height(x);
+            n = size(x, 1);
             channelMat = repmat(channel,n,1);
             
             spotID = single((1:n))';
