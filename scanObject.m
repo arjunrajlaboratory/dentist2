@@ -68,7 +68,7 @@ classdef scanObject < handle
                     elseif any(strcmpi(ext, {'.tif', '.tiff'}))
                         p.channels = d2utils.loadChannelsTiff(p.scanFile, n.Results.channels);
                         p.loadChannelTypes(n.Results.channelTypes)
-                        p.loadPrestitchedScansTiff(p.scanFile, n.Results.channels);
+                        p.loadPrestitchedScansTiff();
                     end
                 elseif ~isempty(n.Results.prestitchedScanFileList)
                     temp=join(n.Results.prestitchedScanFileList,'  ');
